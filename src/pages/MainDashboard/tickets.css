@@ -1,0 +1,59 @@
+.tickets-card {
+    width: 90%;
+    max-width: 750px;
+    margin: 0 auto;
+    padding: 30px;
+}
+
+.tickets-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 12px;
+}
+
+.tickets-table thead th {
+    text-align: left;
+    padding: 12px 8px;
+    font-weight: 600;
+    border-bottom: 1px solid #e6e6e6;
+}
+
+.tickets-table tbody td {
+    padding: 12px 8px;
+    color: #333;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.tickets-table thead th:last-child {
+    text-align: right;
+}
+
+.tickets-table thead th,
+.tickets-table tbody td {
+    vertical-align: middle;
+}
+
+.tickets-table tbody tr td:first-child {
+    width: 25%;
+}
+
+.tickets-card h1 {
+    text-align: center;
+    margin: 0 0 8px 0;
+}
+
+.tickets-card {
+    border-radius: 6px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.12);
+    transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.tickets-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.16);
+}
+
+.tickets-table tbody td:last-child {
+    text-align: right;
+    color: #666;
+}
