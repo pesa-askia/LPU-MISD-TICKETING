@@ -1,12 +1,5 @@
-@import url(https://fonts.google.com/share?selection.family=Bai+Jamjuree:ital,wght@0,200;0,300;0,400;0,500;0,600;0,700;1,200;1,300;1,400;1,500;1,600;1,700);
-
-body {
-  background-color: white;
-  font-family: "Bai Jamjuree", sans-serif;
-}
-
 .side-panel {
-  background-color: #cf2525;
+  background-color: #CF2525;
   height: 100%;
   width: 350px;
   position: fixed;
@@ -16,6 +9,7 @@ body {
   overflow: hidden;
   transition: 0.3s;
   padding-top: 40px;
+  font-family: "Bai Jamjuree", sans-serif;
 }
 
 .side-panel.collapsed {
@@ -59,6 +53,24 @@ body {
   flex-direction: column;
   gap: 6px;
   padding-top: 20px;
+  height: calc(100% - 140px);
+  overflow-y: auto;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 10px 14px;
+  color: white;
+  font-size: 0.9rem;
+  border-radius: 8px;
+  margin-top: auto;
+  margin-bottom: 0;
+}
+
+.user-info svg {
+  flex-shrink: 0;
 }
 
 .menu-item {
@@ -74,28 +86,45 @@ body {
 }
 
 .menu-item:hover {
-  background-color: #f3a6a6;
-}
-
-.user-info {
-  filter: invert(1);
-  display: flex;
-  cursor: pointer;
-  margin-top: 600px;
-  font-size: 1.25rem;
-  padding: 16px;
-  display: flex;
-  align-items: center;
-  border-top: 1px solid;
-  gap: 16px;
+  background-color: #F3A6A6;
 }
 
 .close-btn:hover {
-  background-color: #f3a6a6;
+  background-color: #F3A6A6;
 }
 
 .side-panel.collapsed .menu-item {
   justify-content: center;
   padding: 20px;
   height: 5px;
+}
+
+.side-panel.collapsed .user-info {
+  justify-content: center;
+  padding: 20px;
+  margin-bottom: 0;
+}
+
+.logout-btn {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 1.25rem;
+  transition: background-color 0.3s ease;
+  width: 100%;
+}
+
+.logout-btn:hover {
+  background-color: #F3A6A6;
+}
+
+.side-panel.collapsed .logout-btn {
+  justify-content: center;
+  padding: 20px;
 }
