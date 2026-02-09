@@ -1,12 +1,12 @@
 @import url(https://fonts.google.com/share?selection.family=Bai+Jamjuree:ital,wght@0,200;0,300;0,400;0,500;0,600;0,700;1,200;1,300;1,400;1,500;1,600;1,700);
 
-body{
+body {
   background-color: white;
   font-family: "Bai Jamjuree", sans-serif;
 }
 
-.side-panel{
-  background-color: #CF2525;
+.side-panel {
+  background-color: #cf2525;
   height: 100%;
   width: 350px;
   position: fixed;
@@ -30,18 +30,17 @@ body{
   color: white;
 }
 
-.header{
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 16px;
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
 }
 
 .side-panel.collapsed .header {
   height: 80px;
   justify-content: center;
 }
-
 
 .close-btn {
   background: none;
@@ -55,30 +54,44 @@ body{
   padding: 10px 20px;
 }
 
-.panel-content{
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding-top: 20px;
+.panel-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 20px;
 }
 
-.menu-item{
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    padding: 10px 14px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 1.25rem;
-    color: #ffffff;
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1.25rem;
+  color: #ffffff;
+  text-decoration: none;
 }
 
-.menu-item:hover{
-    background-color: #F3A6A6;
+.menu-item:hover {
+  background-color: #f3a6a6;
 }
 
-.close-btn:hover{
-    background-color: #F3A6A6;
+.user-info {
+  filter: invert(1);
+  display: flex;
+  cursor: pointer;
+  margin-top: 600px;
+  font-size: 1.25rem;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  border-top: 1px solid;
+  gap: 16px;
+}
+
+.close-btn:hover {
+  background-color: #f3a6a6;
 }
 
 .side-panel.collapsed .menu-item {
