@@ -1,0 +1,16 @@
+.dashboard {
+  display: flex;
+  width: 100%;
+}
+
+.content {
+  margin-left: 350px;
+  width: calc(100% - 350px);
+  padding: 24px;
+  flex: 1;
+}
+
+.dashboard.side-panel.collapsed ~ .content {
+  margin-left: 72px;
+  width: calc(100% - 72px);
+}

@@ -1,13 +1,22 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "./sidepanel.css";
 import { Menu } from "lucide-react";
 import { Ticket } from "lucide-react";
 import { PlusCircle } from "lucide-react";
 import { CircleUser } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 const SidePanel = () => {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    localStorage.removeItem("isLoggedIn");
+    localStorage.removeItem("userEmail");
+    navigate("/");
+  };
 
   return (
     <aside className={`side-panel ${collapsed ? "collapsed" : ""}`}>
@@ -31,12 +40,19 @@ const SidePanel = () => {
           <Ticket size={30} />
           {!collapsed && <span>Tickets</span>}
         </NavLink>
+
         <div className="user-info">
-          <CircleUser size={50}/>
+          <CircleUser size={30} />
           {!collapsed && <span>Jane Doe <br /> janedoe@email.com</span>}
         </div>
+
+        <button className="logout-btn" onClick={handleLogout} aria-label="Logout">
+          <LogOut size={30} />
+          {!collapsed && <span>Logout</span>}
+        </button>
       </div>
     </aside>
   );
 };
+
 export default SidePanel;
