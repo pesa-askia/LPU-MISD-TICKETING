@@ -1,0 +1,142 @@
+.chat-card {
+    width: 90%;
+    max-width: 900px;
+    margin: 20px auto;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    height: 520px;
+}
+
+.chat-header {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+}
+
+.back-btn {
+    background: none;
+    border: none;
+    font-size: 18px;
+    margin-right: 12px;
+    cursor: pointer;
+}
+
+.assignee {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.avatar {
+    width: 40px;
+    height: 40px;
+    background: #d33;
+    color: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.assignee-name {
+    font-weight: 600;
+}
+
+.assignee-email {
+    font-size: 12px;
+    color: #666;
+}
+
+.chat-messages {
+    flex: 1;
+    overflow: auto;
+    padding: 18px 6px;
+}
+
+.msg {
+    display: flex;
+    margin: 12px 0;
+}
+
+.msg-left {
+    justify-content: flex-start;
+}
+
+.msg-right {
+    justify-content: flex-end;
+}
+
+.bubble {
+    max-width: 62%;
+    padding: 12px 14px;
+    border-radius: 12px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+}
+
+.msg-left .bubble {
+    background: #fff;
+    color: #333;
+}
+
+.msg-right .bubble {
+    background: #d33;
+    color: #fff;
+}
+
+.chat-input {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding-top: 12px;
+    border-top: 1px solid #eee;
+}
+
+.chat-input input {
+    flex: 1;
+    padding: 12px 14px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+}
+
+.send-btn {
+    background: #d33;
+    color: #fff;
+    border: none;
+    padding: 10px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+}
+
+.chat-card {
+    border-radius: 8px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+    background: #fff;
+}
+
+.ticket-details {
+    padding: 8px 6px 12px 6px;
+    border-bottom: 1px solid #eee;
+}
+
+.details-row {
+    display: flex;
+    gap: 18px;
+    align-items: center;
+}
+
+.details-col {
+    flex: 1;
+    font-size: 14px;
+    color: #444;
+}
+
+.details-col strong {
+    display: block;
+    font-weight: 600;
+    font-size: 13px;
+    color: #222;
+    margin-bottom: 6px;
+}

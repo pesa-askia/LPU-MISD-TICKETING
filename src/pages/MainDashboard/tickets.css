@@ -44,7 +44,7 @@
 
 .tickets-card {
     border-radius: 6px;
-    box-shadow: 0 12px 40px rgba(0,0,0,0.12);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
     transition: transform 160ms ease, box-shadow 160ms ease;
 }
 
@@ -52,4 +52,12 @@
 .tickets-table tbody td:last-child {
     text-align: right;
     color: #666;
+}
+
+.clickable-row {
+    cursor: pointer;
+}
+
+.clickable-row:hover {
+    background: rgba(0, 0, 0, 0.02);
 }
