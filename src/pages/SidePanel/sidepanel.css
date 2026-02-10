@@ -128,3 +128,52 @@
   justify-content: center;
   padding: 20px;
 }
+
+/* Mobile Hamburger Menu Button */
+.mobile-menu-btn {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 1050;
+  background-color: #CF2525;
+  color: white;
+  width: 60px;
+  height: 60px;
+  border-radius: 10px;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+
+
+/* Hide mobile button on desktop */
+@media (min-width: 768px) {
+  .mobile-menu-btn {
+    display: none;
+  }
+}
+
+/* Mobile overlay */
+.mobile-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1040;
+}
+
+/* Mobile side panel transformations */
+@media (max-width: 767px) {
+  .side-panel {
+    transform: translateX(-100%);
+    z-index: 1045;
+  }
+  
+  .side-panel.mobile-open {
+    transform: translateX(0);
+  }
+}

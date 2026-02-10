@@ -33,7 +33,7 @@ function SubmitTicket() {
             onChange={handleChange}
             required
           >
-            <option value="">Are you a ---</option>
+            <option value="" disabled selected hidden>Are you a---</option>
             <option value="STUDENT">STUDENT</option>
             <option value="FACULTY">FACULTY</option>
             <option value="ADMIN">ADMIN</option>
@@ -45,7 +45,7 @@ function SubmitTicket() {
             onChange={handleChange}
             required
           >
-            <option value="">Department</option>
+            <option value="" disabled selected hidden>Department</option>
             <option value="CAS">CAS</option>
             <option value="CBA">CBA</option>
             <option value="CITHM">CITHM</option>
@@ -60,7 +60,7 @@ function SubmitTicket() {
             onChange={handleChange}
             required
           >
-            <option value="">Assignee</option>
+            <option value="" disabled selected hidden>Assignee</option>
             <option value="Support 1">Support 1</option>
             <option value="Support 2">Support 2</option>
             <option value="Support 3">Support 3</option>
@@ -72,7 +72,7 @@ function SubmitTicket() {
             onChange={handleChange}
             required
           >
-            <option value="">Category</option>
+            <option value="" disabled selected hidden>Category</option>
             <option value="LMS">LMS</option>
             <option value="Microsoft 365">Microsoft 365</option>
             <option value="STUDENT PORTAL">STUDENT PORTAL</option>
