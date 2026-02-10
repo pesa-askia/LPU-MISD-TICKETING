@@ -46,7 +46,7 @@ function SubmitTicket() {
             required
           >
             <option value="" disabled selected hidden>Department</option>
-            <option value="CAS">CAHS</option>
+            <option value="CAS">CAS</option>
             <option value="CBA">CBA</option>
             <option value="CITHM">CITHM</option>
             <option value="COECS">COECS</option>
