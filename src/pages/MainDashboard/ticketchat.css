@@ -70,10 +70,12 @@
 }
 
 .bubble {
-    max-width: 62%;
+    max-width: 40%;
     padding: 12px 14px;
     border-radius: 12px;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+    box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.226);
+    word-break: break-word;
+    white-space: pre-wrap;
 }
 
 .msg-left .bubble {
