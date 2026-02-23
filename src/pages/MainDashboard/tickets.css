@@ -5,6 +5,35 @@
     padding: 30px;
 }
 
+/* Row animation */
+@keyframes rowSlideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.tickets-table tbody tr {
+    animation: rowSlideIn 0.3s ease-out;
+}
+
+.tickets-table tbody tr:nth-child(1) {
+    animation-delay: 0.1s;
+}
+
+.tickets-table tbody tr:nth-child(2) {
+    animation-delay: 0.15s;
+}
+
+.tickets-table tbody tr:nth-child(3) {
+    animation-delay: 0.2s;
+}
+
 .tickets-table {
     width: 100%;
     border-collapse: collapse;
@@ -47,7 +76,6 @@
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
     transition: transform 160ms ease, box-shadow 160ms ease;
 }
-
 
 .tickets-table tbody td:last-child {
     text-align: right;

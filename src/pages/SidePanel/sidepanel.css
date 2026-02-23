@@ -3,25 +3,25 @@
   flex-direction: column;
   background-color: #CF2525;
   height: 100%;
-  width: 350px;
+  width: 280px;
   position: fixed;
   z-index: 1001;
   top: 0;
   left: 0;
   overflow: hidden;
   transition: 0.3s;
-  padding-top: 40px;
+  padding-top: 20px;
   font-family: "Bai Jamjuree", sans-serif;
 }
 
 .side-panel.collapsed {
-  width: 100px;
-  padding: 16px 10px;
+  width: 80px;
+  padding: 16px 8px;
 }
 
 .title {
   font-weight: bold;
-  font-size: 1.75rem;
+  font-size: 1.4rem;
   white-space: nowrap;
   color: white;
 }
@@ -30,7 +30,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
+  padding: 0 12px;
 }
 
 .side-panel.collapsed .header {
@@ -53,22 +53,22 @@
 .panel-content {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding-top: 20px;
-  height: calc(100% - 140px);
+  gap: 3px;
+  padding-top: 10px;
+  flex: 1;
   overflow-y: auto;
 }
 
 .user-info {
   display: flex;
   align-items: center;
-  gap: 15px;
-  padding: 10px 14px;
+  gap: 12px;
+  padding: 10px 12px;
   color: white;
-  font-size: 0.9rem;
-  border-radius: 8px;
+  font-size: 0.85rem;
+  border-radius: 6px;
   margin-top: auto;
-  margin-bottom: 0;
+  margin-bottom: 8px;
 }
 
 .user-info svg {
@@ -78,11 +78,11 @@
 .menu-item {
   display: flex;
   align-items: center;
-  gap: 15px;
-  padding: 10px 14px;
-  border-radius: 8px;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   color: #ffffff;
   text-decoration: none;
 }
@@ -113,10 +113,10 @@
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 15px;
-  padding: 10px 14px;
-  border-radius: 8px;
-  font-size: 1.25rem;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 1.1rem;
   transition: background-color 0.3s ease;
   width: 100%;
 }
@@ -173,7 +173,7 @@
     transform: translateX(-100%);
     z-index: 1045;
   }
-  
+
   .side-panel.mobile-open {
     transform: translateX(0);
   }
