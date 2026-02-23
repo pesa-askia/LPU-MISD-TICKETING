@@ -1,38 +1,41 @@
-*{
+* {
     box-sizing: border-box;
 }
+
 .wrapper {
     display: flex;
     justify-content: center;
     align-items: center;
     min-height: 100vh;
-    background: #f5f5f5;
+    background: #f0f2f5;
     font-family: "Bai Jamjuree", sans-serif;
     padding: 20px;
 }
 
 .card {
-    width: 50%;
-    max-width: 900px;
+    width: 100%;
+    max-width: 600px;
     background: white;
-    border-radius: 12px;
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
-    padding: 40px 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    padding: 35px 30px;
     height: fit-content;
     transition: transform 160ms ease, box-shadow 160ms ease;
 }
 
 h1 {
     text-align: center;
-    margin-bottom: 30px;
-    font-size: 1.8rem;
-    color: #000000;
+    margin-bottom: 25px;
+    margin-top: 0;
+    font-size: 1.6rem;
+    color: #1a1a1a;
+    font-weight: 600;
 }
 
 form {
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 16px;
 }
 
 .button-group {
@@ -63,87 +66,102 @@ textarea:focus {
     outline: none;
     border-color: #CF2525;
     box-shadow: 0 0 4px rgba(207, 37, 37, 0.2);
-    
+
 }
 
 .add-photo-btn {
-    background-color: #CF2525;
-    color: white;
-    padding: 15px 50px;
-    border: none;
+    background-color: transparent;
+    color: #0066cc;
+    padding: 11px 20px;
+    border: 1px solid #ddd;
     border-radius: 6px;
     font-size: 0.9rem;
     cursor: pointer;
     font-family: "Bai Jamjuree", sans-serif;
-    transition: background-color 0.3s ease;
+    transition: all 0.3s ease;
 }
 
 .add-photo-btn:hover {
-    background-color: #b01e1e;
+    background-color: #f5f5f5;
+    border-color: #0066cc;
 }
 
 .submit-btn {
-    background-color: #CF2525;
+    background-color: #0066cc;
     color: white;
-    padding: 10px 50px;
+    padding: 11px 40px;
     border: none;
     border-radius: 6px;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     cursor: pointer;
     font-family: "Bai Jamjuree", sans-serif;
-    transition: background-color 0.3s ease;
+    transition: background-color 0.3s ease, box-shadow 0.2s ease;
+    font-weight: 500;
 }
 
 .submit-btn:hover {
-    background-color: #b01e1e;
+    background-color: #0052a3;
+    box-shadow: 0 2px 8px rgba(0, 102, 204, 0.2);
 }
 
 .input-label {
     position: relative;
-    margin-bottom: 20px;
+    margin-bottom: 8px;
+}
+
+.input-label textarea {
+    min-height: 60px;
+    resize: vertical;
 }
 
 /* Override your default select & textarea */
 .input-label select,
 .input-label textarea {
     width: 100%;
-    padding: 18px 14px;
-    border: 2px solid #000000;
-    border-radius: 14px;
+    padding: 11px 14px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
     font-size: 0.95rem;
     font-family: "Bai Jamjuree", sans-serif;
-    background: transparent;
+    background: white;
+    color: #333;
     outline: none;
+    text-align: left;
+    vertical-align: middle;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 /* Remove old focus glow */
 .input-label select:focus,
 .input-label textarea:focus {
-    border-color: #CF2525;
-    box-shadow: none;
+    border-color: #0066cc;
+    box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
 }
 
 /* Floating label */
 .input-label label {
     position: absolute;
-    top: 18px;
+    top: 11px;
     left: 14px;
-    font-size: 0.95rem;
-    color: #0000009a;
-    background: white; /* MUST match .card background */
-    padding: 0 6px;
+    font-size: 0.9rem;
+    color: #888;
+    background: white;
+    padding: 0 4px;
     transition: all 0.2s ease;
     pointer-events: none;
+    font-weight: 400;
 }
 
 /* When active */
-.input-label select:focus + label,
-.input-label select:valid + label,
-.input-label textarea:focus + label,
-.input-label textarea:not(:placeholder-shown) + label {
-    top: -10px;
-    font-size: 0.95rem;
-    color: #CF2525;
+.input-label select:focus+label,
+.input-label select:valid+label,
+.input-label textarea:focus+label,
+.input-label textarea:not(:placeholder-shown)+label {
+    top: -8px;
+    font-size: 0.85rem;
+    color: #0066cc;
+    background: white;
+    padding: 0 4px;
 }
 
 .input-label select {
@@ -167,6 +185,6 @@ textarea:focus {
 }
 
 .input-label:focus-within::after {
-    transition: transform 0.25s cubic-bezier(.4,0,.2,1);
+    transition: transform 0.25s cubic-bezier(.4, 0, .2, 1);
     transform: translateY(-50%) rotate(-135deg);
 }
