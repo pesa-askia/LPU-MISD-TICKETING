@@ -7,6 +7,8 @@ function SubmitTicket() {
     assignee: "",
     category: "",
     description: "",
+    summary: "",
+    site: "",
   });
 
   const handleChange = (e) => {
@@ -27,72 +29,116 @@ function SubmitTicket() {
       <div className="card">
         <h1>Submit Ticket</h1>
         <form onSubmit={handleSubmit}>
-          <select
-            name="userType"
-            value={formData.userType}
-            onChange={handleChange}
-            required
-          >
-            <option value="" disabled selected hidden>Are you a---</option>
-            <option value="STUDENT">STUDENT</option>
-            <option value="FACULTY">FACULTY</option>
-            <option value="ADMIN">ADMIN</option>
-          </select>
+          <div className="input-label">
+            <textarea
+              name="summary"
+              placeholder=" "
+              value={formData.summary || ""}
+              onChange={handleChange}
+              required
+            ></textarea>
+            <label>Summary</label>
+          </div>
 
-          <select
-            name="department"
-            value={formData.department}
-            onChange={handleChange}
-            required
-          >
-            <option value="" disabled selected hidden>Department</option>
-            <option value="CAS">CAS</option>
-            <option value="CBA">CBA</option>
-            <option value="CITHM">CITHM</option>
-            <option value="COECS">COECS</option>
-            <option value="LPU-SC">LPU-SC</option>
-            <option value="HIGHSCHOOL">HIGHSCHOOL</option>
-          </select>
+          <div className="input-label">
+            <textarea
+              name="description"
+              placeholder=" "
+              value={formData.description}
+              onChange={handleChange}
+              required
+            ></textarea>
+            <label>Description</label>
+          </div>
 
-          <select
-            name="assignee"
-            value={formData.assignee}
-            onChange={handleChange}
-            required
-          >
-            <option value="" disabled selected hidden>Assignee</option>
-            <option value="Support 1">Support 1</option>
-            <option value="Support 2">Support 2</option>
-            <option value="Support 3">Support 3</option>
-          </select>
+          <div className="input-label">
+            <select
+              name="userType"
+              value={formData.userType}
+              onChange={handleChange}
+              required
+            >
+              <option value="" disabled hidden></option>
+              <option value="STUDENT">STUDENT</option>
+              <option value="FACULTY">FACULTY</option>
+              <option value="ADMIN">ADMIN</option>
+            </select>
+            <label>Type</label>
+          </div>
 
-          <select
-            name="category"
-            value={formData.category}
-            onChange={handleChange}
-            required
-          >
-            <option value="" disabled selected hidden>Category</option>
-            <option value="LMS">LMS</option>
-            <option value="Microsoft 365">Microsoft 365</option>
-            <option value="STUDENT PORTAL">STUDENT PORTAL</option>
-            <option value="ERP">ERP</option>
-            <option value="HARDWARE">HARDWARE</option>
-            <option value="SOFTWARE">SOFTWARE</option>
-            <option value="OTHERS">OTHERS</option>
-          </select>
+          <div className="input-label">
+            <select
+              name="department"
+              value={formData.department}
+              onChange={handleChange}
+              required
+            >
+              <option value="" disabled hidden></option>
+              <option value="CAS">CAS</option>
+              <option value="CBA">CBA</option>
+              <option value="CITHM">CITHM</option>
+              <option value="COECS">COECS</option>
+              <option value="LPU-SC">LPU-SC</option>
+              <option value="HIGHSCHOOL">HIGHSCHOOL</option>
+            </select>
+            <label>Department</label>
+          </div>
 
-          <textarea
-            name="description"
-            placeholder="Description"
-            value={formData.description}
-            onChange={handleChange}
-            required
-          ></textarea>
+          <div className="input-label">
+            <select
+              name="assignee"
+              value={formData.assignee}
+              onChange={handleChange}
+              required
+            >
+              <option value="" disabled hidden></option>
+              <option value="Support 1">Support 1</option>
+              <option value="Support 2">Support 2</option>
+              <option value="Support 3">Support 3</option>
+            </select>
+            <label>Assignee</label>
+          </div>
+
+          <div className="input-label">
+            <select
+              name="category"
+              value={formData.category}
+              onChange={handleChange}
+              required
+            >
+              <option value="" disabled hidden></option>
+              <option value="LMS">LMS</option>
+              <option value="Microsoft 365">Microsoft 365</option>
+              <option value="STUDENT PORTAL">STUDENT PORTAL</option>
+              <option value="ERP">ERP</option>
+              <option value="HARDWARE">HARDWARE</option>
+              <option value="SOFTWARE">SOFTWARE</option>
+              <option value="OTHERS">OTHERS</option>
+            </select>
+            <label>Category</label>
+          </div>
+
+          <div className="input-label">
+            <select
+              name="site"
+              value={formData.site}
+              onChange={handleChange}
+              required
+            >
+              <option value="" disabled hidden></option>
+              <option value="Onsite">Onsite</option>
+              <option value="Online">Online</option>
+            </select>
+            <label>Site</label>
+          </div>
 
           <div className="button-group">
-            <button type="button" className="add-photo-btn">Add Photo</button>
-            <button type="submit" className="submit-btn">Submit</button>
+            <button type="button" className="add-photo-btn">
+              Add Photo
+            </button>
+            <button type="submit" className="submit-btn">
+              Submit
+            </button>
           </div>
         </form>
       </div>

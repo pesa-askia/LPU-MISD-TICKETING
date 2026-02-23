@@ -1,4 +1,6 @@
 .side-panel {
+  display: flex;
+  flex-direction: column;
   background-color: #CF2525;
   height: 100%;
   width: 350px;
@@ -13,7 +15,7 @@
 }
 
 .side-panel.collapsed {
-  width: 72px;
+  width: 100px;
   padding: 16px 10px;
 }
 
@@ -95,8 +97,7 @@
 
 .side-panel.collapsed .menu-item {
   justify-content: center;
-  padding: 20px;
-  height: 5px;
+  padding: 20px 0;
 }
 
 .side-panel.collapsed .user-info {

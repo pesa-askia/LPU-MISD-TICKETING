@@ -1,3 +1,6 @@
+*{
+    box-sizing: border-box;
+}
 .wrapper {
     display: flex;
     justify-content: center;
@@ -9,7 +12,7 @@
 }
 
 .card {
-    width: 90%;
+    width: 50%;
     max-width: 900px;
     background: white;
     border-radius: 12px;
@@ -23,7 +26,7 @@ h1 {
     text-align: center;
     margin-bottom: 30px;
     font-size: 1.8rem;
-    color: #333;
+    color: #000000;
 }
 
 form {
@@ -41,7 +44,8 @@ form {
 
 select,
 textarea {
-    padding: 11px 14px;
+    padding: 11px 15px;
+    width: 100%;
     border: 1px solid #ccc;
     border-radius: 6px;
     font-size: 0.95rem;
@@ -59,18 +63,13 @@ textarea:focus {
     outline: none;
     border-color: #CF2525;
     box-shadow: 0 0 4px rgba(207, 37, 37, 0.2);
-}
-
-textarea {
-    resize: vertical;
-    min-height: 100px;
-    font-size: 0.9rem;
+    
 }
 
 .add-photo-btn {
     background-color: #CF2525;
     color: white;
-    padding: 10px 24px;
+    padding: 15px 50px;
     border: none;
     border-radius: 6px;
     font-size: 0.9rem;
@@ -86,7 +85,7 @@ textarea {
 .submit-btn {
     background-color: #CF2525;
     color: white;
-    padding: 10px 28px;
+    padding: 10px 50px;
     border: none;
     border-radius: 6px;
     font-size: 0.9rem;
@@ -97,4 +96,77 @@ textarea {
 
 .submit-btn:hover {
     background-color: #b01e1e;
+}
+
+.input-label {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+/* Override your default select & textarea */
+.input-label select,
+.input-label textarea {
+    width: 100%;
+    padding: 18px 14px;
+    border: 2px solid #000000;
+    border-radius: 14px;
+    font-size: 0.95rem;
+    font-family: "Bai Jamjuree", sans-serif;
+    background: transparent;
+    outline: none;
+}
+
+/* Remove old focus glow */
+.input-label select:focus,
+.input-label textarea:focus {
+    border-color: #CF2525;
+    box-shadow: none;
+}
+
+/* Floating label */
+.input-label label {
+    position: absolute;
+    top: 18px;
+    left: 14px;
+    font-size: 0.95rem;
+    color: #0000009a;
+    background: white; /* MUST match .card background */
+    padding: 0 6px;
+    transition: all 0.2s ease;
+    pointer-events: none;
+}
+
+/* When active */
+.input-label select:focus + label,
+.input-label select:valid + label,
+.input-label textarea:focus + label,
+.input-label textarea:not(:placeholder-shown) + label {
+    top: -10px;
+    font-size: 0.95rem;
+    color: #CF2525;
+}
+
+.input-label select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+}
+
+.input-label:has(select)::after {
+    content: "";
+    position: absolute;
+    right: 18px;
+    top: 50%;
+    width: 10px;
+    height: 10px;
+    border-right: 2px solid black;
+    border-bottom: 2px solid black;
+    transform: translateY(-50%) rotate(45deg);
+    transition: transform 0.25s ease;
+    pointer-events: none;
+}
+
+.input-label:focus-within::after {
+    transition: transform 0.25s cubic-bezier(.4,0,.2,1);
+    transform: translateY(-50%) rotate(-135deg);
 }
