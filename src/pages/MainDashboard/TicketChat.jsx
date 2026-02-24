@@ -44,7 +44,7 @@ export default function TicketChat() {
     summary: "-",
     description: "-",
     status: "Open",
-    assignee: "Support Team",
+    assignee: "-",
     updated: "-",
   };
 
