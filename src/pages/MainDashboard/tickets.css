@@ -68,13 +68,31 @@
 
 .tickets-card h1 {
     text-align: center;
-    margin: 0 0 8px 0;
+    margin: 0 0 40px 0;
 }
 
 .tickets-card {
     border-radius: 6px;
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
     transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.tickets-header{
+    display: flex;
+    justify-content: space-between;
+    height: 40px;
+}
+
+input,select {
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    width: 250px;
+}
+
+input:focus, select:focus {
+    border-color: #0663ee;
+    outline: none;
 }
 
 .tickets-table tbody td:last-child {
@@ -89,3 +107,5 @@
 .clickable-row:hover {
     background: rgba(0, 0, 0, 0.02);
 }
+
+

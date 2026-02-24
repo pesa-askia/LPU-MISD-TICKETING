@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Paperclip } from "lucide-react";
 
 function SubmitTicket() {
   const [formData, setFormData] = useState({
@@ -28,6 +29,13 @@ function SubmitTicket() {
     <div className="wrapper">
       <div className="card">
         <h1>Submit Ticket</h1>
+        <p>
+          Simply create a ticket below. A technician will respond promptly to
+          your issue. You may also send tickets directly to
+          help@lpul-mis.on.spiceworks.com
+        </p>
+
+        <hr className="divider" />
         <form onSubmit={handleSubmit}>
           <div className="input-label">
             <textarea
@@ -37,7 +45,7 @@ function SubmitTicket() {
               onChange={handleChange}
               required
             ></textarea>
-            <label>Summary</label>
+            <label>Summary(Required)</label>
           </div>
 
           <div className="input-label">
@@ -48,7 +56,7 @@ function SubmitTicket() {
               onChange={handleChange}
               required
             ></textarea>
-            <label>Description</label>
+            <label>Description(Required)</label>
           </div>
 
           <div className="input-label">
@@ -63,7 +71,7 @@ function SubmitTicket() {
               <option value="FACULTY">FACULTY</option>
               <option value="ADMIN">ADMIN</option>
             </select>
-            <label>Type</label>
+            <label>Type(Required)</label>
           </div>
 
           <div className="input-label">
@@ -81,7 +89,7 @@ function SubmitTicket() {
               <option value="LPU-SC">LPU-SC</option>
               <option value="HIGHSCHOOL">HIGHSCHOOL</option>
             </select>
-            <label>Department</label>
+            <label>Department(Required)</label>
           </div>
 
           <div className="input-label">
@@ -96,7 +104,7 @@ function SubmitTicket() {
               <option value="Support 2">Support 2</option>
               <option value="Support 3">Support 3</option>
             </select>
-            <label>Assignee</label>
+            <label>Assignee(Required)</label>
           </div>
 
           <div className="input-label">
@@ -115,7 +123,7 @@ function SubmitTicket() {
               <option value="SOFTWARE">SOFTWARE</option>
               <option value="OTHERS">OTHERS</option>
             </select>
-            <label>Category</label>
+            <label>Category(Required)</label>
           </div>
 
           <div className="input-label">
@@ -129,18 +137,18 @@ function SubmitTicket() {
               <option value="Onsite">Onsite</option>
               <option value="Online">Online</option>
             </select>
-            <label>Site</label>
-          </div>
-
-          <div className="button-group">
-            <button type="button" className="add-photo-btn">
-              Add Photo
-            </button>
-            <button type="submit" className="submit-btn">
-              Submit
-            </button>
+            <label>Site(Required)</label>
           </div>
         </form>
+        <div className="button-group">
+          <button type="button" className="add-photo-btn">
+            <Paperclip size={18} />
+            Attach Files
+          </button>
+          <button type="submit" className="submit-btn">
+            Submit
+          </button>
+        </div>
       </div>
     </div>
   );
