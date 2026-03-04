@@ -21,7 +21,6 @@
     }
 }
 
-/* Apply animation to page content */
 .wrapper {
     animation: pageSlideIn 0.4s ease-out;
 }

@@ -103,3 +103,14 @@ form {
     margin-top: 20px;
     font-size: 0.85rem;
 }
+
+@media (max-width: 480px) {
+    .login-card {
+        padding: 40px 30px;
+        margin: 0 20px;
+    }
+
+    .login-title {
+        font-size: 1.5rem;
+    }
+}

@@ -1,14 +1,19 @@
 .dashboard {
   display: flex;
   width: 100%;
+  height: 100dvh; 
+  flex-direction: column;
+  overflow: hidden;
 }
 
+
 .content {
-  margin-left: 80px; /* collapsed sidebar width */
+  margin-left: 80px; 
   width: calc(100% - 80px);
   padding: 24px;
   flex: 1;
   transition: margin-left 0.3s, width 0.3s;
+  overflow-y: auto;
 }
 
 .dashboard:has(.side-panel:not(.collapsed)) .content {
@@ -21,6 +26,5 @@
     margin-left: 0 !important;
     width: 100% !important;
     padding: 16px;
-    padding-bottom: calc(150px + env(safe-area-inset-bottom));
   }
 }

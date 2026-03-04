@@ -25,6 +25,7 @@ export const PLACEHOLDER = [
     assignee: "Support 3",
     updated: "",
   },
+  
 ];
 
 function Tickets() {

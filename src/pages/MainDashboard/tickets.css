@@ -60,24 +60,31 @@
 }
 
 .tickets-card h1 {
-  text-align: center;
-  margin: 0 0 40px 0;
+  margin: 0 0 30px 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1a1a1a;
 }
 
 .tickets-card {
   width: 100%;
-  min-height: 85vh;
+  min-height: 40vh;
   max-width: 800px;
   margin: 0 auto;
-  padding: 1.5rem;
+  padding: 2.5rem;
   display: flex;
   flex-direction: column;
   background: white;
+  overflow-y: auto;
   border-radius: 6px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
   transition:
     transform 160ms ease,
     box-shadow 160ms ease;
+}
+
+.table-wrapper tbody {
+  overflow-y: auto;
 }
 
 .tickets-header {

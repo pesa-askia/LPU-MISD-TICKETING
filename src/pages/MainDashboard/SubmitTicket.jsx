@@ -96,21 +96,6 @@ function SubmitTicket() {
 
           <div className="input-label">
             <select
-              name="assignee"
-              value={formData.assignee}
-              onChange={handleChange}
-              required
-            >
-              <option value="" disabled hidden></option>
-              <option value="Support 1">Support 1</option>
-              <option value="Support 2">Support 2</option>
-              <option value="Support 3">Support 3</option>
-            </select>
-            <label>Assignee (Required)</label>
-          </div>
-
-          <div className="input-label">
-            <select
               name="category"
               value={formData.category}
               onChange={handleChange}

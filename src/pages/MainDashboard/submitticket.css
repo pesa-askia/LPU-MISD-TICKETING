@@ -6,11 +6,12 @@ body {
   margin: 0;
   font-family: "Bai Jamjuree", sans-serif;
   background: #ffffff;
+  max-height: 100vh;
 }
 
 /* CENTER WRAPPER */
 .wrapper {
-  margin-left: 0; /* width of your red sidebar */
+  margin-left: 0; 
   padding: 20px;
   display: flex;
   justify-content: center;
@@ -21,7 +22,7 @@ body {
 /* CARD */
 .card {
   width: 100%;
-  min-height: 400px;
+  min-height: 85vh;
   height: auto;
   max-width: 800px;
   margin: 0 auto;
@@ -72,6 +73,7 @@ form {
   display: flex;
   flex-direction: column;
   width: 100%;
+  padding: 0 0 1.75rem 0;
 }
 
 /* INPUTS */
@@ -96,7 +98,6 @@ textarea {
   resize: none;
 }
 
-/* FOCUS STATE (Red like screenshot theme) */
 .input-label select:focus,
 .input-label textarea:focus,
 .input-label input:focus {
@@ -137,7 +138,7 @@ textarea {
   content: "";
   position: absolute;
   right: 18px;
-  top: 50%;
+  top: 30%;
   width: 10px;
   height: 10px;
   border-right: 2px solid black;
@@ -204,7 +205,7 @@ textarea {
 
 @media (min-width: 1024px) {
   .wrapper {
-    margin-left: 80px; /* Only apply sidebar space on desktop */
+    margin-left: 80px; 
   }
 }
 
@@ -219,13 +220,11 @@ textarea {
     grid-template-columns: repeat(2, 1fr);
     gap: 1.25rem;
 
-    .input-label:nth-child(1), /* Summary */
-    .input-label:nth-child(2) {
-      /* Description */
+    .input-label:nth-child(1), 
+    .input-label:nth-child(2) { 
       grid-column: span 2;
     }
 
-    /* Make Textareas span both columns */
     .input-label:has(textarea) {
       grid-column: span 2;
     }
@@ -234,7 +233,7 @@ textarea {
 
 @media (min-width: 600px) {
   .button-group {
-    flex-direction: row; /* Side-by-side on tablet/desktop */
+    flex-direction: row; 
     justify-content: flex-end;
   }
 

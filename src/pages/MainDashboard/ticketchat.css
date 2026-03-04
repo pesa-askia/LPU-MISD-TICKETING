@@ -5,7 +5,8 @@
     padding: 18px;
     display: flex;
     flex-direction: column;
-    height: 520px;
+    height: 80vh;
+    min-height: 50%;
 }
 
 .chat-header {
