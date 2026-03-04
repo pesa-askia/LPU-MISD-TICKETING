@@ -1,44 +1,39 @@
 import "./tickets.css";
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search } from "lucide-react";
-
-export const PLACEHOLDER = [
-  {
-    id: "1234",
-    summary: "This is a test",
-    description: "This is a test",
-    assignee: "Support 1",
-    updated: "",
-  },
-  {
-    id: "1235",
-    summary: "This is a test",
-    description: "This is a test",
-    assignee: "Support 2",
-    updated: "",
-  },
-  {
-    id: "1236",
-    summary: "This is a test",
-    description: "This is a test",
-    assignee: "Support 3",
-    updated: "",
-  },
-  
-];
+import { supabase } from "../../Supabaseclient";
 
 function Tickets() {
   const navigate = useNavigate();
+  const [tickets, setTickets] = useState([]);
   const [filter, setFilter] = useState("Open Tickets");
   const [search, setSearch] = useState("");
+
+  const fetchTickets = async () => {
+    const { data, error } = await supabase
+      .from("Tickets")
+      .select("*")
+
+    console.log("DATA:", data);
+    console.log("ERROR:", error);
+
+    if (error) {
+      console.error("Error fetching tickets:", error);
+    } else {
+      setTickets(data || []);
+    }
+  };
+
+  useEffect(() => {
+    fetchTickets();
+  }, []);
 
   return (
     <div className="wrapper">
       <div className="card tickets-card">
         <h1>Ticket</h1>
 
-        {/* Header Controls */}
         <div className="tickets-header">
           <select value={filter} onChange={(e) => setFilter(e.target.value)}>
             <option>Open Tickets</option>
@@ -56,33 +51,40 @@ function Tickets() {
           </div>
         </div>
 
-        {/* Table */}
         <div className="table-wrapper">
-          <table className="tickets-table" aria-label="tickets table">
+          <table className="tickets-table">
             <thead>
               <tr>
                 <th>Ticket No.</th>
                 <th>Summary</th>
                 <th>Description</th>
-                <th>Assignee</th>
+                <th>Department</th>
                 <th>Updated</th>
               </tr>
             </thead>
             <tbody>
-              {PLACEHOLDER.map((t, index) => (
-                <tr
-                  key={t.id}
-                  className="clickable-row"
-                  style={{ "--i": index }}
-                  onClick={() => navigate(`/Tickets/${t.id}`)}
-                >
-                  <td>No. {t.id}</td>
-                  <td>{t.summary}</td>
-                  <td>{t.description}</td>
-                  <td>{t.assignee}</td>
-                  <td>{t.updated}</td>
-                </tr>
-              ))}
+              {tickets
+                .filter((t) =>
+                  t.Summary?.toLowerCase().includes(search.toLowerCase()),
+                )
+                .map((t, index) => (
+                  <tr
+                    key={t.id}
+                    className="clickable-row"
+                    style={{ "--i": index }}
+                    onClick={() => navigate(`/Tickets/${t.id}`)}
+                  >
+                    <td>No. {t.id}</td>
+                    <td>{t.Summary}</td>
+                    <td>{t.Description}</td>
+                    <td>{t.Department}</td>
+                    <td>
+                      {t.created_at
+                        ? new Date(t.created_at).toLocaleDateString()
+                        : ""}
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>

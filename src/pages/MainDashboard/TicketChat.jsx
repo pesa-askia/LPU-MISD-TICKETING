@@ -1,13 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { PLACEHOLDER } from "./Tickets";
 import "./ticketchat.css";
+import { supabase } from "../../Supabaseclient";
 
 function loadMessages(ticketId) {
   const key = `ticket_chat_${ticketId}`;
   const raw = localStorage.getItem(key);
   if (raw) return JSON.parse(raw);
-  // default conversation
   return [
     {
       id: Date.now() - 60000,
@@ -33,20 +32,28 @@ export default function TicketChat() {
   const navigate = useNavigate();
   const [messages, setMessages] = useState(() => loadMessages(id));
   const [text, setText] = useState("");
+  const [ticket, setTicket] = useState(null);
   const scrollRef = useRef(null);
 
+  // Fetch ticket from Supabase
   useEffect(() => {
+    const fetchTicket = async () => {
+      const { data, error } = await supabase
+        .from("Tickets")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (error) {
+        console.error("Error fetching ticket:", error);
+      } else {
+        setTicket(data);
+      }
+    };
+
+    fetchTicket();
     setMessages(loadMessages(id));
   }, [id]);
-
-  const ticket = PLACEHOLDER.find((p) => p.id === id) || {
-    id,
-    summary: "-",
-    description: "-",
-    status: "Open",
-    assignee: "-",
-    updated: "-",
-  };
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -66,7 +73,6 @@ export default function TicketChat() {
     setMessages(next);
     saveMessages(id, next);
     setText("");
-    // simulate reply
     setTimeout(() => {
       const reply = {
         id: Date.now() + 1,
@@ -80,6 +86,8 @@ export default function TicketChat() {
     }, 800);
   }
 
+  if (!ticket) return <div className="wrapper">Loading...</div>;
+
   return (
     <div className="wrapper">
       <div className="card chat-card">
@@ -90,8 +98,8 @@ export default function TicketChat() {
           <div className="assignee">
             <div className="avatar">A</div>
             <div>
-              <div className="assignee-name">{ticket.assignee}</div>
-              <div className="assignee-email">assignee@email.com</div>
+              <div className="assignee-name">{ticket.Department}</div>
+              <div className="assignee-email">support@email.com</div>
             </div>
           </div>
         </div>
@@ -104,19 +112,27 @@ export default function TicketChat() {
             </div>
             <div className="details-col">
               <strong>Summary</strong>
-              <div>{ticket.summary}</div>
+              <div>{ticket.Summary}</div>
             </div>
             <div className="details-col">
               <strong>Description</strong>
-              <div>{ticket.description}</div>
+              <div>{ticket.Description}</div>
             </div>
             <div className="details-col">
-              <strong>Assignee</strong>
-              <div>{ticket.assignee}</div>
+              <strong>Department</strong>
+              <div>{ticket.Department}</div>
             </div>
             <div className="details-col">
-              <strong>Updated</strong>
-              <div>{ticket.updated}</div>
+              <strong>Type</strong>
+              <div>{ticket.Type}</div>
+            </div>
+            <div className="details-col">
+              <strong>Category</strong>
+              <div>{ticket.Category}</div>
+            </div>
+            <div className="details-col">
+              <strong>Site</strong>
+              <div>{ticket.Site}</div>
             </div>
           </div>
         </div>
@@ -136,6 +152,7 @@ export default function TicketChat() {
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSend()}
             placeholder="Start typing..."
           />
           <button className="send-btn" onClick={handleSend} aria-label="send">

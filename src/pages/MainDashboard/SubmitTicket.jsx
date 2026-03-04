@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Paperclip } from "lucide-react";
+import { supabase } from "../../Supabaseclient";
 
 function SubmitTicket() {
   const [formData, setFormData] = useState({
@@ -20,10 +21,41 @@ function SubmitTicket() {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Form submitted:", formData);
-  };
+
+    const { data, error } = await supabase
+      .from("Tickets")
+      .insert([
+        {
+          Summary: formData.summary,
+          Description: formData.description,
+          Type: formData.userType,
+          Department: formData.department,
+          Category: formData.category,
+          Site: formData.site,
+        },
+      ])
+      .select();
+
+    if (error) {
+      console.error("Error submitting ticket:", error);
+      alert("Error: " + error.message);
+    } else {
+      console.log("Ticket submitted successfully:", data);
+      alert("Ticket submitted successfully!");
+
+      setFormData({
+        userType: "",
+        department: "",
+        assignee: "",
+        category: "",
+        description: "",
+        summary: "",
+        site: "",
+      });
+    }
+  }; 
 
   return (
     <div className="wrapper">
