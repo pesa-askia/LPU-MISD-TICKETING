@@ -8,19 +8,39 @@ const LoginPage = () => {
     const [error, setError] = useState("");
     const navigate = useNavigate();
 
-    const MOCK_EMAIL = "test123@gmail.com";
-    const MOCK_PASSWORD = "test123";
+    const [isLoading, setIsLoading] = useState(false);
 
-    const handleLogin = (e) => {
+    const handleLogin = async (e) => {
         e.preventDefault();
         setError("");
+        setIsLoading(true);
 
-        if (email === MOCK_EMAIL && password === MOCK_PASSWORD) {
+        try {
+            const res = await fetch("http://localhost:5000/api/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password }),
+            });
+
+            const data = await res.json();
+
+            if (!res.ok || !data.success) {
+                setError(data.message || "Invalid email or password");
+                setIsLoading(false);
+                return;
+            }
+
+            // Store token and user info
+            if (data.token) localStorage.setItem("authToken", data.token);
+            if (data.user?.id) localStorage.setItem("userId", data.user.id);
             localStorage.setItem("isLoggedIn", "true");
-            localStorage.setItem("userEmail", email);
+            localStorage.setItem("userEmail", data.user?.email || email);
+
             navigate("/Tickets");
-        } else {
-            setError("Invalid email or password");
+        } catch (err) {
+            setError(err.message || "Login failed");
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -50,8 +70,8 @@ const LoginPage = () => {
                         required
                     />
 
-                    <button type="submit" className="login-btn">
-                        Login
+                    <button type="submit" className="login-btn" disabled={isLoading}>
+                        {isLoading ? "Logging in..." : "Login"}
                     </button>
                 </form>
 
@@ -59,9 +79,7 @@ const LoginPage = () => {
                     Forgot Password
                 </a>
 
-                <div className="demo-credentials">
-                    <small>Demo: test123@gmail.com / test123</small>
-                </div>
+
             </div>
         </div>
     );
