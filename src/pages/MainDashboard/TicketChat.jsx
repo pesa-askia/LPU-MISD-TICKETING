@@ -33,21 +33,33 @@ export default function TicketChat() {
   const [messages, setMessages] = useState(() => loadMessages(id));
   const [text, setText] = useState("");
   const [ticket, setTicket] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const scrollRef = useRef(null);
 
   // Fetch ticket from Supabase
   useEffect(() => {
     const fetchTicket = async () => {
-      const { data, error } = await supabase
-        .from("Tickets")
-        .select("*")
-        .eq("id", id)
-        .single();
+      try {
+        setLoading(true);
+        setError(null);
+        const { data, error } = await supabase
+          .from("Tickets")
+          .select("*")
+          .eq("id", id)
+          .single();
 
-      if (error) {
-        console.error("Error fetching ticket:", error);
-      } else {
-        setTicket(data);
+        if (error) {
+          console.error("Error fetching ticket:", error);
+          setError(error.message || "Failed to load ticket");
+        } else {
+          setTicket(data);
+        }
+      } catch (err) {
+        console.error("Unexpected error:", err);
+        setError("An unexpected error occurred");
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -86,7 +98,29 @@ export default function TicketChat() {
     }, 800);
   }
 
-  if (!ticket) return <div className="wrapper">Loading...</div>;
+  if (error) {
+    return (
+      <div className="wrapper">
+        <div className="card" style={{ textAlign: "center", color: "#d32f2f", padding: "40px" }}>
+          <h2>Error Loading Ticket</h2>
+          <p>{error}</p>
+          <button onClick={() => navigate(-1)} style={{ marginTop: "20px", padding: "10px 20px", cursor: "pointer" }}>
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading || !ticket) {
+    return (
+      <div className="wrapper">
+        <div className="card" style={{ textAlign: "center", padding: "40px" }}>
+          <h2>Loading Ticket Details...</h2>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="wrapper">

@@ -11,10 +11,13 @@ import { NavLink } from "react-router-dom";
 const SidePanel = () => {
   const [collapsed, setCollapsed] = useState(true);
   const navigate = useNavigate();
+  const userEmail = localStorage.getItem("userEmail") || "Guest";
 
   const handleLogout = () => {
     localStorage.removeItem("isLoggedIn");
     localStorage.removeItem("userEmail");
+    localStorage.removeItem("userId");
+    localStorage.removeItem("authToken");
     navigate("/");
   };
 
@@ -43,7 +46,7 @@ const SidePanel = () => {
 
         <div className="user-info">
           <CircleUser size={30} />
-          {!collapsed && <span>Jane Doe <br /> janedoe@email.com</span>}
+          {!collapsed && <span>{userEmail.split("@")[0]} <br /> {userEmail}</span>}
         </div>
 
         <button className="logout-btn" onClick={handleLogout} aria-label="Logout">

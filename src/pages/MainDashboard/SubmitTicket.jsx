@@ -12,6 +12,9 @@ function SubmitTicket() {
     summary: "",
     site: "",
   });
+  const [isLoading, setIsLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState(null);
+  const [errorMessage, setErrorMessage] = useState(null);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -23,39 +26,52 @@ function SubmitTicket() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsLoading(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
 
-    const { data, error } = await supabase
-      .from("Tickets")
-      .insert([
-        {
-          Summary: formData.summary,
-          Description: formData.description,
-          Type: formData.userType,
-          Department: formData.department,
-          Category: formData.category,
-          Site: formData.site,
-        },
-      ])
-      .select();
+    try {
+      const userId = localStorage.getItem("userId");
+      const { data, error } = await supabase
+        .from("Tickets")
+        .insert([
+          {
+            Summary: formData.summary,
+            Description: formData.description,
+            Type: formData.userType,
+            Department: formData.department,
+            Category: formData.category,
+            Site: formData.site,
+            created_by: userId || null,
+          },
+        ])
+        .select();
 
-    if (error) {
-      console.error("Error submitting ticket:", error);
-      alert("Error: " + error.message);
-    } else {
-      console.log("Ticket submitted successfully:", data);
-      alert("Ticket submitted successfully!");
+      if (error) {
+        console.error("Error submitting ticket:", error);
+        setErrorMessage(error.message || "Failed to submit ticket");
+      } else {
+        console.log("Ticket submitted successfully:", data);
+        setSuccessMessage("Ticket submitted successfully! Your ticket has been created.");
+        setTimeout(() => setSuccessMessage(null), 5000);
 
-      setFormData({
-        userType: "",
-        department: "",
-        assignee: "",
-        category: "",
-        description: "",
-        summary: "",
-        site: "",
-      });
+        setFormData({
+          userType: "",
+          department: "",
+          assignee: "",
+          category: "",
+          description: "",
+          summary: "",
+          site: "",
+        });
+      }
+    } catch (err) {
+      console.error("Unexpected error:", err);
+      setErrorMessage("An unexpected error occurred");
+    } finally {
+      setIsLoading(false);
     }
-  }; 
+  };
 
   return (
     <div className="wrapper">
@@ -70,6 +86,30 @@ function SubmitTicket() {
         </p>
 
         <hr className="divider" />
+        {errorMessage && (
+          <div style={{
+            backgroundColor: "#ffebee",
+            color: "#d32f2f",
+            padding: "12px 16px",
+            borderRadius: "4px",
+            marginBottom: "16px",
+            border: "1px solid #ef5350"
+          }}>
+            <strong>Error:</strong> {errorMessage}
+          </div>
+        )}
+        {successMessage && (
+          <div style={{
+            backgroundColor: "#e8f5e9",
+            color: "#2e7d32",
+            padding: "12px 16px",
+            borderRadius: "4px",
+            marginBottom: "16px",
+            border: "1px solid #66bb6a"
+          }}>
+            <strong>Success:</strong> {successMessage}
+          </div>
+        )}
         <form onSubmit={handleSubmit}>
           <div className="input-label">
             <textarea
@@ -159,12 +199,12 @@ function SubmitTicket() {
             <label>Site (Required)</label>
           </div>
           <div className="button-group">
-            <button type="button" className="add-photo-btn">
+            <button type="button" className="add-photo-btn" disabled={isLoading}>
               <Paperclip size={18} />
               Attach Files
             </button>
-            <button type="submit" className="submit-btn">
-              Submit
+            <button type="submit" className="submit-btn" disabled={isLoading}>
+              {isLoading ? "Submitting..." : "Submit"}
             </button>
           </div>
         </form>
