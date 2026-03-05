@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { jwtDecode } from "jwt-decode";
 import "./ticketchat.css";
 import { supabase } from "../../Supabaseclient";
 
@@ -43,15 +44,35 @@ export default function TicketChat() {
       try {
         setLoading(true);
         setError(null);
+
+        // Get user ID from JWT token
+        const token = localStorage.getItem("authToken");
+        if (!token) {
+          setError("You must be logged in to view tickets.");
+          setLoading(false);
+          return;
+        }
+
+        const decoded = jwtDecode(token);
+        const userId = decoded.id;
+
+        // Fetch ticket and verify ownership
         const { data, error } = await supabase
           .from("Tickets")
           .select("*")
           .eq("id", id)
+          .eq("created_by", userId)
           .single();
 
         if (error) {
           console.error("Error fetching ticket:", error);
-          setError(error.message || "Failed to load ticket");
+          if (error.code === "PGRST116") {
+            setError("Ticket not found or you don't have permission to view this ticket.");
+          } else {
+            setError(error.message || "Failed to load ticket");
+          }
+        } else if (!data) {
+          setError("Ticket not found or you don't have permission to view this ticket.");
         } else {
           setTicket(data);
         }

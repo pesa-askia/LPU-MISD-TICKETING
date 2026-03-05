@@ -45,13 +45,16 @@ export const verifyToken = (token) => {
 export const registerUser = async (email, password, fullName = "") => {
     try {
         // Check if user already exists
-        const { data: existingUser, error: checkError } = await supabase
+        const { data: existingUsers, error: checkError } = await supabase
             .from("auth_users")
             .select("id")
-            .eq("email", email)
-            .single();
+            .eq("email", email);
 
-        if (existingUser) {
+        if (checkError && checkError.code !== "PGRST116") {
+            return { success: false, message: checkError.message };
+        }
+
+        if (existingUsers && existingUsers.length > 0) {
             return { success: false, message: "User already exists" };
         }
 
@@ -100,18 +103,29 @@ export const registerUser = async (email, password, fullName = "") => {
 export const loginUser = async (email, password) => {
     try {
         // Find user by email
-        const { data: user, error: findError } = await supabase
+        const { data: users, error: findError } = await supabase
             .from("auth_users")
             .select("*")
-            .eq("email", email)
-            .single();
+            .eq("email", email);
 
-        if (findError || !user) {
+        if (findError) {
+            console.error("Supabase query error:", findError);
             return { success: false, message: "Invalid email or password" };
         }
 
+        if (!users || users.length === 0) {
+            return { success: false, message: "Invalid email or password" };
+        }
+
+        const user = users[0];
+
         if (!user.is_active) {
             return { success: false, message: "User account is inactive" };
+        }
+
+        if (!user.password_hash) {
+            console.error("User found but password_hash is missing");
+            return { success: false, message: "Invalid email or password" };
         }
 
         // Compare password

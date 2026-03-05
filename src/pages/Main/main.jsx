@@ -1,6 +1,5 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import "../SidePanel/sidepanel.css";
 import "../MainDashboard/maindashboard.css";
 import "../MainDashboard/submitticket.css";
 import App from "../App/App";

@@ -7,7 +7,6 @@ function SubmitTicket() {
   const [formData, setFormData] = useState({
     userType: "",
     department: "",
-    assignee: "",
     category: "",
     description: "",
     summary: "",
@@ -69,7 +68,6 @@ function SubmitTicket() {
         setFormData({
           userType: "",
           department: "",
-          assignee: "",
           category: "",
           description: "",
           summary: "",

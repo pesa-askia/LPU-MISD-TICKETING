@@ -2,6 +2,7 @@ import "./tickets.css";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { Search } from "lucide-react";
+import { jwtDecode } from "jwt-decode";
 import { supabase } from "../../Supabaseclient";
 
 function Tickets() {
@@ -16,9 +17,24 @@ function Tickets() {
     try {
       setLoading(true);
       setError(null);
+
+      // Get user ID from JWT token
+      const token = localStorage.getItem("authToken");
+      if (!token) {
+        setError("You must be logged in to view tickets.");
+        setLoading(false);
+        return;
+      }
+
+      const decoded = jwtDecode(token);
+      const userId = decoded.id;
+
+      // Fetch only tickets created by this user
       const { data, error } = await supabase
         .from("Tickets")
         .select("*")
+        .eq("created_by", userId)
+        .order("id", { ascending: false });
 
       console.log("DATA:", data);
       console.log("ERROR:", error);
@@ -114,11 +130,7 @@ function Tickets() {
                     <td>{t.Summary}</td>
                     <td>{t.Description}</td>
                     <td>{t.Department}</td>
-                    <td>
-                      {t.created_at
-                        ? new Date(t.created_at).toLocaleDateString()
-                        : ""}
-                    </td>
+                    <td>{t.id}</td>
                   </tr>
                 ))}
             </tbody>
