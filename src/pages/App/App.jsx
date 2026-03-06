@@ -4,6 +4,8 @@ import Tickets from "../MainDashboard/Tickets";
 import TicketChat from "../MainDashboard/TicketChat";
 import SubmitTicket from "../MainDashboard/SubmitTicket";
 import DashboardLayout from "../../layouts/DashboardLayout";
+import LoadingScreen from "../../components/LoadingScreen";
+import { useLoading } from "../../context/LoadingContext";
 
 function ProtectedRoute({ children }) {
   const isLoggedIn = localStorage.getItem("isLoggedIn");
@@ -11,21 +13,26 @@ function ProtectedRoute({ children }) {
 }
 
 function App() {
+  const { isLoading } = useLoading();
+
   return (
-    <Routes>
-      <Route path="/" element={<LoginPage />} />
-      <Route
-        element={
-          <ProtectedRoute>
-            <DashboardLayout />
-          </ProtectedRoute>
-        }
-      >
-        <Route path="/SubmitTicket" element={<SubmitTicket />} />
-        <Route path="/Tickets" element={<Tickets />} />
-        <Route path="/Tickets/:id" element={<TicketChat />} />
-      </Route>
-    </Routes>
+    <>
+      <LoadingScreen isLoading={isLoading} />
+      <Routes>
+        <Route path="/" element={<LoginPage />} />
+        <Route
+          element={
+            <ProtectedRoute>
+              <DashboardLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="/SubmitTicket" element={<SubmitTicket />} />
+          <Route path="/Tickets" element={<Tickets />} />
+          <Route path="/Tickets/:id" element={<TicketChat />} />
+        </Route>
+      </Routes>
+    </>
   );
 }
 

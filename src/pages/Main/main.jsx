@@ -4,11 +4,14 @@ import "../MainDashboard/maindashboard.css";
 import "../MainDashboard/submitticket.css";
 import App from "../App/App";
 import { BrowserRouter } from "react-router-dom";
+import { LoadingProvider } from "../../context/LoadingContext";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <BrowserRouter>
-      <App />
+      <LoadingProvider>
+        <App />
+      </LoadingProvider>
     </BrowserRouter>
-  </StrictMode>
+  </StrictMode>,
 );

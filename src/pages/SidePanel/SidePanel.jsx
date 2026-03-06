@@ -7,6 +7,7 @@ import { PlusCircle } from "lucide-react";
 import { CircleUser } from "lucide-react";
 import { LogOut } from "lucide-react";
 import { NavLink } from "react-router-dom";
+import logo from "../../assets/lpul-logo.png";
 
 const SidePanel = () => {
   const [collapsed, setCollapsed] = useState(true);
@@ -24,7 +25,10 @@ const SidePanel = () => {
   return (
     <aside className={`side-panel ${collapsed ? "collapsed" : ""}`}>
       <div className="header">
-        {!collapsed && <span className="title">MIS HELP DESK</span>}
+        <div className="header-content">
+          <img src={logo} alt="MIS Help Desk" className="logo" />
+          {!collapsed && <span className="title">MIS HELP DESK</span>}
+        </div>
         <button
           className="close-btn"
           onClick={() => setCollapsed(!collapsed)}
@@ -46,10 +50,18 @@ const SidePanel = () => {
 
         <div className="user-info">
           <CircleUser size={30} />
-          {!collapsed && <span>{userEmail.split("@")[0]} <br /> {userEmail}</span>}
+          {!collapsed && (
+            <span>
+              {userEmail.split("@")[0]} <br /> {userEmail}
+            </span>
+          )}
         </div>
 
-        <button className="logout-btn" onClick={handleLogout} aria-label="Logout">
+        <button
+          className="logout-btn"
+          onClick={handleLogout}
+          aria-label="Logout"
+        >
           <LogOut size={30} />
           {!collapsed && <span>Logout</span>}
         </button>

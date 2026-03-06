@@ -1,9 +1,9 @@
 .side-panel {
   display: flex;
   flex-direction: column;
-  background-color: #8C0001;
+  background-color: #8c0001;
   height: 100%;
-  width: 280px;
+  width: 350px;
   position: fixed;
   z-index: 1001;
   top: 0;
@@ -16,7 +16,7 @@
 }
 
 .side-panel.collapsed {
-  width: 80px;
+  width: 100px;
   padding: 20px 0;
 }
 
@@ -26,6 +26,19 @@
   white-space: nowrap;
   color: white;
   transition: opacity 0.15s ease;
+  margin-left: 0;
+}
+
+.logo {
+  height: 80px;
+  object-fit: contain;
+  transition: height 0.3s ease;
+  flex-shrink: 0;
+}
+
+.side-panel.collapsed .logo {
+  display: none;
+  transition: opacity 0.15s ease;
 }
 
 .header {
@@ -34,12 +47,27 @@
   justify-content: space-between;
   padding: 0 15px;
   margin-bottom: 15px;
-  min-height: 48px;
+  min-height: 60px;
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
 }
 
 .side-panel.collapsed .header {
-  height: 80px;
   justify-content: center;
+  height: 90px;
+}
+
+.side-panel.collapsed .header-content {
+  gap: 0;
+}
+
+.side-panel.collapsed .title {
+  display: none;
 }
 
 .close-btn {
@@ -50,7 +78,8 @@
   cursor: pointer;
   display: flex;
   align-items: center;
-  padding: 15px 30px;
+  padding: 10px 15px;
+  flex-shrink: 0;
 }
 
 .close-btn:hover {
@@ -111,7 +140,7 @@
 }
 
 .menu-item:hover {
-  background-color: #B80710;
+  background-color: #b80710;
 }
 
 .side-panel.collapsed .menu-item {
@@ -150,7 +179,7 @@
 }
 
 .logout-btn:hover {
-  background-color: #B80710;
+  background-color: #b80710;
 }
 
 .side-panel.collapsed .logout-btn {
@@ -183,6 +212,8 @@
     padding: 0;
     z-index: 1001;
     transform: none;
+    border-top-left-radius: 15px;
+    border-top-right-radius: 15px;
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.2);
     overflow: visible;
   }
@@ -217,7 +248,7 @@
   }
 
   .side-panel .menu-item:hover {
-    background-color: #B80710;
+    background-color: #b80710;
   }
 
   .side-panel .logout-btn {
@@ -240,7 +271,6 @@
     display: none;
   }
 
-
   .side-panel.collapsed {
     width: 100%;
     padding: 0;
@@ -254,5 +284,20 @@
     padding: 16px 12px;
     justify-content: center;
     align-items: center;
+  }
+}
+
+@media (max-width: 768px) {
+  .panel-content .menu-item:nth-child(1) {
+    order: 2;
+  } /* PlusCircle → middle */
+  .panel-content .menu-item:nth-child(2) {
+    order: 1;
+  } /* Ticket → left */
+  .panel-content .user-info {
+    order: 4;
+  }
+  .panel-content .logout-btn {
+    order: 3;
   }
 }

@@ -4,25 +4,26 @@ import { useState, useEffect } from "react";
 import { Search } from "lucide-react";
 import { jwtDecode } from "jwt-decode";
 import { supabase } from "../../Supabaseclient";
+import { useLoading } from "../../context/LoadingContext";
 
 function Tickets() {
   const navigate = useNavigate();
+  const { showLoading, hideLoading } = useLoading();
   const [tickets, setTickets] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState("Open Tickets");
   const [search, setSearch] = useState("");
 
   const fetchTickets = async () => {
     try {
-      setLoading(true);
+      showLoading();
       setError(null);
 
       // Get user ID from JWT token
       const token = localStorage.getItem("authToken");
       if (!token) {
         setError("You must be logged in to view tickets.");
-        setLoading(false);
+        hideLoading();
         return;
       }
 
@@ -49,7 +50,7 @@ function Tickets() {
       console.error("Unexpected error:", err);
       setError("An unexpected error occurred");
     } finally {
-      setLoading(false);
+      hideLoading();
     }
   };
 
@@ -60,22 +61,22 @@ function Tickets() {
   if (error) {
     return (
       <div className="wrapper">
-        <div className="card" style={{ textAlign: "center", color: "#d32f2f", padding: "40px" }}>
+        <div
+          className="card"
+          style={{ textAlign: "center", color: "#d32f2f", padding: "40px" }}
+        >
           <h2>Error Loading Tickets</h2>
           <p>{error}</p>
-          <button onClick={fetchTickets} style={{ marginTop: "20px", padding: "10px 20px", cursor: "pointer" }}>
+          <button
+            onClick={fetchTickets}
+            style={{
+              marginTop: "20px",
+              padding: "10px 20px",
+              cursor: "pointer",
+            }}
+          >
             Try Again
           </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="wrapper">
-        <div className="card" style={{ textAlign: "center", padding: "40px" }}>
-          <h2>Loading Tickets...</h2>
         </div>
       </div>
     );
@@ -104,37 +105,63 @@ function Tickets() {
         </div>
 
         <div className="table-wrapper">
-          <table className="tickets-table">
-            <thead>
-              <tr>
-                <th>Ticket No.</th>
-                <th>Summary</th>
-                <th>Description</th>
-                <th>Department</th>
-                <th>Updated</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tickets
-                .filter((t) =>
-                  t.Summary?.toLowerCase().includes(search.toLowerCase()),
-                )
-                .map((t, index) => (
-                  <tr
-                    key={t.id}
-                    className="clickable-row"
-                    style={{ "--i": index }}
-                    onClick={() => navigate(`/Tickets/${t.id}`)}
-                  >
-                    <td>No. {t.id}</td>
-                    <td>{t.Summary}</td>
-                    <td>{t.Description}</td>
-                    <td>{t.Department}</td>
-                    <td>{t.id}</td>
+          {(() => {
+            const filteredTickets = tickets.filter(
+              (t) =>
+                String(t.id).toLowerCase().includes(search.toLowerCase()) ||
+                t.Summary?.toLowerCase().includes(search.toLowerCase()),
+            );
+
+            if (filteredTickets.length === 0) {
+              return (
+                <div
+                  style={{
+                    textAlign: "center",
+                    padding: "40px 20px",
+                    color: "#666",
+                    fontWeight: "600",
+                  }}
+                >
+                  <p style={{ fontSize: "1.5rem", margin: 0 }}>
+                    No tickets found.
+                  </p>
+                </div>
+              );
+            }
+
+            return (
+              <table className="tickets-table">
+                <thead>
+                  <tr>
+                    <th>Ticket No.</th>
+                    <th>Summary</th>
+                    <th>Description</th>
+                    <th>Department</th>
+                    <th>Updated</th>
                   </tr>
-                ))}
-            </tbody>
-          </table>
+                </thead>
+                <tbody>
+                  {filteredTickets.map((t, index) => (
+                    <tr
+                      key={t.id}
+                      className="clickable-row"
+                      style={{ "--i": index }}
+                      onClick={() => navigate(`/Tickets/${t.id}`)}
+                    >
+                      <td>No. {t.id}</td>
+                      <td className="summary">
+                        <div className="clamp-text">{t.Summary}</div>
+                      </td>
+                      <td className="description">
+                        <div className="clamp-text">{t.Description}</div>
+                      </td>
+                      <td>{t.Department}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            );
+          })()}
         </div>
       </div>
     </div>

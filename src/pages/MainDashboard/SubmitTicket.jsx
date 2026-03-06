@@ -1,9 +1,12 @@
-import { useState } from "react";
-import { Paperclip } from "lucide-react";
+import { useState, useRef } from "react";
+import { Paperclip, X } from "lucide-react";
 import { jwtDecode } from "jwt-decode";
 import { supabase } from "../../Supabaseclient";
+import { useLoading } from "../../context/LoadingContext";
 
 function SubmitTicket() {
+  const { showLoading, hideLoading, isLoading } = useLoading();
+  const fileInputRef = useRef(null);
   const [formData, setFormData] = useState({
     userType: "",
     department: "",
@@ -12,7 +15,7 @@ function SubmitTicket() {
     summary: "",
     site: "",
   });
-  const [isLoading, setIsLoading] = useState(false);
+  const [attachments, setAttachments] = useState([]);
   const [successMessage, setSuccessMessage] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
 
@@ -24,9 +27,31 @@ function SubmitTicket() {
     });
   };
 
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files || []);
+    setAttachments((prev) => [...prev, ...files]);
+    // Reset input so same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const removeAttachment = (index) => {
+    setAttachments((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const convertFileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (error) => reject(error);
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
+    showLoading();
     setErrorMessage(null);
     setSuccessMessage(null);
 
@@ -35,25 +60,38 @@ function SubmitTicket() {
       const token = localStorage.getItem("authToken");
       if (!token) {
         setErrorMessage("You must be logged in to submit a ticket.");
+        hideLoading();
         return;
       }
 
       const decoded = jwtDecode(token);
       const userId = decoded.id;
 
-      const { data, error } = await supabase
-        .from("Tickets")
-        .insert([
-          {
-            Summary: formData.summary,
-            Description: formData.description,
-            Type: formData.userType,
-            Department: formData.department,
-            Category: formData.category,
-            Site: formData.site,
-            created_by: userId,
-          },
-        ]);
+      // Convert attachments to base64
+      const attachmentData = [];
+      for (const file of attachments) {
+        const base64 = await convertFileToBase64(file);
+        attachmentData.push({
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          data: base64,
+        });
+      }
+
+      const { data, error } = await supabase.from("Tickets").insert([
+        {
+          Summary: formData.summary,
+          Description: formData.description,
+          Type: formData.userType,
+          Department: formData.department,
+          Category: formData.category,
+          Site: formData.site,
+          created_by: userId,
+          attachments:
+            attachmentData.length > 0 ? JSON.stringify(attachmentData) : null,
+        },
+      ]);
 
       if (error) {
         console.error("Error submitting ticket:", error);
@@ -73,12 +111,13 @@ function SubmitTicket() {
           summary: "",
           site: "",
         });
+        setAttachments([]);
       }
     } catch (err) {
       console.error("Unexpected error:", err);
       setErrorMessage("An unexpected error occurred");
     } finally {
-      setIsLoading(false);
+      hideLoading();
     }
   };
 
@@ -128,7 +167,7 @@ function SubmitTicket() {
             <textarea
               name="summary"
               placeholder=" "
-              value={formData.summary || ""}
+              value={formData.summary}
               onChange={handleChange}
               required
             ></textarea>
@@ -212,9 +251,18 @@ function SubmitTicket() {
             <label>Site (Required)</label>
           </div>
           <div className="button-group">
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              onChange={handleFileSelect}
+              style={{ display: "none" }}
+              accept="*/*"
+            />
             <button
               type="button"
               className="add-photo-btn"
+              onClick={() => fileInputRef.current?.click()}
               disabled={isLoading}
             >
               <Paperclip size={18} />
@@ -224,6 +272,56 @@ function SubmitTicket() {
               {isLoading ? "Submitting..." : "Submit"}
             </button>
           </div>
+
+          {attachments.length > 0 && (
+            <div
+              style={{
+                marginTop: "20px",
+                padding: "12px",
+                backgroundColor: "#f5f5f5",
+                borderRadius: "4px",
+              }}
+            >
+              <p style={{ margin: "0 0 12px 0", fontWeight: "bold" }}>
+                Attached Files ({attachments.length}):
+              </p>
+              <div
+                style={{ display: "flex", flexDirection: "column", gap: "8px" }}
+              >
+                {attachments.map((file, index) => (
+                  <div
+                    key={index}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "8px 12px",
+                      backgroundColor: "white",
+                      borderRadius: "4px",
+                      border: "1px solid #ddd",
+                    }}
+                  >
+                    <span style={{ fontSize: "14px" }}>
+                      {file.name} ({(file.size / 1024).toFixed(2)} KB)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeAttachment(index)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        color: "#d32f2f",
+                      }}
+                      aria-label="Remove file"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </form>
       </div>
     </div>
