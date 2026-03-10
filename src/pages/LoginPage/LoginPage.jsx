@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./LoginPage.css";
+import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
@@ -15,8 +16,9 @@ const LoginPage = () => {
     setIsLoading(true);
 
     try {
+      const API_BASE_URL = getApiBaseUrl();
       // Pipeline 1: Admin login
-      const adminRes = await fetch("http://localhost:5000/api/auth/admin-login", {
+      const adminRes = await fetch(`${API_BASE_URL}/api/auth/admin-login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -37,7 +39,7 @@ const LoginPage = () => {
       }
 
       // Pipeline 2: Normal user login
-      const userRes = await fetch("http://localhost:5000/api/auth/login", {
+      const userRes = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
