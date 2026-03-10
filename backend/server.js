@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import bodyParser from "body-parser";
 import dotenv from "dotenv";
-import { initializeDatabase } from "./config/database.js";
+import { initializeAdminUsers, initializeDatabase } from "./config/database.js";
 import authRoutes from "./routes/auth.js";
 import adminRoutes from "./routes/admin.js";
 
@@ -76,6 +76,7 @@ app.use((err, req, res, next) => {
 const start = async () => {
   try {
     await initializeDatabase();
+    await initializeAdminUsers();
     app.listen(PORT, "0.0.0.0", () => {
       console.log(`
 ╔════════════════════════════════════════╗

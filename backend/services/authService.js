@@ -160,6 +160,65 @@ export const loginUser = async (email, password) => {
 };
 
 /**
+ * Login admin
+ */
+export const loginAdmin = async (email, password) => {
+    try {
+        const { data: admins, error: findError } = await supabase
+            .from("admin_users")
+            .select("*")
+            .eq("email", email);
+
+        if (findError) {
+            console.error("Supabase query error (admin):", findError);
+            return { success: false, message: "Invalid email or password" };
+        }
+
+        if (!admins || admins.length === 0) {
+            return { success: false, message: "Invalid email or password" };
+        }
+
+        const admin = admins[0];
+
+        if (!admin.is_active) {
+            return { success: false, message: "Admin account is inactive" };
+        }
+
+        if (!admin.password_hash) {
+            console.error("Admin found but password_hash is missing");
+            return { success: false, message: "Invalid email or password" };
+        }
+
+        const isValidPassword = await comparePassword(password, admin.password_hash);
+
+        if (!isValidPassword) {
+            return { success: false, message: "Invalid email or password" };
+        }
+
+        const token = generateToken(admin.id, admin.email);
+
+        await supabase
+            .from("admin_users")
+            .update({ updated_at: new Date().toISOString() })
+            .eq("id", admin.id);
+
+        return {
+            success: true,
+            message: "Admin login successful",
+            user: {
+                id: admin.id,
+                email: admin.email,
+                full_name: admin.full_name,
+                role: "admin",
+            },
+            token: token,
+        };
+    } catch (error) {
+        return { success: false, message: error.message };
+    }
+};
+
+/**
  * Get user by ID
  */
 export const getUserById = async (userId) => {

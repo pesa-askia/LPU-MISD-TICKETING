@@ -2,6 +2,7 @@ import express from "express";
 import {
     registerUser,
     loginUser,
+    loginAdmin,
     getUserById,
     getAllUsers,
     updateUser,
@@ -76,6 +77,37 @@ router.post("/login", async (req, res) => {
         return res.status(500).json({
             success: false,
             message: "Login error",
+            error: error.message,
+        });
+    }
+});
+
+/**
+ * POST /api/auth/admin-login
+ * Login admin (separate pipeline from normal users)
+ */
+router.post("/admin-login", async (req, res) => {
+    try {
+        const { email, password } = req.body;
+
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false,
+                message: "Email and password are required",
+            });
+        }
+
+        const result = await loginAdmin(email, password);
+
+        if (!result.success) {
+            return res.status(401).json(result);
+        }
+
+        return res.status(200).json(result);
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Admin login error",
             error: error.message,
         });
     }
