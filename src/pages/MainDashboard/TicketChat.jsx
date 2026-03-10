@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import "./ticketchat.css";
-import { supabase } from "../../Supabaseclient";
+import { supabase } from "../../supabaseClient";
 import { useLoading } from "../../context/LoadingContext";
 import { Send, ArrowLeft, Download, Image as ImageIcon, X } from "lucide-react";
 

@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { Paperclip, X } from "lucide-react";
 import { jwtDecode } from "jwt-decode";
-import { supabase } from "../../Supabaseclient";
+import { supabase } from "../../supabaseClient";
 import { useLoading } from "../../context/LoadingContext";
 
 function SubmitTicket() {
