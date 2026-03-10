@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { Search } from "lucide-react";
 import { jwtDecode } from "jwt-decode";
-import { supabase } from "../../Supabaseclient";
+import { supabase } from "../../supabaseClient";
 import { useLoading } from "../../context/LoadingContext";
 
 function Tickets() {
