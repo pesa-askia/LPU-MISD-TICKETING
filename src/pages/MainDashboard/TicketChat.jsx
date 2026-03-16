@@ -30,7 +30,7 @@ function saveMessages(ticketId, msgs) {
   localStorage.setItem(`ticket_chat_${ticketId}`, JSON.stringify(msgs));
 }
 
-export default function TicketChat() {
+export default function TicketChat({ adminView = false } = {}) {
   const { id } = useParams();
   const navigate = useNavigate();
   const { showLoading, hideLoading } = useLoading();
@@ -60,13 +60,10 @@ export default function TicketChat() {
         const decoded = jwtDecode(token);
         const userId = decoded.id;
 
-        // Fetch ticket and verify ownership
-        const { data, error } = await supabase
-          .from("Tickets")
-          .select("*")
-          .eq("id", id)
-          .eq("created_by", userId)
-          .single();
+        // Fetch ticket (user: verify ownership; admin: can view any ticket)
+        let q = supabase.from("Tickets").select("*").eq("id", id);
+        if (!adminView) q = q.eq("created_by", userId);
+        const { data, error } = await q.single();
 
         if (error) {
           console.error("Error fetching ticket:", error);
@@ -94,7 +91,7 @@ export default function TicketChat() {
 
     fetchTicket();
     setMessages(loadMessages(id));
-  }, [id, showLoading, hideLoading]);
+  }, [id, adminView, showLoading, hideLoading]);
 
   useEffect(() => {
     if (scrollRef.current) {

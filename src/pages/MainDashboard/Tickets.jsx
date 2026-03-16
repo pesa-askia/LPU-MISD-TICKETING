@@ -5,10 +5,12 @@ import { Search } from "lucide-react";
 import { jwtDecode } from "jwt-decode";
 import { supabase } from "../../supabaseClient";
 import { useLoading } from "../../context/LoadingContext";
+import { useTicketsCache } from "../../context/TicketsCacheContext";
 
 function Tickets() {
   const navigate = useNavigate();
   const { showLoading, hideLoading } = useLoading();
+  const { userTickets, setUserTickets } = useTicketsCache();
   const [tickets, setTickets] = useState([]);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState("Open Tickets");
@@ -44,7 +46,9 @@ function Tickets() {
         console.error("Error fetching tickets:", error);
         setError(error.message || "Failed to load tickets");
       } else {
-        setTickets(data || []);
+        const next = data || [];
+        setTickets(next);
+        setUserTickets(next);
       }
     } catch (err) {
       console.error("Unexpected error:", err);
@@ -55,8 +59,20 @@ function Tickets() {
   };
 
   useEffect(() => {
+    // Use cached tickets (prevents refetch + loader flash when coming back from chat)
+    if (Array.isArray(userTickets)) {
+      setTickets(userTickets);
+      return;
+    }
     fetchTickets();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    // Keep cache in sync with latest list
+    setUserTickets(tickets);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tickets]);
 
   if (error) {
     return (

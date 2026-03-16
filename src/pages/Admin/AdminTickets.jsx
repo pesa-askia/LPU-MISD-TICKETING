@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { Search, ChevronDown, LogOut, Moon } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import { useLoading } from "../../context/LoadingContext";
+import { useTicketsCache } from "../../context/TicketsCacheContext";
 import "./AdminTickets.css";
+import lpuLogo from "../../assets/lpul-logo.png";
 
 function getStatusValue(ticket) {
   return (
@@ -21,7 +23,9 @@ function isClosed(ticket) {
 }
 
 export default function AdminTickets() {
+  const navigate = useNavigate();
   const { showLoading, hideLoading } = useLoading();
+  const { adminTickets, setAdminTickets } = useTicketsCache();
   const [tickets, setTickets] = useState([]);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("Open Tickets");
@@ -70,7 +74,9 @@ export default function AdminTickets() {
         return;
       }
 
-      setTickets(data || []);
+      const next = data || [];
+      setTickets(next);
+      setAdminTickets(next);
     } catch (e) {
       setError(e?.message || "Failed to load tickets");
     } finally {
@@ -80,6 +86,13 @@ export default function AdminTickets() {
 
   useEffect(() => {
     if (!isLoggedIn || !isAdmin) return;
+
+    // Use cached tickets (prevents refetch + loader flash when coming back from chat)
+    if (Array.isArray(adminTickets)) {
+      setTickets(adminTickets);
+      return;
+    }
+
     fetchTickets();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -127,7 +140,9 @@ export default function AdminTickets() {
   return (
     <div className="admin-page">
       <header className="admin-topbar">
-        <div className="admin-spacer" />
+        <div className="admin-brand" aria-label="LPU MISD Ticketing">
+          <img src={lpuLogo} alt="LPU Logo" className="admin-brand-logo" />
+        </div>
 
         <div className="admin-actions">
           <div className="admin-search">
@@ -204,7 +219,19 @@ export default function AdminTickets() {
                   </tr>
                 ) : (
                   filtered.map((t) => (
-                    <tr key={t.id}>
+                    <tr
+                      key={t.id}
+                      className="admin-clickable-row"
+                      onClick={() => navigate(`/admin/tickets/${t.id}`)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          navigate(`/admin/tickets/${t.id}`);
+                        }
+                      }}
+                    >
                       <td>No. {t.id}</td>
                       <td>{t.Summary || "-"}</td>
                       <td className="admin-clamp">{t.Description || "-"}</td>

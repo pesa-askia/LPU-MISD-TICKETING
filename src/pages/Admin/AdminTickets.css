@@ -1,6 +1,6 @@
 .admin-page {
   padding: 24px 28px 40px;
-  max-width: 1200px;
+  max-width: 1320px;
   margin: 0 auto;
 }
 
@@ -9,6 +9,21 @@
   align-items: center;
   justify-content: space-between;
   padding-top: 6px;
+  gap: 18px;
+}
+
+.admin-brand {
+  display: flex;
+  align-items: center;
+  min-height: 72px;
+  padding: 6px 0;
+}
+
+.admin-brand-logo {
+  height: 72px;
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 18px rgba(17, 17, 17, 0.08));
 }
 
 .admin-actions {
@@ -22,20 +37,26 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  border: 1px solid #cfcfcf;
-  border-radius: 10px;
-  padding: 8px 12px;
-  width: 260px;
-  background: #fff;
+  border: 1px solid rgba(17, 17, 17, 0.12);
+  border-radius: 12px;
+  padding: 12px 14px;
+  width: 360px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 1px 0 rgba(17, 17, 17, 0.02);
 }
 
 .admin-search input {
   border: none;
   outline: none;
   width: 100%;
-  font-size: 12px;
+  font-size: 13px;
   background: transparent;
   color: inherit;
+}
+
+.admin-search:focus-within {
+  border-color: rgba(6, 99, 238, 0.45);
+  box-shadow: 0 0 0 4px rgba(6, 99, 238, 0.12);
 }
 
 .admin-menu {
@@ -96,17 +117,25 @@
 }
 
 .admin-filter select {
-  border: none;
-  background: transparent;
-  font-size: 12px;
-  font-weight: 500;
+  appearance: none;
+  border: 1px solid rgba(17, 17, 17, 0.12);
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 999px;
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
   color: inherit;
+  box-shadow: 0 1px 0 rgba(17, 17, 17, 0.02);
 }
 
 .admin-table-wrap {
-  border-top: 1px solid #dedede;
   margin-top: 12px;
+  border: 1px solid rgba(17, 17, 17, 0.10);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 10px 30px rgba(17, 17, 17, 0.06);
+  overflow: hidden;
 }
 
 .admin-table {
@@ -116,17 +145,37 @@
 
 .admin-table thead th {
   text-align: left;
-  font-size: 11px;
-  color: #6a6a6a;
+  font-size: 12px;
+  color: rgba(17, 17, 17, 0.60);
   font-weight: 600;
-  padding: 12px 10px;
+  padding: 14px 16px;
+  background: rgba(246, 247, 251, 0.9);
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .admin-table tbody td {
-  padding: 12px 10px;
-  border-top: 1px solid #ededed;
-  font-size: 12px;
+  padding: 14px 16px;
+  border-top: 1px solid rgba(17, 17, 17, 0.08);
+  font-size: 13px;
   vertical-align: top;
+}
+
+.admin-table tbody tr:nth-child(even) td {
+  background: rgba(246, 247, 251, 0.5);
+}
+
+.admin-clickable-row {
+  cursor: pointer;
+}
+
+.admin-clickable-row:hover {
+  background: rgba(6, 99, 238, 0.06);
+}
+
+.admin-shell.admin-dark .admin-clickable-row:hover {
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .admin-clamp {
@@ -152,6 +201,10 @@
 }
 
 /* Dark mode */
+.admin-shell.admin-dark .admin-brand-logo {
+  filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.35));
+}
+
 .admin-shell.admin-dark .admin-search {
   background: #141416;
   border-color: #2b2b2f;
@@ -171,7 +224,9 @@
 }
 
 .admin-shell.admin-dark .admin-table-wrap {
-  border-top-color: #2b2b2f;
+  background: #141416;
+  border-color: #2b2b2f;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
 }
 
 .admin-shell.admin-dark .admin-table tbody td {
@@ -179,7 +234,12 @@
 }
 
 .admin-shell.admin-dark .admin-table thead th {
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(20, 20, 22, 0.92);
+}
+
+.admin-shell.admin-dark .admin-table tbody tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.03);
 }
 
 @media (max-width: 900px) {
@@ -187,8 +247,16 @@
     padding: 18px 14px 30px;
   }
 
+  .admin-brand {
+    min-height: 56px;
+  }
+
+  .admin-brand-logo {
+    height: 56px;
+  }
+
   .admin-search {
-    width: 200px;
+    width: 260px;
   }
 
   .admin-table thead {

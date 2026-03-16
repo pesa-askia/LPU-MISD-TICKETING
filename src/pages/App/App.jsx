@@ -6,6 +6,7 @@ import SubmitTicket from "../MainDashboard/SubmitTicket";
 import DashboardLayout from "../../layouts/DashboardLayout";
 import AdminLayout from "../../layouts/AdminLayout";
 import AdminTickets from "../Admin/AdminTickets";
+import AdminTicketChat from "../Admin/AdminTicketChat";
 import LoadingScreen from "../../components/LoadingScreen";
 import { useLoading } from "../../context/LoadingContext";
 
@@ -37,6 +38,7 @@ function App() {
           }
         >
           <Route path="/admin/tickets" element={<AdminTickets />} />
+          <Route path="/admin/tickets/:id" element={<AdminTicketChat />} />
         </Route>
 
         <Route

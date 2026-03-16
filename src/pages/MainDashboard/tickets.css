@@ -139,7 +139,7 @@ select {
   font-size: 0.95em;
 }
 
-.lucide-search {
+.search-box .lucide-search {
   position: absolute;
   left: 20px;
   top: 50%;

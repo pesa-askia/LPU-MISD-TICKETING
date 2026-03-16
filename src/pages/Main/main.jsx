@@ -5,12 +5,15 @@ import "../MainDashboard/submitticket.css";
 import App from "../App/App";
 import { BrowserRouter } from "react-router-dom";
 import { LoadingProvider } from "../../context/LoadingContext";
+import { TicketsCacheProvider } from "../../context/TicketsCacheContext";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <BrowserRouter>
       <LoadingProvider>
-        <App />
+        <TicketsCacheProvider>
+          <App />
+        </TicketsCacheProvider>
       </LoadingProvider>
     </BrowserRouter>
   </StrictMode>,
