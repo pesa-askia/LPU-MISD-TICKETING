@@ -6,11 +6,13 @@ import { supabase } from "../../supabaseClient";
 import { useLoading } from "../../context/LoadingContext";
 import { Send, ArrowLeft, Download, Image as ImageIcon, X } from "lucide-react";
 import { realtimeSupabase } from "../../realtimeSupabaseClient";
+import { useTicketsCache } from "../../context/TicketsCacheContext";
 
 export default function TicketChat({ adminView = false } = {}) {
   const { id } = useParams();
   const navigate = useNavigate();
   const { showLoading, hideLoading } = useLoading();
+  const { getTicket, setTicket: cacheTicket } = useTicketsCache();
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [ticket, setTicket] = useState(null);
@@ -26,8 +28,14 @@ export default function TicketChat({ adminView = false } = {}) {
   useEffect(() => {
     const fetchTicket = async () => {
       try {
-        showLoading();
         setError(null);
+
+        const cached = getTicket(id);
+        if (cached) {
+          setTicket(cached);
+        } else {
+          showLoading();
+        }
 
         // Get user ID from JWT token
         const token = localStorage.getItem("authToken");
@@ -62,6 +70,7 @@ export default function TicketChat({ adminView = false } = {}) {
           );
         } else {
           setTicket(data);
+          cacheTicket(id, data);
         }
       } catch (err) {
         console.error("Unexpected error:", err);
@@ -72,7 +81,7 @@ export default function TicketChat({ adminView = false } = {}) {
     };
 
     fetchTicket();
-  }, [id, adminView, showLoading, hideLoading]);
+  }, [id, adminView, getTicket, cacheTicket, showLoading, hideLoading]);
 
   // Load existing messages + subscribe to realtime updates
   useEffect(() => {
@@ -83,18 +92,24 @@ export default function TicketChat({ adminView = false } = {}) {
 
     const loadMessages = async () => {
       try {
-        const { data, error } = await supabase
+        console.log("[Chat] Loading messages from Supabase for ticket", ticketId);
+
+        const res = await realtimeSupabase
           .from("ticket_messages")
           .select("*")
           .eq("ticket_id", ticketId)
           .order("created_at", { ascending: true });
 
-        if (error) {
-          console.error("Error loading messages:", error);
+        if (res.error) {
+          console.error("[Chat] Error loading messages:", res.error);
           return;
         }
 
+        const data = res.data;
+
         if (isCancelled) return;
+
+        console.log("[Chat] Loaded messages from Supabase:", data);
 
         const mapped = (data || []).map((row) => {
           seenMessageIdsRef.current.add(row.id);
@@ -129,16 +144,20 @@ export default function TicketChat({ adminView = false } = {}) {
           const row = payload.new;
           if (!row || seenMessageIdsRef.current.has(row.id)) return;
           seenMessageIdsRef.current.add(row.id);
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: row.id,
-              senderId: row.sender_id,
-              senderRole: row.sender_role,
-              text: row.message_text,
-              time: row.created_at,
-            },
-          ]);
+          setMessages((prev) => {
+            const next = [
+              ...prev,
+              {
+                id: row.id,
+                senderId: row.sender_id,
+                senderRole: row.sender_role,
+                text: row.message_text,
+                time: row.created_at,
+              },
+            ];
+            cacheMessages(ticketId, next);
+            return next;
+          });
         },
       )
       .subscribe((status) => {
@@ -187,10 +206,11 @@ export default function TicketChat({ adminView = false } = {}) {
       pending: true,
     };
 
+    console.log("[Chat] Adding optimistic message", optimisticMessage);
     setMessages((prev) => [...prev, optimisticMessage]);
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await realtimeSupabase
         .from("ticket_messages")
         .insert([
           {
@@ -199,7 +219,8 @@ export default function TicketChat({ adminView = false } = {}) {
             sender_role: adminView ? "admin" : "user",
             message_text: trimmed,
           },
-        ]);
+        ])
+        .select("*");
 
       if (error) {
         console.error("Error sending message:", error);
@@ -212,6 +233,7 @@ export default function TicketChat({ adminView = false } = {}) {
       }
 
       if (data && data[0]) {
+        console.log("[Chat] Insert confirmed from Supabase:", data[0]);
         const row = data[0];
         if (!seenMessageIdsRef.current.has(row.id)) {
           seenMessageIdsRef.current.add(row.id);
