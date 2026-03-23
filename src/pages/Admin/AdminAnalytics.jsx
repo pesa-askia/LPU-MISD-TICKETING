@@ -66,7 +66,8 @@ function buildLinePath(series, xFor, yFor) {
 function DepartmentLineChart({ chartData }) {
   const width = 740;
   const height = 360;
-  const pad = { top: 24, right: 24, bottom: 56, left: 56 };
+  // Give extra room at the bottom so department labels don't collide with the legend.
+  const pad = { top: 24, right: 24, bottom: 74, left: 56 };
   const plotW = width - pad.left - pad.right;
   const plotH = height - pad.top - pad.bottom;
 
@@ -77,36 +78,100 @@ function DepartmentLineChart({ chartData }) {
   const yFor = (v) => pad.top + plotH - (v / yMax) * plotH;
   const yTicks = [0, 1, 2, 3, 4, 5].map((t) => Math.round((yMax * t) / 5));
 
+  const palette = [
+    "#2f69ff",
+    "#67cad8",
+    "#e3b418",
+    "#8a2be2",
+    "#00a86b",
+    "#ff4d6d",
+  ];
+  const colorFor = (idx) => palette[idx % palette.length];
+
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="analytics-line-svg" role="img" aria-label="Department ticket trend">
-      {[...new Set(yTicks)].map((tick) => (
-        <g key={tick}>
-          <line x1={pad.left} y1={yFor(tick)} x2={width - pad.right} y2={yFor(tick)} className="grid-line" />
-          <text x={pad.left - 8} y={yFor(tick) + 4} textAnchor="end" className="axis-label y-axis-label">
-            {tick}
-          </text>
-        </g>
-      ))}
+    <div className="dept-chart-wrap">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="analytics-line-svg"
+        role="img"
+        aria-label="Department ticket trend"
+      >
+        {[...new Set(yTicks)].map((tick) => (
+          <g key={tick}>
+            <line
+              x1={pad.left}
+              y1={yFor(tick)}
+              x2={width - pad.right}
+              y2={yFor(tick)}
+              className="grid-line"
+            />
+            <text
+              x={pad.left - 8}
+              y={yFor(tick) + 4}
+              textAnchor="end"
+              className="axis-label y-axis-label"
+            >
+              {tick}
+            </text>
+          </g>
+        ))}
 
-      {departments.map((dept, idx) => (
-        <text
-          key={dept}
-          x={xFor(idx + 1)}
-          y={height - 14}
-          textAnchor={idx === 0 ? "start" : idx === departments.length - 1 ? "end" : "middle"}
-          className="axis-label x-axis-label"
-        >
-          {dept}
-        </text>
-      ))}
+        {departments.map((dept, idx) => {
+          const color = colorFor(idx);
+          return (
+            <text
+              key={dept}
+              x={xFor(idx + 1)}
+              y={height - 28}
+              textAnchor={
+                idx === 0
+                  ? "start"
+                  : idx === departments.length - 1
+                    ? "end"
+                    : "middle"
+              }
+              className="axis-label x-axis-label"
+              fill={color}
+            >
+              {dept}
+            </text>
+          );
+        })}
 
-      <path d={buildLinePath(seriesAll, xFor, yFor)} className="line-path line-blue" />
-      <path d={buildLinePath(seriesOpen, xFor, yFor)} className="line-path line-cyan" />
-      <path d={buildLinePath(seriesClosed, xFor, yFor)} className="line-path line-yellow" />
+        <path d={buildLinePath(seriesAll, xFor, yFor)} className="line-path line-blue" />
+        <path d={buildLinePath(seriesOpen, xFor, yFor)} className="line-path line-cyan" />
+        <path d={buildLinePath(seriesClosed, xFor, yFor)} className="line-path line-yellow" />
 
-      <line x1={pad.left} y1={height - pad.bottom} x2={width - pad.right} y2={height - pad.bottom} className="axis-line" />
-      <line x1={pad.left} y1={pad.top} x2={pad.left} y2={height - pad.bottom} className="axis-line" />
-    </svg>
+        <line
+          x1={pad.left}
+          y1={height - pad.bottom}
+          x2={width - pad.right}
+          y2={height - pad.bottom}
+          className="axis-line"
+        />
+        <line
+          x1={pad.left}
+          y1={pad.top}
+          x2={pad.left}
+          y2={height - pad.bottom}
+          className="axis-line"
+        />
+      </svg>
+
+      <div className="dept-legend" aria-label="Department legend">
+        {departments.map((dept, idx) => {
+          const color = colorFor(idx);
+          return (
+            <div key={dept} className="dept-legend-item">
+              <span className="dept-legend-dot" style={{ backgroundColor: color }} />
+              <span className="dept-legend-label" style={{ color }}>
+                {dept}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -124,6 +189,38 @@ export default function AdminAnalytics() {
   const [darkMode, setDarkMode] = useState(
     localStorage.getItem("adminDarkMode") === "true",
   );
+
+  // Date range filter: filters by `created_at` between "fromDate" and "toDate" (inclusive).
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+
+  const toYMDLocal = (value) => {
+    if (!value) return "";
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return "";
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
+
+  const visibleTickets = useMemo(() => {
+    if (!fromDate && !toDate) return tickets;
+    return tickets.filter((t) => {
+      const ymd = toYMDLocal(t.created_at);
+      if (!ymd) return false;
+      if (fromDate && ymd < fromDate) return false;
+      if (toDate && ymd > toDate) return false;
+      return true;
+    });
+  }, [tickets, fromDate, toDate]);
+
+  const formatFilterDate = (ymd) => {
+    if (!ymd) return "";
+    const [y, m, d] = ymd.split("-");
+    if (!y || !m || !d) return "";
+    return `${m}/${d}/${y.slice(-2)}`;
+  };
 
   useEffect(() => {
     const root = document.querySelector(".admin-shell");
@@ -168,12 +265,28 @@ export default function AdminAnalytics() {
     if (isLoggedIn && isAdmin) fetchTickets();
   }, [hideLoading, isAdmin, isLoggedIn, showLoading]);
 
+  const handleDatePillClick = (e) => {
+    const pill = e.currentTarget;
+    const input = pill.querySelector('input[type="date"]');
+    if (!input) return;
+    // Prefer native picker if supported.
+    if (typeof input.showPicker === "function") {
+      input.showPicker();
+      input.focus();
+      return;
+    }
+    input.focus();
+    input.click();
+  };
+
   const { closedCount, openCount, lineChartData } = useMemo(() => {
-    const closed = tickets.filter((t) => isClosed(t)).length;
-    const open = tickets.length - closed;
+    const closed = visibleTickets.filter((t) => isClosed(t)).length;
+    const open = visibleTickets.length - closed;
 
     const fixedOrder = ["CAS", "CBA", "CITHM", "COECS", "LPU-SC", "Highschool"];
-    const inData = [...new Set(tickets.map((t) => (t.Department || "").trim()).filter(Boolean))];
+    const inData = [...new Set(
+      visibleTickets.map((t) => (t.Department || "").trim()).filter(Boolean),
+    )];
     const departments = [...new Set([...fixedOrder, ...inData])];
 
     const countByDepartment = (list) => {
@@ -185,9 +298,9 @@ export default function AdminAnalytics() {
       return departments.map((dept, i) => ({ x: i + 1, y: map.get(dept) || 0 }));
     };
 
-    const openTickets = tickets.filter((t) => !isClosed(t));
-    const closedTickets = tickets.filter((t) => isClosed(t));
-    const allCounts = countByDepartment(tickets);
+    const openTickets = visibleTickets.filter((t) => !isClosed(t));
+    const closedTickets = visibleTickets.filter((t) => isClosed(t));
+    const allCounts = countByDepartment(visibleTickets);
     const openCounts = countByDepartment(openTickets);
     const closedCounts = countByDepartment(closedTickets);
     const maxY = Math.max(
@@ -209,7 +322,7 @@ export default function AdminAnalytics() {
         seriesClosed: [{ x: 0, y: 0 }, ...closedCounts],
       },
     };
-  }, [tickets]);
+  }, [visibleTickets]);
 
   const onExportCsv = () => {
     const headers = [
@@ -224,7 +337,7 @@ export default function AdminAnalytics() {
       "created_at",
       "closed_at",
     ];
-    const rows = tickets.map((t) => [
+    const rows = visibleTickets.map((t) => [
       t.id,
       t.Summary,
       t.Description,
@@ -328,27 +441,66 @@ export default function AdminAnalytics() {
         {error ? (
           <div className="admin-error">{error}</div>
         ) : (
+          <div className="analytics-range-wrapper">
+            <div className="analytics-date-range">
+            <div
+              className="fake-date-input date-pill analytics-date-pill"
+              role="button"
+              tabIndex={0}
+              aria-label="Filter by from date"
+              onClick={handleDatePillClick}
+              onKeyDown={(e) =>
+                e.key === "Enter" && handleDatePillClick({ currentTarget: e.currentTarget })
+              }
+            >
+              <span className="date-pill-text">
+                {fromDate ? `From ${formatFilterDate(fromDate)}` : "From MM/DD/YY"}
+              </span>
+              <Calendar size={12} />
+              <input
+                type="date"
+                className="date-pill-input"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+              />
+            </div>
+
+            <div
+              className="fake-date-input date-pill analytics-date-pill"
+              role="button"
+              tabIndex={0}
+              aria-label="Filter by to date"
+              onClick={handleDatePillClick}
+              onKeyDown={(e) =>
+                e.key === "Enter" && handleDatePillClick({ currentTarget: e.currentTarget })
+              }
+            >
+              <span className="date-pill-text">
+                {toDate ? `To ${formatFilterDate(toDate)}` : "To MM/DD/YY"}
+              </span>
+              <Calendar size={12} />
+              <input
+                type="date"
+                className="date-pill-input"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+              />
+            </div>
+          </div>
           <div className="analytics-grid">
             <article className="analytics-card">
               <div className="analytics-card-head">
                 <h3>Total Tickets</h3>
-                <button type="button" className="fake-date-input" aria-label="Date filter">
-                  MM/DD/YY
-                  <Calendar size={12} />
-                </button>
               </div>
               <PieChart closedCount={closedCount} openCount={openCount} />
             </article>
             <article className="analytics-card">
               <div className="analytics-card-head">
                 <h3>Tickets by Department</h3>
-                <button type="button" className="fake-date-input" aria-label="Date filter">
-                  MM/DD/YY
-                  <Calendar size={12} />
-                </button>
               </div>
               <DepartmentLineChart chartData={lineChartData} />
             </article>
+          </div>
           </div>
         )}
       </section>

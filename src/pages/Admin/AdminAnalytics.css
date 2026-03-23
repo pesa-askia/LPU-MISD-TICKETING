@@ -37,7 +37,7 @@
   color: #fff;
   font-size: 36px;
   font-size: 34px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.01em;
 }
 
@@ -87,7 +87,7 @@
 .analytics-title {
   margin: 0 0 18px;
   font-size: 64px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.01em;
   text-transform: uppercase;
   line-height: 1.05;
@@ -97,6 +97,18 @@
   display: grid;
   grid-template-columns: 1fr 1.7fr;
   gap: 22px;
+}
+
+.analytics-date-range {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: flex-end;
+  margin: 10px 0 18px;
+}
+
+.analytics-date-pill {
+  min-width: 170px;
 }
 
 .analytics-card {
@@ -117,7 +129,7 @@
 .analytics-card h3 {
   margin: 0;
   font-size: 22px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.005em;
 }
 
@@ -149,6 +161,32 @@
   justify-content: space-between;
 }
 
+.date-pill {
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+}
+
+.date-pill-text {
+  flex: 1;
+  position: relative;
+  z-index: 1;
+}
+
+.date-pill-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0.001;
+  cursor: pointer;
+  pointer-events: auto;
+  z-index: 2;
+  background: transparent;
+}
+
+.analytics-date-pill .date-pill-input {
+  z-index: 3;
+}
+
 .analytics-pie-wrap {
   display: flex;
   flex-direction: column;
@@ -173,7 +211,7 @@
   display: grid;
   place-items: center;
   font-size: 58px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .analytics-legend {
@@ -181,7 +219,7 @@
   display: flex;
   justify-content: space-between;
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 500;
   padding: 0 36px;
 }
 
@@ -205,6 +243,35 @@
   width: 100%;
   height: auto;
   overflow: hidden;
+}
+
+.dept-chart-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dept-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  justify-content: center;
+  padding: 0 6px;
+  margin-top: 4px;
+}
+
+.dept-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.dept-legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
 }
 
 .grid-line {
@@ -237,11 +304,11 @@
 .axis-label {
   font-size: 11px;
   fill: #565f6b;
-  font-weight: 500;
+  font-weight: 450;
 }
 
 .x-axis-label {
-  font-size: 10px;
+  font-size: 9px;
 }
 
 .y-axis-label {
