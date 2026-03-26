@@ -41,9 +41,8 @@ function PieChart({ closedCount, openCount }) {
       <div
         className="analytics-pie"
         style={{
-          background: `conic-gradient(#336be3 0deg ${closedAngle}deg, #e6bc23 ${closedAngle}deg ${
-            closedAngle + openAngle
-          }deg)`,
+          background: `conic-gradient(#336be3 0deg ${closedAngle}deg, #e6bc23 ${closedAngle}deg ${closedAngle + openAngle
+            }deg)`,
         }}
       >
         <div className="analytics-pie-inner">{closedCount + openCount}</div>
@@ -56,124 +55,72 @@ function PieChart({ closedCount, openCount }) {
   );
 }
 
-function buildLinePath(series, xFor, yFor) {
-  if (!series.length) return "";
-  return series
-    .map((point, i) => `${i === 0 ? "M" : "L"} ${xFor(point.x)} ${yFor(point.y)}`)
-    .join(" ");
-}
-
-function DepartmentLineChart({ chartData }) {
-  const width = 740;
-  const height = 360;
-  // Give extra room at the bottom so department labels don't collide with the legend.
-  const pad = { top: 24, right: 24, bottom: 74, left: 56 };
-  const plotW = width - pad.left - pad.right;
-  const plotH = height - pad.top - pad.bottom;
-
-  const { departments, maxY, seriesAll, seriesOpen, seriesClosed } = chartData;
-  const xMax = Math.max(1, departments.length);
-  const yMax = Math.max(1, maxY);
-  const xFor = (v) => pad.left + (v / xMax) * plotW;
-  const yFor = (v) => pad.top + plotH - (v / yMax) * plotH;
-  const yTicks = [0, 1, 2, 3, 4, 5].map((t) => Math.round((yMax * t) / 5));
-
-  const palette = [
-    "#2f69ff",
-    "#67cad8",
-    "#e3b418",
-    "#8a2be2",
-    "#00a86b",
-    "#ff4d6d",
-  ];
-  const colorFor = (idx) => palette[idx % palette.length];
+function DepartmentBarChart({ chartData }) {
+  const { stats = [], maxTotal = 1 } = chartData || {};
 
   return (
-    <div className="dept-chart-wrap">
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        className="analytics-line-svg"
-        role="img"
-        aria-label="Department ticket trend"
-      >
-        {[...new Set(yTicks)].map((tick) => (
-          <g key={tick}>
-            <line
-              x1={pad.left}
-              y1={yFor(tick)}
-              x2={width - pad.right}
-              y2={yFor(tick)}
-              className="grid-line"
-            />
-            <text
-              x={pad.left - 8}
-              y={yFor(tick) + 4}
-              textAnchor="end"
-              className="axis-label y-axis-label"
-            >
-              {tick}
-            </text>
-          </g>
-        ))}
+    <div className="dept-chart-wrap dept-barchart-wrap" aria-label="Tickets by department bar chart">
+      <div className="dept-barchart-grid">
+        {stats.map((item) => {
+          const isEmpty = item.total === 0;
+          // If empty, show a small grey bar as visual placeholder.
+          // Otherwise, calculate relative heights based on maxTotal.
+          const closedHeight = isEmpty ? 0 : (item.closed / maxTotal) * 100;
+          const openHeight = isEmpty ? 0 : (item.open / maxTotal) * 100;
 
-        {departments.map((dept, idx) => {
-          const color = colorFor(idx);
           return (
-            <text
-              key={dept}
-              x={xFor(idx + 1)}
-              y={height - 28}
-              textAnchor={
-                idx === 0
-                  ? "start"
-                  : idx === departments.length - 1
-                    ? "end"
-                    : "middle"
-              }
-              className="axis-label x-axis-label"
-              fill={color}
-            >
-              {dept}
-            </text>
-          );
-        })}
-
-        <path d={buildLinePath(seriesAll, xFor, yFor)} className="line-path line-blue" />
-        <path d={buildLinePath(seriesOpen, xFor, yFor)} className="line-path line-cyan" />
-        <path d={buildLinePath(seriesClosed, xFor, yFor)} className="line-path line-yellow" />
-
-        <line
-          x1={pad.left}
-          y1={height - pad.bottom}
-          x2={width - pad.right}
-          y2={height - pad.bottom}
-          className="axis-line"
-        />
-        <line
-          x1={pad.left}
-          y1={pad.top}
-          x2={pad.left}
-          y2={height - pad.bottom}
-          className="axis-line"
-        />
-      </svg>
-
-      <div className="dept-legend" aria-label="Department legend">
-        {departments.map((dept, idx) => {
-          const color = colorFor(idx);
-          return (
-            <div key={dept} className="dept-legend-item">
-              <span className="dept-legend-dot" style={{ backgroundColor: color }} />
-              <span className="dept-legend-label" style={{ color }}>
-                {dept}
-              </span>
+            <div key={item.department} className="dept-bar-item">
+              <div
+                className={`dept-bar-stack ${isEmpty ? "dept-bar-empty" : ""}`}
+                role="img"
+                aria-label={`${item.department}: ${item.total} total, ${item.open} open, ${item.closed} closed`}
+              >
+                {!isEmpty ? (
+                  <>
+                    <div
+                      className="dept-bar-segment dept-bar-closed"
+                      style={{ height: `${closedHeight}%` }}
+                      title={`Closed: ${item.closed}`}
+                    />
+                    <div
+                      className="dept-bar-segment dept-bar-open"
+                      style={{ height: `${openHeight}%` }}
+                      title={`Open: ${item.open}`}
+                    />
+                  </>
+                ) : (
+                  <div className="dept-bar-placeholder" title="No tickets" />
+                )}
+              </div>
+              <div className="dept-bar-values">
+                <span className="dept-bar-total">{item.total}</span>
+                {!isEmpty && (
+                  <div className="dept-bar-details">
+                    <span className="count-c">{item.closed}</span>
+                    <span className="count-o">{item.open}</span>
+                  </div>
+                )}
+              </div>
+              <div className="dept-bar-label">{item.department}</div>
             </div>
           );
         })}
       </div>
+      <div className="dept-legend">
+        <div className="dept-legend-item">
+          <span className="dept-legend-dot closed" />
+          <span>Closed</span>
+        </div>
+        <div className="dept-legend-item">
+          <span className="dept-legend-dot open" />
+          <span>Open</span>
+        </div>
+      </div>
     </div>
   );
 }
+
+const ALL_DEPARTMENTS = ["CAS", "CBA", "CITHM", "COECS", "LPU-SC", "Highschool"];
 
 export default function AdminAnalytics() {
   const { showLoading, hideLoading } = useLoading();
@@ -279,47 +226,43 @@ export default function AdminAnalytics() {
     input.click();
   };
 
-  const { closedCount, openCount, lineChartData } = useMemo(() => {
+  const { closedCount, openCount, departmentChartData } = useMemo(() => {
     const closed = visibleTickets.filter((t) => isClosed(t)).length;
     const open = visibleTickets.length - closed;
 
-    const fixedOrder = ["CAS", "CBA", "CITHM", "COECS", "LPU-SC", "Highschool"];
-    const inData = [...new Set(
-      visibleTickets.map((t) => (t.Department || "").trim()).filter(Boolean),
-    )];
-    const departments = [...new Set([...fixedOrder, ...inData])];
+    // 1. Initialize stats map with ALL_DEPARTMENTS at 0
+    const statsMap = new Map();
+    ALL_DEPARTMENTS.forEach((dept) => {
+      statsMap.set(dept, { department: dept, total: 0, open: 0, closed: 0 });
+    });
 
-    const countByDepartment = (list) => {
-      const map = new Map(departments.map((d) => [d, 0]));
-      list.forEach((t) => {
-        const key = (t.Department || "Highschool").trim() || "Highschool";
-        map.set(key, (map.get(key) || 0) + 1);
-      });
-      return departments.map((dept, i) => ({ x: i + 1, y: map.get(dept) || 0 }));
-    };
+    // 2. Fill in the data from visibleTickets
+    visibleTickets.forEach((ticket) => {
+      const dept = (ticket?.Department || "").trim();
+      if (!dept) return; // ignore missing/empty department
 
-    const openTickets = visibleTickets.filter((t) => !isClosed(t));
-    const closedTickets = visibleTickets.filter((t) => isClosed(t));
-    const allCounts = countByDepartment(visibleTickets);
-    const openCounts = countByDepartment(openTickets);
-    const closedCounts = countByDepartment(closedTickets);
-    const maxY = Math.max(
-      1,
-      ...allCounts.map((p) => p.y),
-      ...openCounts.map((p) => p.y),
-      ...closedCounts.map((p) => p.y),
-    );
+      // Only count if it's one of our fixed departments
+      if (statsMap.has(dept)) {
+        const stat = statsMap.get(dept);
+        stat.total += 1;
+        if (isClosed(ticket)) {
+          stat.closed += 1;
+        } else {
+          stat.open += 1;
+        }
+      }
+    });
+
+    // 3. Keep original ALL_DEPARTMENTS order (no dynamic sorting)
+    const stats = ALL_DEPARTMENTS.map((dept) => statsMap.get(dept));
+    const maxTotal = Math.max(1, ...stats.map((item) => item.total));
 
     return {
       closedCount: closed,
       openCount: open,
-      lineChartData: {
-        departments,
-        maxY,
-        // Force start at zero for all lines, then plot per-department ticket counts.
-        seriesAll: [{ x: 0, y: 0 }, ...allCounts],
-        seriesOpen: [{ x: 0, y: 0 }, ...openCounts],
-        seriesClosed: [{ x: 0, y: 0 }, ...closedCounts],
+      departmentChartData: {
+        stats,
+        maxTotal,
       },
     };
   }, [visibleTickets]);
@@ -443,64 +386,64 @@ export default function AdminAnalytics() {
         ) : (
           <div className="analytics-range-wrapper">
             <div className="analytics-date-range">
-            <div
-              className="fake-date-input date-pill analytics-date-pill"
-              role="button"
-              tabIndex={0}
-              aria-label="Filter by from date"
-              onClick={handleDatePillClick}
-              onKeyDown={(e) =>
-                e.key === "Enter" && handleDatePillClick({ currentTarget: e.currentTarget })
-              }
-            >
-              <span className="date-pill-text">
-                {fromDate ? `From ${formatFilterDate(fromDate)}` : "From MM/DD/YY"}
-              </span>
-              <Calendar size={12} />
-              <input
-                type="date"
-                className="date-pill-input"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-              />
-            </div>
+              <div
+                className="fake-date-input date-pill analytics-date-pill"
+                role="button"
+                tabIndex={0}
+                aria-label="Filter by from date"
+                onClick={handleDatePillClick}
+                onKeyDown={(e) =>
+                  e.key === "Enter" && handleDatePillClick({ currentTarget: e.currentTarget })
+                }
+              >
+                <span className="date-pill-text">
+                  {fromDate ? `From ${formatFilterDate(fromDate)}` : "From MM/DD/YY"}
+                </span>
+                <Calendar size={12} />
+                <input
+                  type="date"
+                  className="date-pill-input"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                />
+              </div>
 
-            <div
-              className="fake-date-input date-pill analytics-date-pill"
-              role="button"
-              tabIndex={0}
-              aria-label="Filter by to date"
-              onClick={handleDatePillClick}
-              onKeyDown={(e) =>
-                e.key === "Enter" && handleDatePillClick({ currentTarget: e.currentTarget })
-              }
-            >
-              <span className="date-pill-text">
-                {toDate ? `To ${formatFilterDate(toDate)}` : "To MM/DD/YY"}
-              </span>
-              <Calendar size={12} />
-              <input
-                type="date"
-                className="date-pill-input"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-              />
+              <div
+                className="fake-date-input date-pill analytics-date-pill"
+                role="button"
+                tabIndex={0}
+                aria-label="Filter by to date"
+                onClick={handleDatePillClick}
+                onKeyDown={(e) =>
+                  e.key === "Enter" && handleDatePillClick({ currentTarget: e.currentTarget })
+                }
+              >
+                <span className="date-pill-text">
+                  {toDate ? `To ${formatFilterDate(toDate)}` : "To MM/DD/YY"}
+                </span>
+                <Calendar size={12} />
+                <input
+                  type="date"
+                  className="date-pill-input"
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                />
+              </div>
             </div>
-          </div>
-          <div className="analytics-grid">
-            <article className="analytics-card">
-              <div className="analytics-card-head">
-                <h3>Total Tickets</h3>
-              </div>
-              <PieChart closedCount={closedCount} openCount={openCount} />
-            </article>
-            <article className="analytics-card">
-              <div className="analytics-card-head">
-                <h3>Tickets by Department</h3>
-              </div>
-              <DepartmentLineChart chartData={lineChartData} />
-            </article>
-          </div>
+            <div className="analytics-grid">
+              <article className="analytics-card">
+                <div className="analytics-card-head">
+                  <h3>Total Tickets</h3>
+                </div>
+                <PieChart closedCount={closedCount} openCount={openCount} />
+              </article>
+              <article className="analytics-card">
+                <div className="analytics-card-head">
+                  <h3>Tickets by Department</h3>
+                </div>
+                <DepartmentBarChart chartData={departmentChartData} />
+              </article>
+            </div>
           </div>
         )}
       </section>
