@@ -34,8 +34,14 @@ app.use(
         return callback(null, true);
       }
 
+      // Allow any Vercel deployment from this project
+      if (origin.includes("lpu-misd-ticketing") && origin.includes("vercel.app")) {
+        return callback(null, true);
+      }
+
       return callback(new Error(`CORS blocked for origin: ${origin}`));
     },
+    credentials: true,
   }),
 );
 app.use(bodyParser.json());
