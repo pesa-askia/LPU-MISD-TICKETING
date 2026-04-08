@@ -18,7 +18,7 @@ try {
     const isLocal = typeof window !== 'undefined' && (location.hostname === 'localhost' || location.hostname.startsWith('127.'));
     const env = isLocal ? 'local' : 'hosted';
     console.log(`[Frontend] ${env} base: ${base} • Supabase: ${supa}`);
-} catch {}
+} catch { }
 
 function buildUrl(path, query) {
     if (!SUPABASE_URL) {
