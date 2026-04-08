@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import { initializeAdminUsers, initializeDatabase } from "./config/database.js";
 import authRoutes from "./routes/auth.js";
 import adminRoutes from "./routes/admin.js";
+import os from "os";
 
 dotenv.config();
 
@@ -98,6 +99,34 @@ app.use((err, req, res, next) => {
 
 // Initialize database and start server
 const start = async () => {
+  const getLanIP = () => {
+    const nets = os.networkInterfaces();
+    for (const name of Object.keys(nets)) {
+      for (const net of nets[name] || []) {
+        if (net.family === "IPv4" && !net.internal) return net.address;
+      }
+    }
+    return "127.0.0.1";
+  };
+  const lanIp = getLanIP();
+  const vercelUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "";
+  const publicBase = process.env.PUBLIC_BASE_URL || vercelUrl || "";
+  const corsList = (process.env.CORS_ORIGINS || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .join(", ") || "(none)";
+  const dbUrl =
+    process.env.DATABASE_URL ||
+    process.env.VITE_SUPABASE_URL ||
+    process.env.SUPABASE_URL ||
+    "(not set)";
+  const dbKind = process.env.DATABASE_URL
+    ? "postgresql"
+    : process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY
+      ? "supabase"
+      : "unknown";
+
   try {
     await initializeDatabase();
     await initializeAdminUsers();
@@ -110,6 +139,13 @@ const start = async () => {
 ║  📍 http://localhost:${PORT}             ║
 ║  🏥 Health: http://localhost:${PORT}/health ║
 ║  📚 Docs: http://localhost:${PORT}/       ║
+║                                          ║
+║  🌐 LAN:  http://${lanIp}:${PORT}          ║
+║  🔒 CORS: ${corsList.padEnd(28).slice(0, 28)}║
+║  🌎 Public: ${publicBase || "(none)"}      ║
+║                                          ║
+║  🗄  DB Kind: ${dbKind}                      ║
+║  🔌 DB URL: ${dbUrl}                        ║
 ╚════════════════════════════════════════╝
             `);
     });

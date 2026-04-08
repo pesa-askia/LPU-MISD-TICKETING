@@ -22,6 +22,16 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
  */
 export const initializeDatabase = async () => {
   try {
+    const kind = process.env.SUPABASE_SERVICE_ROLE_KEY ? "service_role" : "anon";
+    const origin = (() => {
+      try {
+        return new URL(supabaseUrl).origin;
+      } catch {
+        return supabaseUrl;
+      }
+    })();
+    console.log(`[DB] Using Supabase (${kind}) at ${origin}`);
+
     // Check if auth_users table exists by trying to select from it
     const { data, error } = await supabase
       .from("auth_users")

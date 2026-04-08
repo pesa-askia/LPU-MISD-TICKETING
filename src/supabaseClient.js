@@ -12,6 +12,14 @@ if (!SUPABASE_URL || !ANON_KEY) {
     throw new Error('Missing Supabase environment variables. Please check your .env file.');
 }
 
+try {
+    const base = typeof window !== 'undefined' ? window.location.origin : 'N/A';
+    const supa = (() => { try { return new URL(SUPABASE_URL).origin; } catch { return SUPABASE_URL; } })();
+    const isLocal = typeof window !== 'undefined' && (location.hostname === 'localhost' || location.hostname.startsWith('127.'));
+    const env = isLocal ? 'local' : 'hosted';
+    console.log(`[Frontend] ${env} base: ${base} • Supabase: ${supa}`);
+} catch {}
+
 function buildUrl(path, query) {
     if (!SUPABASE_URL) {
         throw new Error('SUPABASE_URL is not defined. Please set VITE_SUPABASE_URL in your environment variables.');
