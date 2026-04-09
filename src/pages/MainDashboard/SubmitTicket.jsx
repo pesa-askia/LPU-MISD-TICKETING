@@ -216,7 +216,7 @@ function SubmitTicket() {
               <option value="CITHM">CITHM</option>
               <option value="COECS">COECS</option>
               <option value="LPU-SC">LPU-SC</option>
-              <option value="HIGHSCHOOL">HIGHSCHOOL</option>
+              <option value="Highschool">Highschool</option>
             </select>
             <label>Department (Required)</label>
           </div>

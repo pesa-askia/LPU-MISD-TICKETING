@@ -1,7 +1,7 @@
 import express from "express";
 import {
     registerUser,
-    loginUser,
+    loginAny,
     loginAdmin,
     getUserById,
     getAllUsers,
@@ -66,7 +66,7 @@ router.post("/login", async (req, res) => {
             });
         }
 
-        const result = await loginUser(email, password);
+        const result = await loginAny(email, password);
 
         if (!result.success) {
             return res.status(401).json(result);

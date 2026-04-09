@@ -19,58 +19,28 @@ const LoginPage = () => {
 
     try {
       const API_BASE_URL = getApiBaseUrl();
-      // Pipeline 1: Admin login
-      const adminRes = await fetch(`${API_BASE_URL}/api/auth/admin-login`, {
+      const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
 
-      const adminData = await adminRes.json().catch(() => null);
+      const data = await res.json();
 
-      // If admin succeeds, short-circuit
-      if (adminRes.ok && adminData?.success) {
-        if (adminData.token) localStorage.setItem("authToken", adminData.token);
-        if (adminData.user?.id) localStorage.setItem("userId", adminData.user.id);
-        localStorage.setItem("isLoggedIn", "true");
-        localStorage.setItem("userEmail", adminData.user?.email || email);
-        localStorage.setItem("userRole", "admin");
-
-        navigate("/admin/tickets");
+      if (!res.ok || !data.success) {
+        setError(data.message || "Invalid email or password");
         return;
       }
 
-      // Pipeline 2: Normal user login
-      const userRes = await fetch(`${API_BASE_URL}/api/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const userData = await userRes.json();
-
-      if (!userRes.ok || !userData.success) {
-        // Prefer user error; otherwise show admin error if available
-        setError(
-          userData.message ||
-            adminData?.message ||
-            "Invalid email or password",
-        );
-        setIsLoading(false);
-        return;
-      }
-
-      // Store token and user info
-      if (userData.token) localStorage.setItem("authToken", userData.token);
-      if (userData.user?.id) localStorage.setItem("userId", userData.user.id);
+      if (data.token) localStorage.setItem("authToken", data.token);
+      if (data.user?.id) localStorage.setItem("userId", data.user.id);
       localStorage.setItem("isLoggedIn", "true");
-      localStorage.setItem("userEmail", userData.user?.email || email);
-      localStorage.setItem("userRole", "user");
+      localStorage.setItem("userEmail", data.user?.email || email);
+      localStorage.setItem("userRole", data.user?.role || "user");
 
-      navigate("/Tickets");
+      navigate(data.user?.role === "admin" ? "/admin/tickets" : "/Tickets");
     } catch (err) {
       setError(err.message || "Login failed");
-      setIsLoading(false);
     } finally {
       setIsLoading(false);
     }

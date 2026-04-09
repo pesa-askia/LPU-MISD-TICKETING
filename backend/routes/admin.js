@@ -1,6 +1,6 @@
 import express from "express";
 import { getAllUsers, getUserById, deleteUser, updateUser } from "../services/authService.js";
-import { authMiddleware } from "../middleware/auth.js";
+import { adminMiddleware } from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -9,7 +9,7 @@ const router = express.Router();
  * Get all users (paginated)
  * Query params: limit=100, offset=0
  */
-router.get("/users", authMiddleware, async (req, res) => {
+router.get("/users", adminMiddleware, async (req, res) => {
     try {
         const limit = parseInt(req.query.limit) || 100;
         const offset = parseInt(req.query.offset) || 0;
@@ -42,7 +42,7 @@ router.get("/users", authMiddleware, async (req, res) => {
  * GET /api/admin/users/:userId
  * Get specific user details
  */
-router.get("/users/:userId", authMiddleware, async (req, res) => {
+router.get("/users/:userId", adminMiddleware, async (req, res) => {
     try {
         const result = await getUserById(req.params.userId);
 
@@ -64,7 +64,7 @@ router.get("/users/:userId", authMiddleware, async (req, res) => {
  * PUT /api/admin/users/:userId
  * Update user (deactivate, change name, etc.)
  */
-router.put("/users/:userId", authMiddleware, async (req, res) => {
+router.put("/users/:userId", adminMiddleware, async (req, res) => {
     try {
         const { fullName, isActive } = req.body;
 
@@ -96,7 +96,7 @@ router.put("/users/:userId", authMiddleware, async (req, res) => {
  * DELETE /api/admin/users/:userId
  * Delete user
  */
-router.delete("/users/:userId", authMiddleware, async (req, res) => {
+router.delete("/users/:userId", adminMiddleware, async (req, res) => {
     try {
         // Prevent user from deleting themselves
         if (req.params.userId === req.user.id) {
@@ -126,7 +126,7 @@ router.delete("/users/:userId", authMiddleware, async (req, res) => {
  * GET /api/admin/stats
  * Get authentication statistics
  */
-router.get("/stats", authMiddleware, async (req, res) => {
+router.get("/stats", adminMiddleware, async (req, res) => {
     try {
         const result = await getAllUsers(1000, 0);
 

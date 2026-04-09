@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
+import { jwtDecode } from "jwt-decode";
 import LoginPage from "../LoginPage/LoginPage";
 import Tickets from "../MainDashboard/Tickets";
 import TicketChat from "../MainDashboard/TicketChat";
@@ -11,15 +12,34 @@ import AdminAnalytics from "../Admin/AdminAnalytics";
 import LoadingScreen from "../../components/LoadingScreen";
 import { useLoading } from "../../context/LoadingContext";
 
+function getValidToken() {
+  const token = localStorage.getItem("authToken");
+  if (!token) return null;
+  try {
+    const decoded = jwtDecode(token);
+    if (decoded.exp * 1000 < Date.now()) {
+      // Expired — clear stale auth state
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("isLoggedIn");
+      localStorage.removeItem("userRole");
+      localStorage.removeItem("userId");
+      localStorage.removeItem("userEmail");
+      return null;
+    }
+    return decoded;
+  } catch {
+    return null;
+  }
+}
+
 function ProtectedRoute({ children }) {
-  const isLoggedIn = localStorage.getItem("isLoggedIn");
-  return isLoggedIn ? children : <Navigate to="/" replace />;
+  return getValidToken() ? children : <Navigate to="/" replace />;
 }
 
 function AdminRoute({ children }) {
-  const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
-  const role = localStorage.getItem("userRole");
-  return isLoggedIn && role === "admin" ? children : <Navigate to="/" replace />;
+  const decoded = getValidToken();
+  if (!decoded) return <Navigate to="/" replace />;
+  return decoded.role === "admin" ? children : <Navigate to="/" replace />;
 }
 
 function App() {

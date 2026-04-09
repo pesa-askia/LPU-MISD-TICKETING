@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import bodyParser from "body-parser";
 import dotenv from "dotenv";
+import rateLimit from "express-rate-limit";
 import { initializeAdminUsers, initializeDatabase } from "./config/database.js";
 import authRoutes from "./routes/auth.js";
 import adminRoutes from "./routes/admin.js";
@@ -34,8 +35,8 @@ app.use(
         return callback(null, true);
       }
 
-      // Allow any Vercel deployment from this project
-      if (origin.includes("lpu-misd-ticketing") && origin.includes("vercel.app")) {
+      // Allow Vercel deployments for this project only (exact prefix match)
+      if (/^https:\/\/lpu-misd-ticketing[\w-]*\.vercel\.app$/.test(origin)) {
         return callback(null, true);
       }
 
@@ -47,6 +48,15 @@ app.use(
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+// Rate limiting for auth endpoints (login / signup)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many requests, please try again later." },
+});
+
 // Health check endpoint
 app.get("/health", (req, res) => {
   res.json({
@@ -56,7 +66,7 @@ app.get("/health", (req, res) => {
 });
 
 // API Routes
-app.use("/api/auth", authRoutes);
+app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/admin", adminRoutes);
 
 // Root endpoint

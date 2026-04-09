@@ -20,7 +20,7 @@ export default function TicketChat({ adminView = false } = {}) {
   const { id } = useParams();
   const navigate = useNavigate();
   const { showLoading, hideLoading } = useLoading();
-  const { getTicket, setTicket: cacheTicket } = useTicketsCache();
+  const { getTicket, setTicket: cacheTicket, setMessages: cacheMessages } = useTicketsCache();
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [ticket, setTicket] = useState(null);

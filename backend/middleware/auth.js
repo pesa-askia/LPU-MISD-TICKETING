@@ -38,6 +38,21 @@ export const authMiddleware = (req, res, next) => {
 };
 
 /**
+ * Middleware to verify JWT token AND require admin role.
+ */
+export const adminMiddleware = (req, res, next) => {
+    authMiddleware(req, res, () => {
+        if (req.user?.role !== "admin") {
+            return res.status(403).json({
+                success: false,
+                message: "Admin access required",
+            });
+        }
+        next();
+    });
+};
+
+/**
  * Optional middleware - doesn't fail if token is missing
  */
 export const optionalAuthMiddleware = (req, res, next) => {

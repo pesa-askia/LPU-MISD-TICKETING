@@ -19,6 +19,7 @@ const SidePanel = () => {
     localStorage.removeItem("userEmail");
     localStorage.removeItem("userId");
     localStorage.removeItem("authToken");
+    localStorage.removeItem("userRole");
     navigate("/");
   };
 

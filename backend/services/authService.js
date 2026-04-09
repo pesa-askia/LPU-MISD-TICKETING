@@ -2,7 +2,10 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { supabase } from "../config/database.js";
 
-const JWT_SECRET = process.env.JWT_SECRET || "ce094a2c68ed110a661cdaf38985f808c606027df6416b8f80c56f2c47a9d4d64cd27b7589d33e89158f7b94e322d43ef6527c9dd62312ebd1e460134000fecd";
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+    throw new Error("JWT_SECRET environment variable must be set. Refusing to start.");
+}
 
 /**
  * Hash password
@@ -22,8 +25,8 @@ export const comparePassword = async (password, hash) => {
 /**
  * Generate JWT token
  */
-export const generateToken = (userId, email) => {
-    return jwt.sign({ id: userId, email: email }, JWT_SECRET, {
+export const generateToken = (userId, email, role = "user") => {
+    return jwt.sign({ id: userId, email, role }, JWT_SECRET, {
         expiresIn: "7d",
     });
 };
@@ -91,6 +94,65 @@ export const registerUser = async (email, password, fullName = "") => {
                 full_name: user.full_name,
             },
             token: token,
+        };
+    } catch (error) {
+        return { success: false, message: error.message };
+    }
+};
+
+/**
+ * Unified login — checks admin_users and auth_users in parallel to prevent
+ * timing-based role enumeration. Admin takes precedence if found in both.
+ */
+export const loginAny = async (email, password) => {
+    try {
+        const [adminResult, userResult] = await Promise.all([
+            supabase.from("admin_users").select("*").eq("email", email),
+            supabase.from("auth_users").select("*").eq("email", email),
+        ]);
+
+        const admin = adminResult.data?.[0] ?? null;
+        const user = userResult.data?.[0] ?? null;
+
+        // Admin takes precedence if the email exists in both tables
+        const account = admin ?? user;
+        const role = admin ? "admin" : "user";
+
+        if (!account) {
+            return { success: false, message: "Invalid email or password" };
+        }
+
+        if (!account.is_active) {
+            return { success: false, message: "Account is inactive" };
+        }
+
+        if (!account.password_hash) {
+            return { success: false, message: "Invalid email or password" };
+        }
+
+        const isValid = await comparePassword(password, account.password_hash);
+        if (!isValid) {
+            return { success: false, message: "Invalid email or password" };
+        }
+
+        const token = generateToken(account.id, account.email, role);
+
+        const table = admin ? "admin_users" : "auth_users";
+        await supabase
+            .from(table)
+            .update({ updated_at: new Date().toISOString() })
+            .eq("id", account.id);
+
+        return {
+            success: true,
+            message: "Login successful",
+            user: {
+                id: account.id,
+                email: account.email,
+                full_name: account.full_name,
+                role,
+            },
+            token,
         };
     } catch (error) {
         return { success: false, message: error.message };
@@ -195,7 +257,7 @@ export const loginAdmin = async (email, password) => {
             return { success: false, message: "Invalid email or password" };
         }
 
-        const token = generateToken(admin.id, admin.email);
+        const token = generateToken(admin.id, admin.email, "admin");
 
         await supabase
             .from("admin_users")

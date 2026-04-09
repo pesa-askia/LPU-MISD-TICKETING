@@ -188,6 +188,7 @@ export default function AdminAnalytics() {
   }, [menuOpen]);
 
   useEffect(() => {
+    if (!isLoggedIn || !isAdmin) return;
     const fetchTickets = async () => {
       try {
         showLoading();
@@ -209,8 +210,11 @@ export default function AdminAnalytics() {
         hideLoading();
       }
     };
-    if (isLoggedIn && isAdmin) fetchTickets();
-  }, [hideLoading, isAdmin, isLoggedIn, showLoading]);
+    fetchTickets();
+    // showLoading/hideLoading are stable context callbacks; omitting them prevents
+    // an infinite re-render loop if the context ever recreates them.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleDatePillClick = (e) => {
     const pill = e.currentTarget;
