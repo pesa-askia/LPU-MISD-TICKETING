@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { Search } from "lucide-react";
 import { jwtDecode } from "jwt-decode";
-import { supabase } from "../../supabaseClient";
+import { realtimeSupabase } from "../../realtimeSupabaseClient";
 import { useLoading } from "../../context/LoadingContext";
 import { useTicketsCache } from "../../context/TicketsCacheContext";
 
@@ -21,29 +21,22 @@ function Tickets() {
       showLoading();
       setError(null);
 
-      // Get user ID from JWT token
       const token = localStorage.getItem("authToken");
       if (!token) {
         setError("You must be logged in to view tickets.");
-        hideLoading();
         return;
       }
 
       const decoded = jwtDecode(token);
       const userId = decoded.id;
 
-      // Fetch only tickets created by this user
-      const { data, error } = await supabase
+      const { data, error } = await realtimeSupabase
         .from("Tickets")
         .select("*")
         .eq("created_by", userId)
         .order("id", { ascending: false });
 
-      console.log("DATA:", data);
-      console.log("ERROR:", error);
-
       if (error) {
-        console.error("Error fetching tickets:", error);
         setError(error.message || "Failed to load tickets");
       } else {
         const next = data || [];
@@ -69,7 +62,6 @@ function Tickets() {
   }, []);
 
   useEffect(() => {
-    // Keep cache in sync with latest list
     setUserTickets(tickets);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tickets]);
@@ -85,11 +77,7 @@ function Tickets() {
           <p>{error}</p>
           <button
             onClick={fetchTickets}
-            style={{
-              marginTop: "20px",
-              padding: "10px 20px",
-              cursor: "pointer",
-            }}
+            style={{ marginTop: "20px", padding: "10px 20px", cursor: "pointer" }}
           >
             Try Again
           </button>
@@ -150,9 +138,7 @@ function Tickets() {
                     fontWeight: "600",
                   }}
                 >
-                  <p style={{ fontSize: "1.5rem", margin: 0 }}>
-                    No tickets found.
-                  </p>
+                  <p style={{ fontSize: "1.5rem", margin: 0 }}>No tickets found.</p>
                 </div>
               );
             }

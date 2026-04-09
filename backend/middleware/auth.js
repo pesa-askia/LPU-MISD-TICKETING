@@ -42,7 +42,7 @@ export const authMiddleware = (req, res, next) => {
  */
 export const adminMiddleware = (req, res, next) => {
     authMiddleware(req, res, () => {
-        if (req.user?.role !== "admin") {
+        if (req.user?.app_role !== "admin") {
             return res.status(403).json({
                 success: false,
                 message: "Admin access required",
@@ -55,7 +55,7 @@ export const adminMiddleware = (req, res, next) => {
 /**
  * Optional middleware - doesn't fail if token is missing
  */
-export const optionalAuthMiddleware = (req, res, next) => {
+export const optionalAuthMiddleware = (req, _res, next) => {
     try {
         const authHeader = req.headers.authorization;
 

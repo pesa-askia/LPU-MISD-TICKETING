@@ -161,6 +161,25 @@ export const initializeDatabase = async () => {
       console.warn("Ticketing tables/columns initialization skipped:", ticketInitError.message);
     }
 
+    // Ensure the ticket-attachments Storage bucket exists
+    try {
+      const { data: buckets, error: listErr } = await supabase.storage.listBuckets();
+      if (listErr) throw listErr;
+      const exists = buckets?.some((b) => b.name === "ticket-attachments");
+      if (!exists) {
+        const { error: createErr } = await supabase.storage.createBucket(
+          "ticket-attachments",
+          { public: true },
+        );
+        if (createErr) throw createErr;
+        console.log("✓ Created storage bucket: ticket-attachments");
+      } else {
+        console.log("✓ Storage bucket already exists: ticket-attachments");
+      }
+    } catch (storageErr) {
+      console.warn("Storage bucket initialization skipped:", storageErr.message);
+    }
+
     console.log("✓ Database initialized");
   } catch (error) {
     console.error("Database initialization error:", error.message);

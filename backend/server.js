@@ -6,6 +6,7 @@ import rateLimit from "express-rate-limit";
 import { initializeAdminUsers, initializeDatabase } from "./config/database.js";
 import authRoutes from "./routes/auth.js";
 import adminRoutes from "./routes/admin.js";
+import ticketRoutes from "./routes/tickets.js";
 import os from "os";
 
 dotenv.config();
@@ -45,8 +46,8 @@ app.use(
     credentials: true,
   }),
 );
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json({ limit: "20mb" }));
+app.use(bodyParser.urlencoded({ extended: true, limit: "20mb" }));
 
 // Rate limiting for auth endpoints (login / signup)
 const authLimiter = rateLimit({
@@ -68,6 +69,7 @@ app.get("/health", (req, res) => {
 // API Routes
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/tickets", ticketRoutes);
 
 // Root endpoint
 app.get("/", (req, res) => {

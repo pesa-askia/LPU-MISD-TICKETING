@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, NavLink } from "react-router-dom";
 import { Download, ChevronDown, LogOut, Moon, Calendar } from "lucide-react";
-import { supabase } from "../../supabaseClient";
+import { realtimeSupabase } from "../../realtimeSupabaseClient";
 import { useLoading } from "../../context/LoadingContext";
+import { useTicketsCache } from "../../context/TicketsCacheContext";
 import lpuLogo from "../../assets/lpul-logo.png";
 import "./AdminTickets.css";
 import "./AdminAnalytics.css";
@@ -120,10 +121,11 @@ function DepartmentBarChart({ chartData }) {
   );
 }
 
-const ALL_DEPARTMENTS = ["CAS", "CBA", "CITHM", "COECS", "LPU-SC", "Highschool"];
+const ALL_DEPARTMENTS = ["CAS", "CBA", "CITHM", "COECS", "LPU-SC", "HIGHSCHOOL"];
 
 export default function AdminAnalytics() {
   const { showLoading, hideLoading } = useLoading();
+  const { adminTickets } = useTicketsCache();
   const [tickets, setTickets] = useState([]);
   const [error, setError] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -189,13 +191,21 @@ export default function AdminAnalytics() {
 
   useEffect(() => {
     if (!isLoggedIn || !isAdmin) return;
+
+    // Use shared cache from AdminTickets if available — avoids a second network hit
+    if (Array.isArray(adminTickets)) {
+      setTickets(adminTickets);
+      return;
+    }
+
     const fetchTickets = async () => {
       try {
         showLoading();
         setError("");
-        const { data, error: supaError } = await supabase
+        // Only fetch columns needed for analytics — skip attachments, Description, etc.
+        const { data, error: supaError } = await realtimeSupabase
           .from("Tickets")
-          .select("*")
+          .select("id,status,Status,closed_at,created_at,Department,Type,Category")
           .order("id", { ascending: false });
 
         if (supaError) {

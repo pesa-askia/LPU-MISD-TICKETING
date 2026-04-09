@@ -26,7 +26,11 @@ export const comparePassword = async (password, hash) => {
  * Generate JWT token
  */
 export const generateToken = (userId, email, role = "user") => {
-    return jwt.sign({ id: userId, email, role }, JWT_SECRET, {
+    // sub is the standard JWT subject claim; Supabase uses it for auth.uid() in RLS policies.
+    // app_role is used instead of role because Supabase reserves the role claim
+    // to set the PostgreSQL execution role — passing role:"admin" would cause
+    // "role admin does not exist" errors since it's not a database role.
+    return jwt.sign({ sub: userId, id: userId, email, app_role: role }, JWT_SECRET, {
         expiresIn: "7d",
     });
 };
@@ -153,68 +157,6 @@ export const loginAny = async (email, password) => {
                 role,
             },
             token,
-        };
-    } catch (error) {
-        return { success: false, message: error.message };
-    }
-};
-
-/**
- * Login user
- */
-export const loginUser = async (email, password) => {
-    try {
-        // Find user by email
-        const { data: users, error: findError } = await supabase
-            .from("auth_users")
-            .select("*")
-            .eq("email", email);
-
-        if (findError) {
-            console.error("Supabase query error:", findError);
-            return { success: false, message: "Invalid email or password" };
-        }
-
-        if (!users || users.length === 0) {
-            return { success: false, message: "Invalid email or password" };
-        }
-
-        const user = users[0];
-
-        if (!user.is_active) {
-            return { success: false, message: "User account is inactive" };
-        }
-
-        if (!user.password_hash) {
-            console.error("User found but password_hash is missing");
-            return { success: false, message: "Invalid email or password" };
-        }
-
-        // Compare password
-        const isValidPassword = await comparePassword(password, user.password_hash);
-
-        if (!isValidPassword) {
-            return { success: false, message: "Invalid email or password" };
-        }
-
-        // Generate token
-        const token = generateToken(user.id, user.email);
-
-        // Update last login
-        await supabase
-            .from("auth_users")
-            .update({ updated_at: new Date().toISOString() })
-            .eq("id", user.id);
-
-        return {
-            success: true,
-            message: "Login successful",
-            user: {
-                id: user.id,
-                email: user.email,
-                full_name: user.full_name,
-            },
-            token: token,
         };
     } catch (error) {
         return { success: false, message: error.message };

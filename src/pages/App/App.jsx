@@ -39,7 +39,7 @@ function ProtectedRoute({ children }) {
 function AdminRoute({ children }) {
   const decoded = getValidToken();
   if (!decoded) return <Navigate to="/" replace />;
-  return decoded.role === "admin" ? children : <Navigate to="/" replace />;
+  return decoded.app_role === "admin" ? children : <Navigate to="/" replace />;
 }
 
 function App() {

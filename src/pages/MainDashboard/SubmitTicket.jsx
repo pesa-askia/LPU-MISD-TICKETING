@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { Paperclip, X } from "lucide-react";
 import { jwtDecode } from "jwt-decode";
-import { supabase } from "../../supabaseClient";
+import { realtimeSupabase } from "../../realtimeSupabaseClient";
 import { useLoading } from "../../context/LoadingContext";
 
 function SubmitTicket() {
@@ -21,32 +21,33 @@ function SubmitTicket() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
+    setFormData({ ...formData, [name]: value });
   };
 
   const handleFileSelect = (e) => {
     const files = Array.from(e.target.files || []);
     setAttachments((prev) => [...prev, ...files]);
-    // Reset input so same file can be selected again
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const removeAttachment = (index) => {
     setAttachments((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const convertFileToBase64 = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = (error) => reject(error);
-      reader.readAsDataURL(file);
-    });
+  const uploadAttachment = async (file, userId) => {
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const path = `tickets/${userId}/${Date.now()}_${safeName}`;
+    const { error } = await realtimeSupabase.storage
+      .from("ticket-attachments")
+      .upload(path, file, { upsert: false });
+
+    if (error) throw new Error(`Upload failed for ${file.name}: ${error.message}`);
+
+    const { data: { publicUrl } } = realtimeSupabase.storage
+      .from("ticket-attachments")
+      .getPublicUrl(path);
+
+    return { name: file.name, size: file.size, type: file.type, url: publicUrl };
   };
 
   const handleSubmit = async (e) => {
@@ -56,56 +57,40 @@ function SubmitTicket() {
     setSuccessMessage(null);
 
     try {
-      // Get user ID from JWT token instead of localStorage
       const token = localStorage.getItem("authToken");
       if (!token) {
         setErrorMessage("You must be logged in to submit a ticket.");
-        hideLoading();
         return;
       }
 
       const decoded = jwtDecode(token);
       const userId = decoded.id;
 
-      // Convert attachments to base64
+      // Upload attachments directly to Supabase Storage (RLS allows writes to own folder)
       const attachmentData = [];
       for (const file of attachments) {
-        const base64 = await convertFileToBase64(file);
-        attachmentData.push({
-          name: file.name,
-          size: file.size,
-          type: file.type,
-          data: base64,
-        });
+        const meta = await uploadAttachment(file, userId);
+        attachmentData.push(meta);
       }
 
-      const now = new Date().toISOString();
-      const { data, error } = await supabase.from("Tickets").insert([
-        {
-          Summary: formData.summary,
-          Description: formData.description,
-          Type: formData.userType,
-          Department: formData.department,
-          Category: formData.category,
-          Site: formData.site,
-          created_by: userId,
-          status: "Open",
-          created_at: now,
-          attachments:
-            attachmentData.length > 0 ? JSON.stringify(attachmentData) : null,
-        },
-      ]);
+      const { error } = await realtimeSupabase.from("Tickets").insert([{
+        Summary: formData.summary,
+        Description: formData.description,
+        Type: formData.userType,
+        Department: formData.department,
+        Category: formData.category,
+        Site: formData.site,
+        created_by: userId,
+        status: "Open",
+        created_at: new Date().toISOString(),
+        attachments: attachmentData.length > 0 ? JSON.stringify(attachmentData) : null,
+      }]);
 
       if (error) {
-        console.error("Error submitting ticket:", error);
         setErrorMessage(error.message || "Failed to submit ticket");
       } else {
-        console.log("Ticket submitted successfully:", data);
-        setSuccessMessage(
-          "Ticket submitted successfully! Your ticket has been created.",
-        );
+        setSuccessMessage("Ticket submitted successfully! Your ticket has been created.");
         setTimeout(() => setSuccessMessage(null), 5000);
-
         setFormData({
           userType: "",
           department: "",
@@ -118,7 +103,7 @@ function SubmitTicket() {
       }
     } catch (err) {
       console.error("Unexpected error:", err);
-      setErrorMessage("An unexpected error occurred");
+      setErrorMessage(err.message || "An unexpected error occurred");
     } finally {
       hideLoading();
     }
@@ -216,7 +201,7 @@ function SubmitTicket() {
               <option value="CITHM">CITHM</option>
               <option value="COECS">COECS</option>
               <option value="LPU-SC">LPU-SC</option>
-              <option value="Highschool">Highschool</option>
+              <option value="HIGHSCHOOL">HIGHSCHOOL</option>
             </select>
             <label>Department (Required)</label>
           </div>
@@ -288,9 +273,7 @@ function SubmitTicket() {
               <p style={{ margin: "0 0 12px 0", fontWeight: "bold" }}>
                 Attached Files ({attachments.length}):
               </p>
-              <div
-                style={{ display: "flex", flexDirection: "column", gap: "8px" }}
-              >
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                 {attachments.map((file, index) => (
                   <div
                     key={index}
