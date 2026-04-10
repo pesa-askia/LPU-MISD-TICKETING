@@ -266,7 +266,7 @@ export default function AdminTickets() {
                     >
                       <td>No. {t.id}</td>
                       <td>{t.Summary || "-"}</td>
-                      <td className="admin-clamp">{t.Description || "-"}</td>
+                      <td><div className="admin-clamp">{t.Description || "-"}</div></td>
                       <td onClick={(e) => e.stopPropagation()}>
                         <select
                           className="admin-assignee-select"
