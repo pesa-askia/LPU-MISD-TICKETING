@@ -99,8 +99,7 @@ function SubmitTicket() {
             created_by_email: userEmail || null,
             status: "Open",
             created_at: new Date().toISOString(),
-            attachments:
-              attachmentData.length > 0 ? JSON.stringify(attachmentData) : null,
+            attachments: null,
           },
         ])
         .select("id");
@@ -125,6 +124,10 @@ function SubmitTicket() {
               sender_name: userName || null,
               sender_email: userEmail || null,
               message_text: descriptionText,
+              attachments:
+                attachmentData.length > 0
+                  ? JSON.stringify(attachmentData)
+                  : null,
             },
           ]);
 

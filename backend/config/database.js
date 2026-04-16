@@ -78,6 +78,7 @@ export const initializeDatabase = async () => {
             sender_role TEXT NOT NULL CHECK (sender_role IN ('user', 'admin')),
             sender_name TEXT,
             sender_email TEXT,
+            attachments TEXT,
             message_text TEXT NOT NULL,
             created_at TIMESTAMPTZ DEFAULT NOW()
           );
@@ -150,6 +151,14 @@ export const initializeDatabase = async () => {
               WHERE table_name = 'ticket_messages' AND column_name = 'sender_email'
             ) THEN
               ALTER TABLE ticket_messages ADD COLUMN sender_email TEXT;
+            END IF;
+
+            IF NOT EXISTS (
+              SELECT 1
+              FROM information_schema.columns
+              WHERE table_name = 'ticket_messages' AND column_name = 'attachments'
+            ) THEN
+              ALTER TABLE ticket_messages ADD COLUMN attachments TEXT;
             END IF;
           END
           $$;

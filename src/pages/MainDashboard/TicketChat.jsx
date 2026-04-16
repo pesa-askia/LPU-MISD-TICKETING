@@ -197,19 +197,42 @@ export default function TicketChat({ adminView = false } = {}) {
       senderName: row.sender_name || null,
       senderEmail: row.sender_email || null,
       text: row.message_text,
+      attachments: parseMessageAttachments(row.attachments),
       time: row.created_at,
     });
 
+    const isMissingColumn = (err, column) => {
+      if (!err) return false;
+      const message = String(err.message || "").toLowerCase();
+      const details = String(err.details || "").toLowerCase();
+      return (
+        err.code === "42703" ||
+        message.includes(column) ||
+        details.includes(column)
+      );
+    };
+
     const loadMessages = async () => {
       try {
-        const res = await realtimeSupabase
+        let res = await realtimeSupabase
           .from("ticket_messages")
           .select(
-            "id, sender_id, sender_role, sender_name, sender_email, message_text, created_at",
+            "id, sender_id, sender_role, sender_name, sender_email, message_text, attachments, created_at",
           )
           .eq("ticket_id", ticketId)
           .order("created_at", { ascending: false })
           .range(0, 99);
+
+        if (res.error && isMissingColumn(res.error, "attachments")) {
+          res = await realtimeSupabase
+            .from("ticket_messages")
+            .select(
+              "id, sender_id, sender_role, sender_name, sender_email, message_text, created_at",
+            )
+            .eq("ticket_id", ticketId)
+            .order("created_at", { ascending: false })
+            .range(0, 99);
+        }
 
         if (res.error) {
           console.error("[Chat] Error loading messages:", res.error);
@@ -334,6 +357,7 @@ export default function TicketChat({ adminView = false } = {}) {
           senderName,
           senderEmail,
           text: trimmed,
+          attachments: [],
           time: new Date().toISOString(),
           pending: true,
         },
@@ -355,7 +379,7 @@ export default function TicketChat({ adminView = false } = {}) {
           },
         ])
         .select(
-          "id, sender_id, sender_role, sender_name, sender_email, message_text, created_at",
+          "id, sender_id, sender_role, sender_name, sender_email, message_text, attachments, created_at",
         );
 
       if (error) {
@@ -379,6 +403,7 @@ export default function TicketChat({ adminView = false } = {}) {
                     senderName: row.sender_name || senderName,
                     senderEmail: row.sender_email || senderEmail || null,
                     text: row.message_text,
+                    attachments: parseMessageAttachments(row.attachments),
                     time: row.created_at,
                   }
                 : m,
@@ -442,6 +467,17 @@ export default function TicketChat({ adminView = false } = {}) {
     }
   };
 
+  const parseMessageAttachments = (value) => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value;
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+
   const adminParticipants = useMemo(() => {
     if (adminView) return [];
     const unique = new Map();
@@ -499,7 +535,11 @@ export default function TicketChat({ adminView = false } = {}) {
     );
   }
 
-  const attachments = parseAttachments();
+  const hasMessageAttachments = messages.some(
+    (message) =>
+      Array.isArray(message.attachments) && message.attachments.length > 0,
+  );
+  const attachments = hasMessageAttachments ? [] : parseAttachments();
   const creatorName = (() => {
     const name = (ticket.created_by_name || "").trim();
     if (name) return name;
@@ -544,6 +584,10 @@ export default function TicketChat({ adminView = false } = {}) {
           getDisplayName={getDisplayName}
           scrollRef={scrollRef}
           nowMs={nowMs}
+          getAttachmentSrc={getAttachmentSrc}
+          isImageFile={isImageFile}
+          onOpenAttachment={setSelectedImage}
+          onDownloadAttachment={downloadAttachment}
         />
 
         <ChatInput text={text} onTextChange={setText} onSend={handleSend} />

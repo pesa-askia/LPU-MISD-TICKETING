@@ -5,6 +5,10 @@ export default function ChatMessages({
   getDisplayName,
   scrollRef,
   nowMs,
+  getAttachmentSrc,
+  isImageFile,
+  onOpenAttachment,
+  onDownloadAttachment,
 }) {
   const formatTimeAgo = (value) => {
     if (!value) return "";
@@ -27,6 +31,9 @@ export default function ChatMessages({
     return `${years}y ago`;
   };
 
+  const getMessageAttachments = (message) =>
+    Array.isArray(message.attachments) ? message.attachments : [];
+
   return (
     <div className="chat-messages" ref={scrollRef} aria-live="polite">
       {messages.map((m) => {
@@ -43,6 +50,8 @@ export default function ChatMessages({
         const timeLabel = formatTimeAgo(m.time);
         const showName = isOwn || hasIdentity;
         const showMeta = showName || Boolean(timeLabel);
+        const attachments = getMessageAttachments(m);
+        const hasAttachments = attachments.length > 0;
 
         return (
           <div
@@ -64,6 +73,45 @@ export default function ChatMessages({
                 </div>
               )}
               <div className="bubble">{m.text}</div>
+              {hasAttachments && (
+                <div className="message-attachments">
+                  {attachments.map((attachment, index) => {
+                    const name = attachment?.name || "Attachment";
+                    const src = getAttachmentSrc(attachment);
+                    const isImage = isImageFile(name);
+
+                    if (isImage && src) {
+                      return (
+                        <button
+                          key={`${m.id}-attachment-${index}`}
+                          type="button"
+                          className="message-attachment-thumb"
+                          onClick={() => onOpenAttachment(attachment)}
+                          title="Click to view full size"
+                        >
+                          <img src={src} alt={name} />
+                        </button>
+                      );
+                    }
+
+                    return (
+                      <div
+                        key={`${m.id}-attachment-${index}`}
+                        className="message-attachment-file"
+                      >
+                        <span className="message-attachment-name">{name}</span>
+                        <button
+                          type="button"
+                          className="message-attachment-action"
+                          onClick={() => onDownloadAttachment(attachment)}
+                        >
+                          Get
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         );

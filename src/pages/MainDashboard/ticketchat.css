@@ -180,6 +180,67 @@
   opacity: 0.8;
 }
 
+.message-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.msg-right .message-attachments {
+  justify-content: flex-end;
+}
+
+.message-attachment-thumb {
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
+.message-attachment-thumb img {
+  width: 140px;
+  height: 90px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid #eee;
+}
+
+.message-attachment-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid #e5e5e5;
+  background: #fafafa;
+  max-width: 220px;
+}
+
+.msg-right .message-attachment-file {
+  background: #fbeaea;
+  border-color: #f0caca;
+}
+
+.message-attachment-name {
+  font-size: 12px;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 140px;
+}
+
+.message-attachment-action {
+  padding: 2px 6px;
+  font-size: 10px;
+  background: #2196f3;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
 .msg-left {
   justify-content: flex-start;
 }
