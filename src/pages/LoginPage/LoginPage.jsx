@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Mail } from "lucide-react";
 import "./LoginPage.css";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import supabaseAuth from "../../supabaseAuthClient";
@@ -44,7 +44,9 @@ const LoginPage = () => {
       });
 
       if (supaError) {
-        setError(supaError.message || "Failed to send magic link. Please try again.");
+        setError(
+          supaError.message || "Failed to send magic link. Please try again.",
+        );
         return;
       }
 
@@ -105,15 +107,15 @@ const LoginPage = () => {
           {/* ── Mode Toggle Flip ── */}
           <div className="mode-toggle-container">
             <div className={`mode-toggle-slider ${mode}`} />
-            <button 
-              type="button" 
+            <button
+              type="button"
               className={`mode-btn ${mode === "magic" ? "active" : ""}`}
               onClick={() => switchMode("magic")}
             >
               Student
             </button>
-            <button 
-              type="button" 
+            <button
+              type="button"
               className={`mode-btn ${mode === "admin" ? "active" : ""}`}
               onClick={() => switchMode("admin")}
             >
@@ -143,16 +145,22 @@ const LoginPage = () => {
 
           {mode === "magic" && emailSent && (
             <div className="magic-sent">
-              <div className="magic-sent-icon" aria-hidden="true">✉</div>
+              <div className="magic-sent-icon" aria-hidden="true">
+                <Mail size={32} />
+              </div>
               <p className="magic-sent-title">Check your inbox</p>
               <p className="magic-sent-body">
-                We sent a sign-in link to<br />
+                We sent a sign-in link to
+                <br />
                 <strong>{email}</strong>
               </p>
               <button
                 type="button"
                 className="magic-resend-btn"
-                onClick={() => { setEmailSent(false); setEmail(""); }}
+                onClick={() => {
+                  setEmailSent(false);
+                  setEmail("");
+                }}
               >
                 Use a different email
               </button>

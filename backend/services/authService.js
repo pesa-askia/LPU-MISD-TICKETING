@@ -26,14 +26,15 @@ export const comparePassword = async (password, hash) => {
 /**
  * Generate JWT token
  */
-export const generateToken = (userId, email, role = "user") => {
+export const generateToken = (userId, email, role = "user", adminLevel = null) => {
     // sub is the standard JWT subject claim; Supabase uses it for auth.uid() in RLS policies.
     // app_role is used instead of role because Supabase reserves the role claim
     // to set the PostgreSQL execution role — passing role:"admin" would cause
     // "role admin does not exist" errors since it's not a database role.
-    return jwt.sign({ sub: userId, id: userId, email, app_role: role }, JWT_SECRET, {
-        expiresIn: "7d",
-    });
+    // admin_level: 0=root, 1=senior, 2=mid, 3=junior — only present for admin accounts.
+    const payload = { sub: userId, id: userId, email, app_role: role };
+    if (adminLevel !== null) payload.admin_level = adminLevel;
+    return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 };
 
 /**
@@ -140,7 +141,8 @@ export const loginAny = async (email, password) => {
             return { success: false, message: "Invalid email or password" };
         }
 
-        const token = generateToken(account.id, account.email, role);
+        const adminLevel = admin ? (admin.admin_level ?? 3) : null;
+        const token = generateToken(account.id, account.email, role, adminLevel);
 
         const table = admin ? "admin_users" : "auth_users";
         await supabase
@@ -156,6 +158,7 @@ export const loginAny = async (email, password) => {
                 email: account.email,
                 full_name: account.full_name,
                 role,
+                ...(adminLevel !== null && { admin_level: adminLevel }),
             },
             token,
         };
@@ -200,7 +203,8 @@ export const loginAdmin = async (email, password) => {
             return { success: false, message: "Invalid email or password" };
         }
 
-        const token = generateToken(admin.id, admin.email, "admin");
+        const adminLevel = admin.admin_level ?? 3;
+        const token = generateToken(admin.id, admin.email, "admin", adminLevel);
 
         await supabase
             .from("admin_users")
@@ -215,6 +219,7 @@ export const loginAdmin = async (email, password) => {
                 email: admin.email,
                 full_name: admin.full_name,
                 role: "admin",
+                admin_level: adminLevel,
             },
             token: token,
         };

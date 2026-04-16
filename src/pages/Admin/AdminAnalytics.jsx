@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, NavLink } from "react-router-dom";
+import { jwtDecode } from "jwt-decode";
 import { Download, ChevronDown, LogOut, Moon, Calendar } from "lucide-react";
 import { realtimeSupabase } from "../../realtimeSupabaseClient";
 import { useLoading } from "../../context/LoadingContext";
@@ -134,6 +135,11 @@ export default function AdminAnalytics() {
   const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
   const role = localStorage.getItem("userRole");
   const isAdmin = role === "admin";
+
+  const isRoot = (() => {
+    try { return jwtDecode(localStorage.getItem("authToken") || "")?.admin_level === 0; }
+    catch { return false; }
+  })();
 
   const [darkMode, setDarkMode] = useState(
     localStorage.getItem("adminDarkMode") === "true",
@@ -355,6 +361,14 @@ export default function AdminAnalytics() {
             >
               Analytics
             </NavLink>
+            {isRoot && (
+              <NavLink
+                to="/admin/manage"
+                className={({ isActive }) => `analytics-nav-link ${isActive ? "active" : ""}`}
+              >
+                Manage
+              </NavLink>
+            )}
           </nav>
 
           <div className="analytics-actions">
