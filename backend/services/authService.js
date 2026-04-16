@@ -32,7 +32,12 @@ export const generateToken = (userId, email, role = "user", adminLevel = null) =
     // to set the PostgreSQL execution role — passing role:"admin" would cause
     // "role admin does not exist" errors since it's not a database role.
     // admin_level: 0=root, 1=senior, 2=mid, 3=junior — only present for admin accounts.
-    const payload = { sub: userId, id: userId, email, app_role: role };
+    // role: "authenticated" sets the PostgreSQL execution role for PostgREST
+    // and Supabase Realtime. "authenticated" is a built-in Supabase role that
+    // is safe to use for all logged-in users. We intentionally avoid role: "admin"
+    // because that would try to set a non-existent PostgreSQL role.
+    // app_role carries our own admin/user distinction for RLS policies.
+    const payload = { sub: userId, id: userId, email, role: "authenticated", app_role: role };
     if (adminLevel !== null) payload.admin_level = adminLevel;
     return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 };

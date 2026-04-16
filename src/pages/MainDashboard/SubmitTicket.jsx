@@ -3,9 +3,11 @@ import { Paperclip, X } from "lucide-react";
 import { jwtDecode } from "jwt-decode";
 import { realtimeSupabase } from "../../realtimeSupabaseClient";
 import { useLoading } from "../../context/LoadingContext";
+import { useTicketsCache } from "../../context/TicketsCacheContext";
 
 function SubmitTicket() {
   const { showLoading, hideLoading, isLoading } = useLoading();
+  const { clearTicketsCache } = useTicketsCache();
   const fileInputRef = useRef(null);
   const [formData, setFormData] = useState({
     userType: "",
@@ -112,6 +114,11 @@ function SubmitTicket() {
         ? createdTickets[0]
         : createdTickets;
 
+      // Bust the cache so Tickets.jsx re-fetches instead of showing stale data.
+      // The INSERT fires while Tickets.jsx isn't mounted, so the realtime event
+      // is missed — a fresh fetch on next navigation is the reliable fallback.
+      clearTicketsCache();
+
       if (createdTicket?.id && descriptionText) {
         const { error: messageError } = await realtimeSupabase
           .from("ticket_messages")
@@ -123,6 +130,7 @@ function SubmitTicket() {
               sender_name: userName || null,
               sender_email: userEmail || null,
               message_text: descriptionText,
+              ticket_owner_id: userId,
               attachments:
                 attachmentData.length > 0
                   ? JSON.stringify(attachmentData)
