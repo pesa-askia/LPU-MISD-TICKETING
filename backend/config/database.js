@@ -183,7 +183,6 @@ export const initializeDatabase = async () => {
                 created_by UUID,
                 created_by_name TEXT,
                 created_by_email TEXT,
-                attachments TEXT,
                 status TEXT DEFAULT 'Open',
                 created_at TIMESTAMPTZ DEFAULT NOW(),
                 closed_at TIMESTAMPTZ

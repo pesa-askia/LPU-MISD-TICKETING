@@ -1,12 +1,29 @@
+.chat-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  min-height: 100%;
+  height: 100%;
+  padding: 32px 56px;
+  box-sizing: border-box;
+}
+
+.chat-wrapper-admin {
+  min-height: 100dvh;
+  height: 100dvh;
+}
+
 .chat-card {
-  width: 90%;
-  max-width: 900px;
-  margin: 20px auto;
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
   padding: 18px;
   display: flex;
   flex-direction: column;
-  height: 80vh;
-  min-height: 50%;
+  height: 90dvh;
+  max-height: 100%;
+  min-height: 60dvh;
 }
 
 .chat-header {
@@ -88,8 +105,9 @@
 
 .chat-messages {
   flex: 1;
+  min-height: 0;
   overflow: auto;
-  padding: 18px 6px;
+  padding: 18px 24px;
 }
 
 /* Message animations */
@@ -204,6 +222,7 @@
   object-fit: cover;
   border-radius: 10px;
   border: 1px solid #eee;
+  box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.226);
 }
 
 .message-attachment-file {
@@ -580,9 +599,15 @@
   .chat-card {
     width: 100%;
     height: 100%;
+    max-height: 100%;
+    min-height: 0;
     margin: 0;
     border-radius: 5;
     padding: 1rem;
+  }
+
+  .chat-messages {
+    padding: 16px 14px;
   }
 
   .bubble {

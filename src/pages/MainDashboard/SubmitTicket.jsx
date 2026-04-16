@@ -99,7 +99,6 @@ function SubmitTicket() {
             created_by_email: userEmail || null,
             status: "Open",
             created_at: new Date().toISOString(),
-            attachments: null,
           },
         ])
         .select("id");

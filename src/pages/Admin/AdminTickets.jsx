@@ -102,6 +102,43 @@ export default function AdminTickets() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Realtime: prepend new tickets and apply status updates without a full reload
+  useEffect(() => {
+    if (!isLoggedIn || !isAdmin) return;
+
+    const channel = realtimeSupabase
+      .channel("admin_tickets_realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "Tickets" },
+        (payload) => {
+          setTickets((prev) => [payload.new, ...prev]);
+          setAdminTickets((prev) =>
+            Array.isArray(prev) ? [payload.new, ...prev] : [payload.new],
+          );
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "Tickets" },
+        (payload) => {
+          setTickets((prev) =>
+            prev.map((t) => (t.id === payload.new.id ? payload.new : t)),
+          );
+          setAdminTickets((prev) =>
+            Array.isArray(prev)
+              ? prev.map((t) => (t.id === payload.new.id ? payload.new : t))
+              : prev,
+          );
+        },
+      )
+      .subscribe();
+
+    return () => {
+      realtimeSupabase.removeChannel(channel);
+    };
+  }, [isLoggedIn, isAdmin]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const base = tickets.filter((t) => {

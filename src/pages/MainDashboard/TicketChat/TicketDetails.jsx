@@ -1,27 +1,16 @@
-import {
-  Download,
-  Image as ImageIcon,
-  ChevronDown,
-  ChevronUp,
-} from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 export default function TicketDetails({
   ticket,
   adminView,
   expandedSummary,
   onToggleSummary,
-  attachments,
-  onSelectImage,
-  onDownloadAttachment,
   onCloseTicket,
   isTicketClosed,
   formatDateTime,
-  getAttachmentSrc,
-  isImageFile,
 }) {
   const statusText = ticket?.status || ticket?.Status || "Open";
   const summaryText = ticket?.Summary || "-";
-  const items = Array.isArray(attachments) ? attachments : [];
 
   return (
     <div className="ticket-details">
@@ -63,37 +52,7 @@ export default function TicketDetails({
           </div>
         </button>
 
-        {items.length > 0 && (
-          <div className="attachments-compact inline-attachments">
-            <h4 className="attachments-title">Attachments ({items.length})</h4>
-            <div className="attachments-list">
-              {items.map((attachment, index) => (
-                <div key={index} className="attachment-chip">
-                  {isImageFile(attachment.name) ? (
-                    <img
-                      src={getAttachmentSrc(attachment)}
-                      alt={attachment.name}
-                      className="attachment-thumb"
-                      onClick={() => onSelectImage(attachment)}
-                      title="Click to view full size"
-                    />
-                  ) : (
-                    <ImageIcon size={22} style={{ color: "#999" }} />
-                  )}
-                  <small className="attachment-name">{attachment.name}</small>
-                  <button
-                    type="button"
-                    onClick={() => onDownloadAttachment(attachment)}
-                    className="attachment-download-btn"
-                  >
-                    <Download size={10} />
-                    Get
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+
       </div>
       <div className={`details-extra ${expandedSummary ? "open" : ""}`}>
         <div className="details-row details-grid-row">

@@ -66,6 +66,47 @@ function Tickets() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tickets]);
 
+  // Realtime: prepend new tickets and apply status updates without a full reload
+  useEffect(() => {
+    const token = localStorage.getItem("authToken");
+    if (!token) return;
+
+    let userId;
+    try {
+      const decoded = jwtDecode(token);
+      userId = decoded.id;
+    } catch {
+      return;
+    }
+    if (!userId) return;
+
+    const channel = realtimeSupabase
+      .channel(`user_tickets_${userId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "Tickets" },
+        (payload) => {
+          if (payload.new?.created_by !== userId) return;
+          setTickets((prev) => [payload.new, ...prev]);
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "Tickets" },
+        (payload) => {
+          if (payload.new?.created_by !== userId) return;
+          setTickets((prev) =>
+            prev.map((t) => (t.id === payload.new.id ? payload.new : t)),
+          );
+        },
+      )
+      .subscribe();
+
+    return () => {
+      realtimeSupabase.removeChannel(channel);
+    };
+  }, []);
+
   if (error) {
     return (
       <div className="wrapper">

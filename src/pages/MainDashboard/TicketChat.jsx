@@ -190,6 +190,11 @@ export default function TicketChat({ adminView = false } = {}) {
 
     let isCancelled = false;
 
+    // Authenticate the WebSocket connection so Supabase RLS passes for
+    // postgres_changes events (the anon key alone is not enough).
+    const token = localStorage.getItem("authToken");
+    if (token) realtimeSupabase.realtime.setAuth(token);
+
     const mapRow = (row) => ({
       id: row.id,
       senderId: row.sender_id,
@@ -456,17 +461,6 @@ export default function TicketChat({ adminView = false } = {}) {
     return imageExtensions.some((ext) => filename.toLowerCase().endsWith(ext));
   };
 
-  const parseAttachments = () => {
-    if (!ticket.attachments) return [];
-    try {
-      const parsed = JSON.parse(ticket.attachments);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (e) {
-      console.error("Error parsing attachments:", e);
-      return [];
-    }
-  };
-
   const parseMessageAttachments = (value) => {
     if (!value) return [];
     if (Array.isArray(value)) return value;
@@ -499,9 +493,9 @@ export default function TicketChat({ adminView = false } = {}) {
 
   if (error) {
     return (
-      <div className="wrapper">
+      <div className={`chat-wrapper${adminView ? " chat-wrapper-admin" : ""}`}>
         <div
-          className="card"
+          className="chat-card"
           style={{
             textAlign: "center",
             color: "#d32f2f",
@@ -527,19 +521,17 @@ export default function TicketChat({ adminView = false } = {}) {
 
   if (!ticket) {
     return (
-      <div className="wrapper">
-        <div className="card" style={{ textAlign: "center", padding: "40px" }}>
+      <div className={`chat-wrapper${adminView ? " chat-wrapper-admin" : ""}`}>
+        <div
+          className="chat-card"
+          style={{ textAlign: "center", padding: "40px" }}
+        >
           <h2>Loading Ticket Details...</h2>
         </div>
       </div>
     );
   }
 
-  const hasMessageAttachments = messages.some(
-    (message) =>
-      Array.isArray(message.attachments) && message.attachments.length > 0,
-  );
-  const attachments = hasMessageAttachments ? [] : parseAttachments();
   const creatorName = (() => {
     const name = (ticket.created_by_name || "").trim();
     if (name) return name;
@@ -551,8 +543,8 @@ export default function TicketChat({ adminView = false } = {}) {
   const headerInitial = creatorName.trim().charAt(0).toUpperCase();
 
   return (
-    <div className="wrapper">
-      <div className="card chat-card">
+    <div className={`chat-wrapper${adminView ? " chat-wrapper-admin" : ""}`}>
+      <div className="chat-card">
         <ChatHeader
           adminView={adminView}
           creatorName={creatorName}
@@ -567,14 +559,9 @@ export default function TicketChat({ adminView = false } = {}) {
           adminView={adminView}
           expandedSummary={expandedSummary}
           onToggleSummary={() => setExpandedSummary((prev) => !prev)}
-          attachments={attachments}
-          onSelectImage={setSelectedImage}
-          onDownloadAttachment={downloadAttachment}
           onCloseTicket={handleCloseTicket}
           isTicketClosed={isTicketClosed}
           formatDateTime={formatDateTime}
-          getAttachmentSrc={getAttachmentSrc}
-          isImageFile={isImageFile}
         />
 
         <ChatMessages
