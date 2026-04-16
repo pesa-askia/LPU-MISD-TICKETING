@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import supabaseAuth from "../../supabaseAuthClient";
+import { realtimeSupabase } from "../../realtimeSupabaseClient";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import "./MagicLinkCallback.css";
 
@@ -49,6 +50,7 @@ const MagicLinkCallback = () => {
         localStorage.setItem("userEmail", data.user.email);
         localStorage.setItem("userRole", "user");
         localStorage.setItem("userFullName", data.user?.full_name || "");
+        realtimeSupabase.realtime.setAuth(data.token);
 
         // Sign out of Supabase Auth locally only (no API call).
         // scope:'local' just clears the Supabase session from localStorage

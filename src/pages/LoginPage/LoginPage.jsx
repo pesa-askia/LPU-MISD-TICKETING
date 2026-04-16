@@ -4,6 +4,7 @@ import { Eye, EyeOff, Mail } from "lucide-react";
 import "./LoginPage.css";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import supabaseAuth from "../../supabaseAuthClient";
+import { realtimeSupabase } from "../../realtimeSupabaseClient";
 
 const LoginPage = () => {
   const [mode, setMode] = useState("magic"); // "magic" | "admin"
@@ -79,7 +80,10 @@ const LoginPage = () => {
         return;
       }
 
-      if (data.token) localStorage.setItem("authToken", data.token);
+      if (data.token) {
+        localStorage.setItem("authToken", data.token);
+        realtimeSupabase.realtime.setAuth(data.token);
+      }
       if (data.user?.id) localStorage.setItem("userId", data.user.id);
       localStorage.setItem("isLoggedIn", "true");
       localStorage.setItem("userEmail", data.user?.email || email);
