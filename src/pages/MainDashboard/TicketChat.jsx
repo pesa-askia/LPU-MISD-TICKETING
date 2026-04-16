@@ -3,17 +3,13 @@ import { useParams, useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import "./ticketchat.css";
 import { useLoading } from "../../context/LoadingContext";
-import {
-  Send,
-  ArrowLeft,
-  Download,
-  Image as ImageIcon,
-  X,
-  ChevronDown,
-  ChevronUp,
-} from "lucide-react";
 import { realtimeSupabase } from "../../realtimeSupabaseClient";
 import { useTicketsCache } from "../../context/TicketsCacheContext";
+import ChatHeader from "./TicketChat/ChatHeader";
+import TicketDetails from "./TicketChat/TicketDetails";
+import ChatMessages from "./TicketChat/ChatMessages";
+import ChatInput from "./TicketChat/ChatInput";
+import AttachmentViewer from "./TicketChat/AttachmentViewer";
 
 export default function TicketChat({ adminView = false } = {}) {
   const { id } = useParams();
@@ -21,6 +17,7 @@ export default function TicketChat({ adminView = false } = {}) {
   const { showLoading, hideLoading } = useLoading();
   const {
     getTicket,
+    getMessages,
     setTicket: cacheTicket,
     setMessages: cacheMessages,
   } = useTicketsCache();
@@ -31,10 +28,20 @@ export default function TicketChat({ adminView = false } = {}) {
   const [selectedImage, setSelectedImage] = useState(null);
   const [expandedSummary, setExpandedSummary] = useState(false);
   const scrollRef = useRef(null);
+  const isAtBottomRef = useRef(true);
   const userIdRef = useRef(null);
   const seenMessageIdsRef = useRef(new Set());
   const [viewerId, setViewerId] = useState(null);
   const [viewerEmail, setViewerEmail] = useState("");
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  const normalizeTicketId = (value) => {
+    const numeric = Number(value);
+    return Number.isNaN(numeric) ? value : numeric;
+  };
+
+  const ticketKey = normalizeTicketId(id);
+  const cachedMessages = getMessages(ticketKey);
 
   const getDisplayName = (name, email, role) => {
     const trimmedName = (name || "").trim();
@@ -168,20 +175,41 @@ export default function TicketChat({ adminView = false } = {}) {
     fetchTicket();
   }, [id, adminView, getTicket, cacheTicket, showLoading, hideLoading]);
 
+  useEffect(() => {
+    if (!ticketKey) return;
+    const cached = getMessages(ticketKey);
+    if (Array.isArray(cached) && cached.length > 0) {
+      setMessages(cached);
+    }
+  }, [ticketKey, getMessages]);
+
   // Load existing messages + subscribe to realtime updates
   useEffect(() => {
-    const ticketId = Number(id);
-    if (!ticketId || Number.isNaN(ticketId)) return;
+    const ticketId = ticketKey;
+    if (!ticketId) return;
 
     let isCancelled = false;
+
+    const mapRow = (row) => ({
+      id: row.id,
+      senderId: row.sender_id,
+      senderRole: row.sender_role,
+      senderName: row.sender_name || null,
+      senderEmail: row.sender_email || null,
+      text: row.message_text,
+      time: row.created_at,
+    });
 
     const loadMessages = async () => {
       try {
         const res = await realtimeSupabase
           .from("ticket_messages")
-          .select("*")
+          .select(
+            "id, sender_id, sender_role, sender_name, sender_email, message_text, created_at",
+          )
           .eq("ticket_id", ticketId)
-          .order("created_at", { ascending: true });
+          .order("created_at", { ascending: false })
+          .range(0, 99);
 
         if (res.error) {
           console.error("[Chat] Error loading messages:", res.error);
@@ -189,18 +217,12 @@ export default function TicketChat({ adminView = false } = {}) {
         }
         if (isCancelled) return;
 
-        const mapped = (res.data || []).map((row) => {
-          seenMessageIdsRef.current.add(row.id);
-          return {
-            id: row.id,
-            senderId: row.sender_id,
-            senderRole: row.sender_role,
-            senderName: row.sender_name || null,
-            senderEmail: row.sender_email || null,
-            text: row.message_text,
-            time: row.created_at,
-          };
-        });
+        const mapped = (res.data || [])
+          .map((row) => {
+            seenMessageIdsRef.current.add(row.id);
+            return mapRow(row);
+          })
+          .reverse();
         setMessages(mapped);
       } catch (err) {
         console.error("Unexpected error loading messages:", err);
@@ -224,20 +246,7 @@ export default function TicketChat({ adminView = false } = {}) {
           if (!row || seenMessageIdsRef.current.has(row.id)) return;
           seenMessageIdsRef.current.add(row.id);
           setMessages((prev) => {
-            const next = [
-              ...prev,
-              {
-                id: row.id,
-                senderId: row.sender_id,
-                senderRole: row.sender_role,
-                senderName: row.sender_name || null,
-                senderEmail: row.sender_email || null,
-                text: row.message_text,
-                time: row.created_at,
-              },
-            ];
-            cacheMessages(ticketId, next);
-            return next;
+            return [...prev, mapRow(row)];
           });
         },
       )
@@ -250,12 +259,44 @@ export default function TicketChat({ adminView = false } = {}) {
       isCancelled = true;
       realtimeSupabase.removeChannel(channel);
     };
-  }, [id]);
+  }, [ticketKey]);
 
   useEffect(() => {
-    if (scrollRef.current)
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (!ticketKey) return;
+    if (cachedMessages === messages) return;
+    cacheMessages(ticketKey, messages);
+  }, [ticketKey, messages, cachedMessages, cacheMessages]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const updateStickiness = () => {
+      const distanceFromBottom =
+        el.scrollHeight - el.scrollTop - el.clientHeight;
+      isAtBottomRef.current = distanceFromBottom < 120;
+    };
+
+    updateStickiness();
+    el.addEventListener("scroll", updateStickiness);
+    return () => el.removeEventListener("scroll", updateStickiness);
+  }, []);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (isAtBottomRef.current) {
+      el.scrollTop = el.scrollHeight;
+    }
   }, [messages]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNowMs(Date.now());
+    }, 60000);
+
+    return () => clearInterval(timer);
+  }, []);
 
   async function handleSend() {
     const trimmed = text.trim();
@@ -283,26 +324,29 @@ export default function TicketChat({ adminView = false } = {}) {
         ? crypto.randomUUID()
         : `temp-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: tempId,
-        senderId,
-        senderRole,
-        senderName,
-        senderEmail,
-        text: trimmed,
-        time: new Date().toISOString(),
-        pending: true,
-      },
-    ]);
+    setMessages((prev) => {
+      const next = [
+        ...prev,
+        {
+          id: tempId,
+          senderId,
+          senderRole,
+          senderName,
+          senderEmail,
+          text: trimmed,
+          time: new Date().toISOString(),
+          pending: true,
+        },
+      ];
+      return next;
+    });
 
     try {
       const { data, error } = await realtimeSupabase
         .from("ticket_messages")
         .insert([
           {
-            ticket_id: Number(id),
+            ticket_id: normalizeTicketId(id),
             sender_id: senderId,
             sender_role: senderRole,
             sender_name: senderName,
@@ -310,7 +354,9 @@ export default function TicketChat({ adminView = false } = {}) {
             message_text: trimmed,
           },
         ])
-        .select("*");
+        .select(
+          "id, sender_id, sender_role, sender_name, sender_email, message_text, created_at",
+        );
 
       if (error) {
         alert(error.message || "Failed to send message");
@@ -323,8 +369,8 @@ export default function TicketChat({ adminView = false } = {}) {
         const row = data[0];
         if (!seenMessageIdsRef.current.has(row.id)) {
           seenMessageIdsRef.current.add(row.id);
-          setMessages((prev) =>
-            prev.map((m) =>
+          setMessages((prev) => {
+            return prev.map((m) =>
               m.id === tempId
                 ? {
                     id: row.id,
@@ -336,8 +382,8 @@ export default function TicketChat({ adminView = false } = {}) {
                     time: row.created_at,
                   }
                 : m,
-            ),
-          );
+            );
+          });
         }
       }
     } catch (err) {
@@ -467,300 +513,48 @@ export default function TicketChat({ adminView = false } = {}) {
   return (
     <div className="wrapper">
       <div className="card chat-card">
-        <div className="chat-header">
-          <button className="back-btn" onClick={() => navigate(-1)}>
-            <ArrowLeft size={15} />
-          </button>
-          {adminView ? (
-            <div className="assignee">
-              <div className="avatar">{headerInitial || "S"}</div>
-              <div>
-                <div className="assignee-name">{creatorName}</div>
-                <div className="assignee-email">
-                  {creatorEmail || "Email unavailable"}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="assignee-group">
-              {adminParticipants.length > 0 ? (
-                adminParticipants.map((participant) => {
-                  const initial = (participant.name || participant.email || "A")
-                    .trim()
-                    .charAt(0)
-                    .toUpperCase();
+        <ChatHeader
+          adminView={adminView}
+          creatorName={creatorName}
+          creatorEmail={creatorEmail}
+          headerInitial={headerInitial}
+          adminParticipants={adminParticipants}
+          onBack={() => navigate(-1)}
+        />
 
-                  return (
-                    <div key={participant.id} className="assignee">
-                      <div className="avatar">{initial || "A"}</div>
-                      <div>
-                        <div className="assignee-name">{participant.name}</div>
-                        {participant.email && (
-                          <div className="assignee-email">
-                            {participant.email}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div
-                  className="assignee assignee-skeleton"
-                  aria-label="Awaiting admin reply"
-                >
-                  <div className="avatar skeleton-circle" />
-                  <div className="skeleton-lines">
-                    <div className="skeleton-line" />
-                    <div className="skeleton-line short" />
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        <TicketDetails
+          ticket={ticket}
+          adminView={adminView}
+          expandedSummary={expandedSummary}
+          onToggleSummary={() => setExpandedSummary((prev) => !prev)}
+          attachments={attachments}
+          onSelectImage={setSelectedImage}
+          onDownloadAttachment={downloadAttachment}
+          onCloseTicket={handleCloseTicket}
+          isTicketClosed={isTicketClosed}
+          formatDateTime={formatDateTime}
+          getAttachmentSrc={getAttachmentSrc}
+          isImageFile={isImageFile}
+        />
 
-        <div className="ticket-details">
-          <div className="details-row details-main-row">
-            <div className="details-col ticket-no-col">
-              <strong>Ticket No.</strong>
-              <div className="ticket-no-value">No. {ticket.id}</div>
-            </div>
+        <ChatMessages
+          messages={messages}
+          viewerId={viewerId}
+          adminView={adminView}
+          getDisplayName={getDisplayName}
+          scrollRef={scrollRef}
+          nowMs={nowMs}
+        />
 
-            <div className="ticket-status-row inline-status">
-              <strong>Status:</strong>
-              <span className="status-pill">
-                {ticket.status || ticket.Status || "Open"}
-              </span>
-              {adminView && (
-                <button
-                  type="button"
-                  onClick={handleCloseTicket}
-                  className="close-ticket-btn"
-                >
-                  {isTicketClosed(ticket) ? "Reopen Ticket" : "Close Ticket"}
-                </button>
-              )}
-            </div>
-
-            <button
-              type="button"
-              className={`details-col summary summary-toggle ${expandedSummary ? "expanded" : ""}`}
-              onClick={() => setExpandedSummary((prev) => !prev)}
-              aria-expanded={expandedSummary}
-            >
-              <strong>Summary</strong>
-              <div className="summary-preview">{ticket.Summary || "-"}</div>
-              <div className="summary-indicator">
-                {expandedSummary ? "Hide details" : "View details"}
-                {expandedSummary ? (
-                  <ChevronUp size={14} />
-                ) : (
-                  <ChevronDown size={14} />
-                )}
-              </div>
-            </button>
-
-            {attachments.length > 0 && (
-              <div className="attachments-compact inline-attachments">
-                <h4 className="attachments-title">
-                  Attachments ({attachments.length})
-                </h4>
-                <div className="attachments-list">
-                  {attachments.map((attachment, index) => (
-                    <div key={index} className="attachment-chip">
-                      {isImageFile(attachment.name) ? (
-                        <img
-                          src={getAttachmentSrc(attachment)}
-                          alt={attachment.name}
-                          className="attachment-thumb"
-                          onClick={() => setSelectedImage(attachment)}
-                          title="Click to view full size"
-                        />
-                      ) : (
-                        <ImageIcon size={22} style={{ color: "#999" }} />
-                      )}
-                      <small className="attachment-name">
-                        {attachment.name}
-                      </small>
-                      <button
-                        type="button"
-                        onClick={() => downloadAttachment(attachment)}
-                        className="attachment-download-btn"
-                      >
-                        <Download size={10} />
-                        Get
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-          <div className={`details-extra ${expandedSummary ? "open" : ""}`}>
-            <div className="details-row details-grid-row">
-              <div className="details-col">
-                <strong>Department</strong>
-                <div>{ticket.Department}</div>
-              </div>
-              <div className="details-col">
-                <strong>Type</strong>
-                <div>{ticket.Type}</div>
-              </div>
-              <div className="details-col">
-                <strong>Category</strong>
-                <div>{ticket.Category}</div>
-              </div>
-              <div className="details-col">
-                <strong>Site</strong>
-                <div>{ticket.Site}</div>
-              </div>
-              <div className="details-col">
-                <strong>Created At</strong>
-                <div>{formatDateTime(ticket.created_at)}</div>
-              </div>
-              <div className="details-col">
-                <strong>Closed At</strong>
-                <div>{formatDateTime(ticket.closed_at)}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="chat-messages" ref={scrollRef} aria-live="polite">
-          {messages.map((m) => {
-            const isOwn = viewerId && m.senderId === viewerId;
-            const isAdminMessage = adminView && m.senderRole === "admin";
-            const alignRight = adminView ? isAdminMessage : isOwn;
-            const isOtherAdmin = adminView && isAdminMessage && !isOwn;
-            const hasIdentity = Boolean(m.senderName || m.senderEmail);
-            const displayName = isOwn
-              ? "You"
-              : hasIdentity
-                ? getDisplayName(m.senderName, m.senderEmail, m.senderRole)
-                : "";
-            const showMeta = isOwn || hasIdentity;
-
-            return (
-              <div
-                key={m.id}
-                className={`msg ${alignRight ? "msg-right" : "msg-left"} ${isOtherAdmin ? "msg-other-admin" : ""}`}
-              >
-                <div className="msg-content">
-                  {showMeta && (
-                    <div className="message-meta">
-                      <span className="message-name">{displayName}</span>
-                    </div>
-                  )}
-                  <div className="bubble">{m.text}</div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="chat-input">
-          <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSend()}
-            placeholder="Start typing..."
-          />
-          <button className="send-btn" onClick={handleSend} aria-label="send">
-            <Send size={15} />
-          </button>
-        </div>
+        <ChatInput text={text} onTextChange={setText} onSend={handleSend} />
       </div>
 
-      {selectedImage && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.8)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 10000,
-          }}
-          onClick={() => setSelectedImage(null)}
-        >
-          <div
-            style={{
-              position: "relative",
-              backgroundColor: "white",
-              borderRadius: "8px",
-              padding: "20px",
-              maxWidth: "90vw",
-              maxHeight: "90vh",
-              overflow: "auto",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => setSelectedImage(null)}
-              style={{
-                position: "absolute",
-                top: "10px",
-                right: "10px",
-                background: "#333",
-                color: "white",
-                border: "none",
-                borderRadius: "50%",
-                width: "35px",
-                height: "35px",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <X size={20} />
-            </button>
-            <img
-              src={getAttachmentSrc(selectedImage)}
-              alt={selectedImage.name}
-              style={{
-                maxWidth: "100%",
-                maxHeight: "80vh",
-                objectFit: "contain",
-              }}
-            />
-            <div style={{ marginTop: "15px", textAlign: "center" }}>
-              <p
-                style={{
-                  margin: "0 0 10px 0",
-                  fontSize: "14px",
-                }}
-              >
-                {selectedImage.name}
-              </p>
-              <button
-                onClick={() => downloadAttachment(selectedImage)}
-                style={{
-                  padding: "8px 16px",
-                  fontSize: "14px",
-                  background: "#2196F3",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  margin: "0 auto",
-                }}
-              >
-                <Download size={16} />
-                Download
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AttachmentViewer
+        selectedImage={selectedImage}
+        onClose={() => setSelectedImage(null)}
+        getAttachmentSrc={getAttachmentSrc}
+        onDownload={downloadAttachment}
+      />
     </div>
   );
 }

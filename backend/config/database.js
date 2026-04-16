@@ -85,6 +85,55 @@ export const initializeDatabase = async () => {
           CREATE INDEX IF NOT EXISTS idx_ticket_messages_ticket_id
             ON ticket_messages(ticket_id, created_at);
 
+          ALTER TABLE ticket_messages ENABLE ROW LEVEL SECURITY;
+
+          DO $$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_policies
+              WHERE schemaname = 'public'
+                AND tablename = 'ticket_messages'
+                AND policyname = 'ticket_messages_select'
+            ) THEN
+              CREATE POLICY ticket_messages_select
+                ON ticket_messages
+                FOR SELECT
+                USING (
+                  (auth.jwt() ->> 'app_role') = 'admin'
+                  OR EXISTS (
+                    SELECT 1
+                    FROM "Tickets" t
+                    WHERE t.id = ticket_messages.ticket_id
+                      AND t.created_by = auth.uid()
+                  )
+                );
+            END IF;
+
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_policies
+              WHERE schemaname = 'public'
+                AND tablename = 'ticket_messages'
+                AND policyname = 'ticket_messages_insert'
+            ) THEN
+              CREATE POLICY ticket_messages_insert
+                ON ticket_messages
+                FOR INSERT
+                WITH CHECK (
+                  sender_id = auth.uid()
+                  AND (
+                    (auth.jwt() ->> 'app_role') = 'admin'
+                    OR EXISTS (
+                      SELECT 1
+                      FROM "Tickets" t
+                      WHERE t.id = ticket_messages.ticket_id
+                        AND t.created_by = auth.uid()
+                    )
+                  )
+                );
+            END IF;
+          END
+          $$;
+
           DO $$
           BEGIN
             IF NOT EXISTS (
