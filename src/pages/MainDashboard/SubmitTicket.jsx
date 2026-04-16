@@ -41,13 +41,19 @@ function SubmitTicket() {
       .from("ticket-attachments")
       .upload(path, file, { upsert: false });
 
-    if (error) throw new Error(`Upload failed for ${file.name}: ${error.message}`);
+    if (error)
+      throw new Error(`Upload failed for ${file.name}: ${error.message}`);
 
-    const { data: { publicUrl } } = realtimeSupabase.storage
-      .from("ticket-attachments")
-      .getPublicUrl(path);
+    const {
+      data: { publicUrl },
+    } = realtimeSupabase.storage.from("ticket-attachments").getPublicUrl(path);
 
-    return { name: file.name, size: file.size, type: file.type, url: publicUrl };
+    return {
+      name: file.name,
+      size: file.size,
+      type: file.type,
+      url: publicUrl,
+    };
   };
 
   const handleSubmit = async (e) => {
@@ -65,6 +71,10 @@ function SubmitTicket() {
 
       const decoded = jwtDecode(token);
       const userId = decoded.id;
+      const storedEmail = (localStorage.getItem("userEmail") || "").trim();
+      const storedName = (localStorage.getItem("userFullName") || "").trim();
+      const userEmail = storedEmail || decoded.email || "";
+      const userName = storedName || (userEmail ? userEmail.split("@")[0] : "");
 
       // Upload attachments directly to Supabase Storage (RLS allows writes to own folder)
       const attachmentData = [];
@@ -73,34 +83,78 @@ function SubmitTicket() {
         attachmentData.push(meta);
       }
 
-      const { error } = await realtimeSupabase.from("Tickets").insert([{
-        Summary: formData.summary,
-        Description: formData.description,
-        Type: formData.userType,
-        Department: formData.department,
-        Category: formData.category,
-        Site: formData.site,
-        created_by: userId,
-        status: "Open",
-        created_at: new Date().toISOString(),
-        attachments: attachmentData.length > 0 ? JSON.stringify(attachmentData) : null,
-      }]);
+      const descriptionText = formData.description.trim();
+      const { data: createdTickets, error } = await realtimeSupabase
+        .from("Tickets")
+        .insert([
+          {
+            Summary: formData.summary,
+            Description: formData.description,
+            Type: formData.userType,
+            Department: formData.department,
+            Category: formData.category,
+            Site: formData.site,
+            created_by: userId,
+            created_by_name: userName || null,
+            created_by_email: userEmail || null,
+            status: "Open",
+            created_at: new Date().toISOString(),
+            attachments:
+              attachmentData.length > 0 ? JSON.stringify(attachmentData) : null,
+          },
+        ])
+        .select("id");
 
       if (error) {
         setErrorMessage(error.message || "Failed to submit ticket");
-      } else {
-        setSuccessMessage("Ticket submitted successfully! Your ticket has been created.");
-        setTimeout(() => setSuccessMessage(null), 5000);
-        setFormData({
-          userType: "",
-          department: "",
-          category: "",
-          description: "",
-          summary: "",
-          site: "",
-        });
-        setAttachments([]);
+        return;
       }
+
+      const createdTicket = Array.isArray(createdTickets)
+        ? createdTickets[0]
+        : createdTickets;
+
+      if (createdTicket?.id && descriptionText) {
+        const { error: messageError } = await realtimeSupabase
+          .from("ticket_messages")
+          .insert([
+            {
+              ticket_id: createdTicket.id,
+              sender_id: userId,
+              sender_role: "user",
+              sender_name: userName || null,
+              sender_email: userEmail || null,
+              message_text: descriptionText,
+            },
+          ]);
+
+        if (messageError) {
+          setSuccessMessage(
+            "Ticket submitted, but the initial message failed to post. Open the ticket to send it manually.",
+          );
+          setTimeout(() => setSuccessMessage(null), 6000);
+        } else {
+          setSuccessMessage(
+            "Ticket submitted successfully! Your ticket has been created.",
+          );
+          setTimeout(() => setSuccessMessage(null), 5000);
+        }
+      } else {
+        setSuccessMessage(
+          "Ticket submitted successfully! Your ticket has been created.",
+        );
+        setTimeout(() => setSuccessMessage(null), 5000);
+      }
+
+      setFormData({
+        userType: "",
+        department: "",
+        category: "",
+        description: "",
+        summary: "",
+        site: "",
+      });
+      setAttachments([]);
     } catch (err) {
       console.error("Unexpected error:", err);
       setErrorMessage(err.message || "An unexpected error occurred");
@@ -270,10 +324,21 @@ function SubmitTicket() {
                 borderRadius: "4px",
               }}
             >
-              <p style={{ margin: "0 0 12px 0", fontWeight: "bold" }}>
+              <p
+                style={{
+                  margin: "0 0 12px 0",
+                  fontWeight: "bold",
+                }}
+              >
                 Attached Files ({attachments.length}):
               </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "8px",
+                }}
+              >
                 {attachments.map((file, index) => (
                   <div
                     key={index}

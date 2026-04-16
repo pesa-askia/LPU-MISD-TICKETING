@@ -18,6 +18,7 @@ const MagicLinkCallback = () => {
     localStorage.removeItem("userRole");
     localStorage.removeItem("userId");
     localStorage.removeItem("userEmail");
+    localStorage.removeItem("userFullName");
 
     let done = false;
 
@@ -30,7 +31,9 @@ const MagicLinkCallback = () => {
         const res = await fetch(`${API_BASE_URL}/api/auth/magic-verify`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ access_token: session.access_token }),
+          body: JSON.stringify({
+            access_token: session.access_token,
+          }),
         });
 
         const data = await res.json();
@@ -45,6 +48,7 @@ const MagicLinkCallback = () => {
         localStorage.setItem("isLoggedIn", "true");
         localStorage.setItem("userEmail", data.user.email);
         localStorage.setItem("userRole", "user");
+        localStorage.setItem("userFullName", data.user?.full_name || "");
 
         // Sign out of Supabase Auth locally only (no API call).
         // scope:'local' just clears the Supabase session from localStorage
@@ -54,19 +58,21 @@ const MagicLinkCallback = () => {
         navigate("/Tickets", { replace: true });
       } catch (err) {
         console.error("Magic link callback error:", err);
-        setError("Could not reach the server. Make sure the backend is running and try again.");
+        setError(
+          "Could not reach the server. Make sure the backend is running and try again.",
+        );
       }
     };
 
     // Subscribe first so we never miss the event
-    const { data: { subscription } } = supabaseAuth.auth.onAuthStateChange(
-      (event, session) => {
-        if (event === "SIGNED_IN" && session) {
-          subscription.unsubscribe();
-          exchangeForCustomJwt(session);
-        }
+    const {
+      data: { subscription },
+    } = supabaseAuth.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session) {
+        subscription.unsubscribe();
+        exchangeForCustomJwt(session);
       }
-    );
+    });
 
     // Also check immediately in case the session was already set before mount
     supabaseAuth.auth.getSession().then(({ data: { session } }) => {
@@ -80,7 +86,9 @@ const MagicLinkCallback = () => {
     const timeout = setTimeout(() => {
       if (!done) {
         done = true;
-        setError("Magic link has expired or is invalid. Please request a new one.");
+        setError(
+          "Magic link has expired or is invalid. Please request a new one.",
+        );
       }
     }, 10000);
 
@@ -94,7 +102,9 @@ const MagicLinkCallback = () => {
     return (
       <div className="callback-page">
         <p className="callback-error">{error}</p>
-        <a href="/" className="callback-back">Back to login</a>
+        <a href="/" className="callback-back">
+          Back to login
+        </a>
       </div>
     );
   }
