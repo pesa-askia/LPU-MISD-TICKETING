@@ -338,6 +338,7 @@ export const initializeAdminUsers = async () => {
             password_hash VARCHAR(255) NOT NULL,
             full_name VARCHAR(255),
             is_active BOOLEAN DEFAULT true,
+            admin_level INTEGER NOT NULL DEFAULT 3 CHECK (admin_level IN (0, 1, 2, 3)),
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
           );
@@ -356,6 +357,28 @@ export const initializeAdminUsers = async () => {
     } else if (tableCheckError) {
       console.log("Admin table check error:", tableCheckError.message);
       return;
+    }
+
+    // Migrate: add admin_level column if it doesn't exist
+    try {
+      await supabase.rpc("execute_sql", {
+        sql: `
+          DO $$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_name = 'admin_users' AND column_name = 'admin_level'
+            ) THEN
+              ALTER TABLE admin_users
+                ADD COLUMN admin_level INTEGER NOT NULL DEFAULT 3
+                CHECK (admin_level IN (0, 1, 2, 3));
+            END IF;
+          END
+          $$;
+        `,
+      });
+    } catch (migrateErr) {
+      console.warn("admin_level migration skipped:", migrateErr.message);
     }
 
     // Seed mock admin (only if env vars provided)
@@ -400,6 +423,7 @@ export const initializeAdminUsers = async () => {
         password_hash: passwordHash,
         full_name: seedFullName,
         is_active: true,
+        admin_level: 0,
       },
     ]);
 

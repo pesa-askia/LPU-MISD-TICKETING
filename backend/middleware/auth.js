@@ -53,6 +53,37 @@ export const adminMiddleware = (req, res, next) => {
 };
 
 /**
+ * Middleware to verify JWT AND require root (admin_level === 0).
+ */
+export const rootMiddleware = (req, res, next) => {
+    adminMiddleware(req, res, () => {
+        if (req.user?.admin_level !== 0) {
+            return res.status(403).json({
+                success: false,
+                message: "Root access required",
+            });
+        }
+        next();
+    });
+};
+
+/**
+ * Middleware factory — requires admin role AND admin_level <= maxLevel.
+ * e.g. requireLevel(1) allows root (0) and level-1 admins but not 2 or 3.
+ */
+export const requireLevel = (maxLevel) => (req, res, next) => {
+    adminMiddleware(req, res, () => {
+        if ((req.user?.admin_level ?? 99) > maxLevel) {
+            return res.status(403).json({
+                success: false,
+                message: "Insufficient admin level",
+            });
+        }
+        next();
+    });
+};
+
+/**
  * Optional middleware - doesn't fail if token is missing
  */
 export const optionalAuthMiddleware = (req, _res, next) => {

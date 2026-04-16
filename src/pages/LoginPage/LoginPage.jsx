@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Mail } from "lucide-react";
 import "./LoginPage.css";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import supabaseAuth from "../../supabaseAuthClient";
@@ -147,7 +147,7 @@ const LoginPage = () => {
           {mode === "magic" && emailSent && (
             <div className="magic-sent">
               <div className="magic-sent-icon" aria-hidden="true">
-                ✉
+                <Mail size={32} />
               </div>
               <p className="magic-sent-title">Check your inbox</p>
               <p className="magic-sent-body">
