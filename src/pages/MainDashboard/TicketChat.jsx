@@ -1,25 +1,26 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import "./ticketchat.css";
 import { useLoading } from "../../context/LoadingContext";
-import {
-  Send,
-  ArrowLeft,
-  Download,
-  Image as ImageIcon,
-  X,
-  ChevronDown,
-  ChevronUp,
-} from "lucide-react";
 import { realtimeSupabase } from "../../realtimeSupabaseClient";
 import { useTicketsCache } from "../../context/TicketsCacheContext";
+import ChatHeader from "./TicketChat/ChatHeader";
+import TicketDetails from "./TicketChat/TicketDetails";
+import ChatMessages from "./TicketChat/ChatMessages";
+import ChatInput from "./TicketChat/ChatInput";
+import AttachmentViewer from "./TicketChat/AttachmentViewer";
 
 export default function TicketChat({ adminView = false } = {}) {
   const { id } = useParams();
   const navigate = useNavigate();
   const { showLoading, hideLoading } = useLoading();
-  const { getTicket, setTicket: cacheTicket, setMessages: cacheMessages } = useTicketsCache();
+  const {
+    getTicket,
+    getMessages,
+    setTicket: cacheTicket,
+    setMessages: cacheMessages,
+  } = useTicketsCache();
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [ticket, setTicket] = useState(null);
@@ -27,25 +28,64 @@ export default function TicketChat({ adminView = false } = {}) {
   const [selectedImage, setSelectedImage] = useState(null);
   const [expandedSummary, setExpandedSummary] = useState(false);
   const scrollRef = useRef(null);
+  const isAtBottomRef = useRef(true);
   const userIdRef = useRef(null);
   const seenMessageIdsRef = useRef(new Set());
   const [viewerId, setViewerId] = useState(null);
+  const [viewerEmail, setViewerEmail] = useState("");
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  const normalizeTicketId = (value) => {
+    const numeric = Number(value);
+    return Number.isNaN(numeric) ? value : numeric;
+  };
+
+  const ticketKey = normalizeTicketId(id);
+  const cachedMessages = getMessages(ticketKey);
+
+  const getDisplayName = (name, email, role) => {
+    const trimmedName = (name || "").trim();
+    if (trimmedName) return trimmedName;
+    const trimmedEmail = (email || "").trim();
+    if (trimmedEmail) return trimmedEmail.split("@")[0];
+    return role === "admin" ? "Admin" : "Student";
+  };
+
+  const getStoredProfile = () => {
+    const storedName = (localStorage.getItem("userFullName") || "").trim();
+    const storedEmail = (localStorage.getItem("userEmail") || "").trim();
+    const email = storedEmail || viewerEmail || "";
+    const name = storedName || (email ? email.split("@")[0] : "");
+    return { name, email };
+  };
 
   const formatDateTime = (value) => {
     if (!value) return "-";
-    try { return new Date(value).toLocaleString(); } catch { return value; }
+    try {
+      return new Date(value).toLocaleString();
+    } catch {
+      return value;
+    }
   };
 
   const isTicketClosed = (ticketData) => {
     if (!ticketData) return false;
     if (ticketData.closed_at) return true;
     const statusValue =
-      ticketData?.status ?? ticketData?.Status ?? ticketData?.state ?? ticketData?.State;
-    return String(statusValue || "").toLowerCase().includes("closed");
+      ticketData?.status ??
+      ticketData?.Status ??
+      ticketData?.state ??
+      ticketData?.State;
+    return String(statusValue || "")
+      .toLowerCase()
+      .includes("closed");
   };
 
   const handleCloseTicket = async () => {
-    if (!adminView) { alert("Only admins can update ticket status."); return; }
+    if (!adminView) {
+      alert("Only admins can update ticket status.");
+      return;
+    }
     if (!ticket) return;
 
     try {
@@ -62,9 +102,15 @@ export default function TicketChat({ adminView = false } = {}) {
         .eq("id", ticket.id)
         .select();
 
-      if (error) { alert(error.message || "Failed to update ticket status"); return; }
+      if (error) {
+        alert(error.message || "Failed to update ticket status");
+        return;
+      }
 
-      const updated = (Array.isArray(data) && data[0]) || { ...ticket, ...payload };
+      const updated = (Array.isArray(data) && data[0]) || {
+        ...ticket,
+        ...payload,
+      };
       setTicket(updated);
       cacheTicket(id, updated);
     } catch (err) {
@@ -82,7 +128,11 @@ export default function TicketChat({ adminView = false } = {}) {
         setError(null);
 
         const cached = getTicket(id);
-        if (cached) { setTicket(cached); } else { showLoading(); }
+        if (cached) {
+          setTicket(cached);
+        } else {
+          showLoading();
+        }
 
         const token = localStorage.getItem("authToken");
         if (!token) {
@@ -94,6 +144,7 @@ export default function TicketChat({ adminView = false } = {}) {
         const decoded = jwtDecode(token);
         userIdRef.current = decoded.id;
         setViewerId(decoded.id);
+        setViewerEmail(decoded.email || "");
 
         let q = realtimeSupabase.from("Tickets").select("*").eq("id", id);
         if (!adminView) q = q.eq("created_by", decoded.id);
@@ -106,7 +157,9 @@ export default function TicketChat({ adminView = false } = {}) {
               : error.message || "Failed to load ticket",
           );
         } else if (!data) {
-          setError("Ticket not found or you don't have permission to view this ticket.");
+          setError(
+            "Ticket not found or you don't have permission to view this ticket.",
+          );
         } else {
           setTicket(data);
           cacheTicket(id, data);
@@ -122,34 +175,82 @@ export default function TicketChat({ adminView = false } = {}) {
     fetchTicket();
   }, [id, adminView, getTicket, cacheTicket, showLoading, hideLoading]);
 
+  useEffect(() => {
+    if (!ticketKey) return;
+    const cached = getMessages(ticketKey);
+    if (Array.isArray(cached) && cached.length > 0) {
+      setMessages(cached);
+    }
+  }, [ticketKey, getMessages]);
+
   // Load existing messages + subscribe to realtime updates
   useEffect(() => {
-    const ticketId = Number(id);
-    if (!ticketId || Number.isNaN(ticketId)) return;
+    const ticketId = ticketKey;
+    if (!ticketId) return;
 
     let isCancelled = false;
 
+    // Authenticate the WebSocket connection so Supabase RLS passes for
+    // postgres_changes events (the anon key alone is not enough).
+    const token = localStorage.getItem("authToken");
+    if (token) realtimeSupabase.realtime.setAuth(token);
+
+    const mapRow = (row) => ({
+      id: row.id,
+      senderId: row.sender_id,
+      senderRole: row.sender_role,
+      senderName: row.sender_name || null,
+      senderEmail: row.sender_email || null,
+      text: row.message_text,
+      attachments: parseMessageAttachments(row.attachments),
+      time: row.created_at,
+    });
+
+    const isMissingColumn = (err, column) => {
+      if (!err) return false;
+      const message = String(err.message || "").toLowerCase();
+      const details = String(err.details || "").toLowerCase();
+      return (
+        err.code === "42703" ||
+        message.includes(column) ||
+        details.includes(column)
+      );
+    };
+
     const loadMessages = async () => {
       try {
-        const res = await realtimeSupabase
+        let res = await realtimeSupabase
           .from("ticket_messages")
-          .select("*")
+          .select(
+            "id, sender_id, sender_role, sender_name, sender_email, message_text, attachments, created_at",
+          )
           .eq("ticket_id", ticketId)
-          .order("created_at", { ascending: true });
+          .order("created_at", { ascending: false })
+          .range(0, 99);
 
-        if (res.error) { console.error("[Chat] Error loading messages:", res.error); return; }
+        if (res.error && isMissingColumn(res.error, "attachments")) {
+          res = await realtimeSupabase
+            .from("ticket_messages")
+            .select(
+              "id, sender_id, sender_role, sender_name, sender_email, message_text, created_at",
+            )
+            .eq("ticket_id", ticketId)
+            .order("created_at", { ascending: false })
+            .range(0, 99);
+        }
+
+        if (res.error) {
+          console.error("[Chat] Error loading messages:", res.error);
+          return;
+        }
         if (isCancelled) return;
 
-        const mapped = (res.data || []).map((row) => {
-          seenMessageIdsRef.current.add(row.id);
-          return {
-            id: row.id,
-            senderId: row.sender_id,
-            senderRole: row.sender_role,
-            text: row.message_text,
-            time: row.created_at,
-          };
-        });
+        const mapped = (res.data || [])
+          .map((row) => {
+            seenMessageIdsRef.current.add(row.id);
+            return mapRow(row);
+          })
+          .reverse();
         setMessages(mapped);
       } catch (err) {
         console.error("Unexpected error loading messages:", err);
@@ -173,71 +274,118 @@ export default function TicketChat({ adminView = false } = {}) {
           if (!row || seenMessageIdsRef.current.has(row.id)) return;
           seenMessageIdsRef.current.add(row.id);
           setMessages((prev) => {
-            const next = [
-              ...prev,
-              {
-                id: row.id,
-                senderId: row.sender_id,
-                senderRole: row.sender_role,
-                text: row.message_text,
-                time: row.created_at,
-              },
-            ];
-            cacheMessages(ticketId, next);
-            return next;
+            return [...prev, mapRow(row)];
           });
         },
       )
       .subscribe((status) => {
-        if (status === "CHANNEL_ERROR") console.error("Realtime channel error for ticket_messages");
+        if (status === "CHANNEL_ERROR")
+          console.error("Realtime channel error for ticket_messages");
       });
 
     return () => {
       isCancelled = true;
       realtimeSupabase.removeChannel(channel);
     };
-  }, [id]);
+  }, [ticketKey]);
 
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (!ticketKey) return;
+    if (cachedMessages === messages) return;
+    cacheMessages(ticketKey, messages);
+  }, [ticketKey, messages, cachedMessages, cacheMessages]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const updateStickiness = () => {
+      const distanceFromBottom =
+        el.scrollHeight - el.scrollTop - el.clientHeight;
+      isAtBottomRef.current = distanceFromBottom < 120;
+    };
+
+    updateStickiness();
+    el.addEventListener("scroll", updateStickiness);
+    return () => el.removeEventListener("scroll", updateStickiness);
+  }, []);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (isAtBottomRef.current) {
+      el.scrollTop = el.scrollHeight;
+    }
   }, [messages]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNowMs(Date.now());
+    }, 60000);
+
+    return () => clearInterval(timer);
+  }, []);
 
   async function handleSend() {
     const trimmed = text.trim();
     if (!trimmed) return;
 
     const senderId = userIdRef.current;
-    if (!senderId) { alert("Session error: please log in again and retry."); return; }
+    if (!senderId) {
+      alert("Session error: please log in again and retry.");
+      return;
+    }
+
+    const senderRole = adminView ? "admin" : "user";
+    const storedProfile = getStoredProfile();
+    const senderName = getDisplayName(
+      storedProfile.name,
+      storedProfile.email,
+      senderRole,
+    );
+    const senderEmail = storedProfile.email || "";
 
     setText("");
 
     const tempId =
-      (typeof crypto !== "undefined" && crypto.randomUUID)
+      typeof crypto !== "undefined" && crypto.randomUUID
         ? crypto.randomUUID()
         : `temp-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: tempId,
-        senderId,
-        senderRole: adminView ? "admin" : "user",
-        text: trimmed,
-        time: new Date().toISOString(),
-        pending: true,
-      },
-    ]);
+    setMessages((prev) => {
+      const next = [
+        ...prev,
+        {
+          id: tempId,
+          senderId,
+          senderRole,
+          senderName,
+          senderEmail,
+          text: trimmed,
+          attachments: [],
+          time: new Date().toISOString(),
+          pending: true,
+        },
+      ];
+      return next;
+    });
 
     try {
       const { data, error } = await realtimeSupabase
         .from("ticket_messages")
-        .insert([{
-          ticket_id: Number(id),
-          sender_id: senderId,
-          sender_role: adminView ? "admin" : "user",
-          message_text: trimmed,
-        }])
-        .select("*");
+        .insert([
+          {
+            ticket_id: normalizeTicketId(id),
+            sender_id: senderId,
+            sender_role: senderRole,
+            sender_name: senderName,
+            sender_email: senderEmail || null,
+            message_text: trimmed,
+          },
+        ])
+        .select(
+          "id, sender_id, sender_role, sender_name, sender_email, message_text, attachments, created_at",
+        );
 
       if (error) {
         alert(error.message || "Failed to send message");
@@ -250,13 +398,22 @@ export default function TicketChat({ adminView = false } = {}) {
         const row = data[0];
         if (!seenMessageIdsRef.current.has(row.id)) {
           seenMessageIdsRef.current.add(row.id);
-          setMessages((prev) =>
-            prev.map((m) =>
+          setMessages((prev) => {
+            return prev.map((m) =>
               m.id === tempId
-                ? { id: row.id, senderId: row.sender_id, senderRole: row.sender_role, text: row.message_text, time: row.created_at }
+                ? {
+                    id: row.id,
+                    senderId: row.sender_id,
+                    senderRole: row.sender_role,
+                    senderName: row.sender_name || senderName,
+                    senderEmail: row.sender_email || senderEmail || null,
+                    text: row.message_text,
+                    attachments: parseMessageAttachments(row.attachments),
+                    time: row.created_at,
+                  }
                 : m,
-            ),
-          );
+            );
+          });
         }
       }
     } catch (err) {
@@ -265,7 +422,8 @@ export default function TicketChat({ adminView = false } = {}) {
     }
   }
 
-  const getAttachmentSrc = (attachment) => attachment.url || attachment.data || "";
+  const getAttachmentSrc = (attachment) =>
+    attachment.url || attachment.data || "";
 
   const downloadAttachment = async (attachment) => {
     const src = getAttachmentSrc(attachment);
@@ -303,24 +461,57 @@ export default function TicketChat({ adminView = false } = {}) {
     return imageExtensions.some((ext) => filename.toLowerCase().endsWith(ext));
   };
 
-  const parseAttachments = () => {
-    if (!ticket.attachments) return [];
+  const parseMessageAttachments = (value) => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value;
     try {
-      const parsed = JSON.parse(ticket.attachments);
+      const parsed = JSON.parse(value);
       return Array.isArray(parsed) ? parsed : [];
-    } catch (e) {
-      console.error("Error parsing attachments:", e);
+    } catch {
       return [];
     }
   };
 
+  const adminParticipants = useMemo(() => {
+    if (adminView) return [];
+    const unique = new Map();
+    for (const msg of messages) {
+      if (msg.senderRole !== "admin") continue;
+      const name = (msg.senderName || "").trim();
+      const email = (msg.senderEmail || "").trim();
+      if (!name && !email) continue;
+      const key = msg.senderId || email || name;
+      if (unique.has(key)) continue;
+      unique.set(key, {
+        id: key,
+        name: name || (email ? email.split("@")[0] : "Admin"),
+        email,
+      });
+    }
+    return Array.from(unique.values());
+  }, [messages, adminView]);
+
   if (error) {
     return (
-      <div className="wrapper">
-        <div className="card" style={{ textAlign: "center", color: "#d32f2f", padding: "40px" }}>
+      <div className={`chat-wrapper${adminView ? " chat-wrapper-admin" : ""}`}>
+        <div
+          className="chat-card"
+          style={{
+            textAlign: "center",
+            color: "#d32f2f",
+            padding: "40px",
+          }}
+        >
           <h2>Error Loading Ticket</h2>
           <p>{error}</p>
-          <button onClick={() => navigate(-1)} style={{ marginTop: "20px", padding: "10px 20px", cursor: "pointer" }}>
+          <button
+            onClick={() => navigate(-1)}
+            style={{
+              marginTop: "20px",
+              padding: "10px 20px",
+              cursor: "pointer",
+            }}
+          >
             Go Back
           </button>
         </div>
@@ -330,183 +521,71 @@ export default function TicketChat({ adminView = false } = {}) {
 
   if (!ticket) {
     return (
-      <div className="wrapper">
-        <div className="card" style={{ textAlign: "center", padding: "40px" }}>
+      <div className={`chat-wrapper${adminView ? " chat-wrapper-admin" : ""}`}>
+        <div
+          className="chat-card"
+          style={{ textAlign: "center", padding: "40px" }}
+        >
           <h2>Loading Ticket Details...</h2>
         </div>
       </div>
     );
   }
 
-  const attachments = parseAttachments();
+  const creatorName = (() => {
+    const name = (ticket.created_by_name || "").trim();
+    if (name) return name;
+    const email = (ticket.created_by_email || "").trim();
+    if (email) return email.split("@")[0];
+    return ticket.Department || "Student";
+  })();
+  const creatorEmail = (ticket.created_by_email || "").trim();
+  const headerInitial = creatorName.trim().charAt(0).toUpperCase();
 
   return (
-    <div className="wrapper">
-      <div className="card chat-card">
-        <div className="chat-header">
-          <button className="back-btn" onClick={() => navigate(-1)}>
-            <ArrowLeft size={15} />
-          </button>
-          <div className="assignee">
-            <div className="avatar">A</div>
-            <div>
-              <div className="assignee-name">{ticket.Department}</div>
-              <div className="assignee-email">support@email.com</div>
-            </div>
-          </div>
-        </div>
+    <div className={`chat-wrapper${adminView ? " chat-wrapper-admin" : ""}`}>
+      <div className="chat-card">
+        <ChatHeader
+          adminView={adminView}
+          creatorName={creatorName}
+          creatorEmail={creatorEmail}
+          headerInitial={headerInitial}
+          adminParticipants={adminParticipants}
+          onBack={() => navigate(-1)}
+        />
 
-        <div className="ticket-details">
-          <div className="details-row details-main-row">
-            <div className="details-col ticket-no-col">
-              <strong>Ticket No.</strong>
-              <div className="ticket-no-value">No. {ticket.id}</div>
-            </div>
+        <TicketDetails
+          ticket={ticket}
+          adminView={adminView}
+          expandedSummary={expandedSummary}
+          onToggleSummary={() => setExpandedSummary((prev) => !prev)}
+          onCloseTicket={handleCloseTicket}
+          isTicketClosed={isTicketClosed}
+          formatDateTime={formatDateTime}
+        />
 
-            <div className="ticket-status-row inline-status">
-              <strong>Status:</strong>
-              <span className="status-pill">{ticket.status || ticket.Status || "Open"}</span>
-              {adminView && (
-                <button type="button" onClick={handleCloseTicket} className="close-ticket-btn">
-                  {isTicketClosed(ticket) ? "Reopen Ticket" : "Close Ticket"}
-                </button>
-              )}
-            </div>
+        <ChatMessages
+          messages={messages}
+          viewerId={viewerId}
+          adminView={adminView}
+          getDisplayName={getDisplayName}
+          scrollRef={scrollRef}
+          nowMs={nowMs}
+          getAttachmentSrc={getAttachmentSrc}
+          isImageFile={isImageFile}
+          onOpenAttachment={setSelectedImage}
+          onDownloadAttachment={downloadAttachment}
+        />
 
-            <button
-              type="button"
-              className={`details-col summary summary-toggle ${expandedSummary ? "expanded" : ""}`}
-              onClick={() => setExpandedSummary((prev) => !prev)}
-              aria-expanded={expandedSummary}
-            >
-              <strong>Summary</strong>
-              <div className="summary-preview">{ticket.Summary || "-"}</div>
-              <div className="summary-indicator">
-                {expandedSummary ? "Hide details" : "View details"}
-                {expandedSummary ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-              </div>
-              <div className={`summary-full ${expandedSummary ? "open" : ""}`}>
-                <div className="summary-full-content">{ticket.Description || "No details provided."}</div>
-              </div>
-            </button>
-
-            {attachments.length > 0 && (
-              <div className="attachments-compact inline-attachments">
-                <h4 className="attachments-title">Attachments ({attachments.length})</h4>
-                <div className="attachments-list">
-                  {attachments.map((attachment, index) => (
-                    <div key={index} className="attachment-chip">
-                      {isImageFile(attachment.name) ? (
-                        <img
-                          src={getAttachmentSrc(attachment)}
-                          alt={attachment.name}
-                          className="attachment-thumb"
-                          onClick={() => setSelectedImage(attachment)}
-                          title="Click to view full size"
-                        />
-                      ) : (
-                        <ImageIcon size={22} style={{ color: "#999" }} />
-                      )}
-                      <small className="attachment-name">{attachment.name}</small>
-                      <button
-                        type="button"
-                        onClick={() => downloadAttachment(attachment)}
-                        className="attachment-download-btn"
-                      >
-                        <Download size={10} />
-                        Get
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-          <div className={`details-extra ${expandedSummary ? "open" : ""}`}>
-            <div className="details-row details-grid-row">
-              <div className="details-col"><strong>Department</strong><div>{ticket.Department}</div></div>
-              <div className="details-col"><strong>Type</strong><div>{ticket.Type}</div></div>
-              <div className="details-col"><strong>Category</strong><div>{ticket.Category}</div></div>
-              <div className="details-col"><strong>Site</strong><div>{ticket.Site}</div></div>
-              <div className="details-col"><strong>Created At</strong><div>{formatDateTime(ticket.created_at)}</div></div>
-              <div className="details-col"><strong>Closed At</strong><div>{formatDateTime(ticket.closed_at)}</div></div>
-            </div>
-          </div>
-        </div>
-
-        <div className="chat-messages" ref={scrollRef} aria-live="polite">
-          {messages.map((m) => (
-            <div
-              key={m.id}
-              className={`msg ${viewerId && m.senderId === viewerId ? "msg-right" : "msg-left"}`}
-            >
-              <div className="bubble">{m.text}</div>
-            </div>
-          ))}
-        </div>
-
-        <div className="chat-input">
-          <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSend()}
-            placeholder="Start typing..."
-          />
-          <button className="send-btn" onClick={handleSend} aria-label="send">
-            <Send size={15} />
-          </button>
-        </div>
+        <ChatInput text={text} onTextChange={setText} onSend={handleSend} />
       </div>
 
-      {selectedImage && (
-        <div
-          style={{
-            position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.8)",
-            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10000,
-          }}
-          onClick={() => setSelectedImage(null)}
-        >
-          <div
-            style={{
-              position: "relative", backgroundColor: "white", borderRadius: "8px",
-              padding: "20px", maxWidth: "90vw", maxHeight: "90vh", overflow: "auto",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => setSelectedImage(null)}
-              style={{
-                position: "absolute", top: "10px", right: "10px",
-                background: "#333", color: "white", border: "none", borderRadius: "50%",
-                width: "35px", height: "35px", cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}
-            >
-              <X size={20} />
-            </button>
-            <img
-              src={getAttachmentSrc(selectedImage)}
-              alt={selectedImage.name}
-              style={{ maxWidth: "100%", maxHeight: "80vh", objectFit: "contain" }}
-            />
-            <div style={{ marginTop: "15px", textAlign: "center" }}>
-              <p style={{ margin: "0 0 10px 0", fontSize: "14px" }}>{selectedImage.name}</p>
-              <button
-                onClick={() => downloadAttachment(selectedImage)}
-                style={{
-                  padding: "8px 16px", fontSize: "14px", background: "#2196F3",
-                  color: "white", border: "none", borderRadius: "4px", cursor: "pointer",
-                  display: "flex", alignItems: "center", gap: "6px", margin: "0 auto",
-                }}
-              >
-                <Download size={16} />
-                Download
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AttachmentViewer
+        selectedImage={selectedImage}
+        onClose={() => setSelectedImage(null)}
+        getAttachmentSrc={getAttachmentSrc}
+        onDownload={downloadAttachment}
+      />
     </div>
   );
 }
