@@ -190,11 +190,6 @@ export default function TicketChat({ adminView = false } = {}) {
 
     let isCancelled = false;
 
-    // Authenticate the WebSocket connection so Supabase RLS passes for
-    // postgres_changes events (the anon key alone is not enough).
-    const token = localStorage.getItem("authToken");
-    if (token) realtimeSupabase.realtime.setAuth(token);
-
     const mapRow = (row) => ({
       id: row.id,
       senderId: row.sender_id,
@@ -381,6 +376,7 @@ export default function TicketChat({ adminView = false } = {}) {
             sender_name: senderName,
             sender_email: senderEmail || null,
             message_text: trimmed,
+            ticket_owner_id: ticket?.created_by || null,
           },
         ])
         .select(

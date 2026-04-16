@@ -32,4 +32,13 @@ export const realtimeSupabase = createClient(SUPABASE_URL, ANON_KEY, {
   global: { fetch: authFetch },
 });
 
+// Authenticate the Realtime WebSocket on page refresh (token already in
+// localStorage). For fresh logins, setAuth is called in LoginPage and
+// MagicLinkCallback right after the token is stored — the module is already
+// initialized by then so this line would be a no-op for those cases.
+const _storedToken = localStorage.getItem("authToken");
+if (_storedToken) {
+  realtimeSupabase.realtime.setAuth(_storedToken);
+}
+
 export default realtimeSupabase;
