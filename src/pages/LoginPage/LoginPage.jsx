@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { jwtDecode } from "jwt-decode";
 import { Eye, EyeOff, Mail } from "lucide-react";
 import "./LoginPage.css";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
@@ -15,6 +16,24 @@ const LoginPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const navigate = useNavigate();
+
+  // Auto-redirect if already logged in with valid session
+  useEffect(() => {
+    const token = localStorage.getItem("authToken");
+    if (!token) return;
+    try {
+      const decoded = jwtDecode(token);
+      if (decoded.exp * 1000 < Date.now()) return;
+      // Use app_role for role detection (admin vs student)
+      if (decoded.app_role === "admin") {
+        navigate("/admin/tickets", { replace: true });
+      } else {
+        navigate("/Tickets", { replace: true });
+      }
+    } catch {
+      // Invalid token, do nothing
+    }
+  }, [navigate]);
 
   const switchMode = (next) => {
     setMode(next);
