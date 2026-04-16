@@ -1,6 +1,8 @@
 import express from "express";
+import bcrypt from "bcryptjs";
 import { getAllUsers, getUserById, deleteUser, updateUser } from "../services/authService.js";
-import { adminMiddleware } from "../middleware/auth.js";
+import { adminMiddleware, rootMiddleware, requireLevel } from "../middleware/auth.js";
+import { supabase } from "../config/database.js";
 
 const router = express.Router();
 
@@ -156,6 +158,199 @@ router.get("/stats", adminMiddleware, async (req, res) => {
             message: "Error fetching stats",
             error: error.message,
         });
+    }
+});
+
+/**
+ * GET /api/admin/assignees
+ * Returns admin users that the caller is allowed to assign tickets to.
+ * Rule: you can assign to admins whose level is strictly greater than yours.
+ * Root (0) → everyone; Level 1 → levels 2 & 3; Level 2 → level 3; Level 3 → nobody.
+ */
+router.get("/assignees", adminMiddleware, async (req, res) => {
+    try {
+        const callerLevel = req.user?.admin_level ?? 99;
+        const callerId    = req.user?.id;
+
+        // Fetch admins strictly below the caller's level
+        const { data: below, error } = await supabase
+            .from("admin_users")
+            .select("id, full_name, email, admin_level")
+            .eq("is_active", true)
+            .gt("admin_level", callerLevel)
+            .order("admin_level", { ascending: true });
+
+        if (error) return res.status(400).json({ success: false, message: error.message });
+
+        // Also include the caller themselves so their name shows when they're assigned
+        const { data: self } = await supabase
+            .from("admin_users")
+            .select("id, full_name, email, admin_level")
+            .eq("id", callerId)
+            .limit(1);
+
+        const selfRow = self?.[0];
+        const belowList = below || [];
+        // Put self first, then everyone below
+        const data = selfRow ? [selfRow, ...belowList] : belowList;
+
+        return res.status(200).json({ success: true, data });
+    } catch (e) {
+        return res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+/**
+ * GET /api/admin/staff
+ * Any admin — returns id + name + email for all active admins (used for name lookups).
+ */
+router.get("/staff", adminMiddleware, async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from("admin_users")
+            .select("id, full_name, email, admin_level")
+            .eq("is_active", true)
+            .order("admin_level", { ascending: true });
+
+        if (error) return res.status(400).json({ success: false, message: error.message });
+
+        return res.status(200).json({ success: true, data: data || [] });
+    } catch (e) {
+        return res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+/**
+ * GET /api/admin/me
+ * Any admin — returns their own profile including filter fields.
+ */
+router.get("/me", adminMiddleware, async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from("admin_users")
+            .select("id, email, full_name, admin_level, filter_type, filter_department, filter_category, filter_site")
+            .eq("id", req.user.id)
+            .single();
+
+        if (error) return res.status(400).json({ success: false, message: error.message });
+
+        return res.status(200).json({ success: true, data });
+    } catch (e) {
+        return res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+/**
+ * GET /api/admin/admins
+ * Root only — list all admin accounts including filter fields.
+ */
+router.get("/admins", rootMiddleware, async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from("admin_users")
+            .select("id, email, full_name, is_active, admin_level, filter_type, filter_department, filter_category, filter_site, created_at, updated_at")
+            .order("admin_level", { ascending: true });
+
+        if (error) return res.status(400).json({ success: false, message: error.message });
+
+        return res.status(200).json({ success: true, data: data || [] });
+    } catch (e) {
+        return res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+/**
+ * POST /api/admin/admins
+ * Root only — create a new admin account.
+ * Body: { email, password, fullName, adminLevel }
+ */
+router.post("/admins", rootMiddleware, async (req, res) => {
+    try {
+        const { email, password, fullName, adminLevel } = req.body;
+
+        if (!email || !password) {
+            return res.status(400).json({ success: false, message: "email and password are required" });
+        }
+
+        const level = Number(adminLevel);
+        if (![0, 1, 2, 3].includes(level)) {
+            return res.status(400).json({ success: false, message: "adminLevel must be 0, 1, 2, or 3" });
+        }
+
+        const { data: existing } = await supabase
+            .from("admin_users")
+            .select("id")
+            .eq("email", email.toLowerCase())
+            .limit(1);
+
+        if (existing && existing.length > 0) {
+            return res.status(409).json({ success: false, message: "An admin with that email already exists" });
+        }
+
+        const passwordHash = await bcrypt.hash(password, 10);
+
+        const { data, error } = await supabase
+            .from("admin_users")
+            .insert([{
+                email: email.toLowerCase(),
+                password_hash: passwordHash,
+                full_name: fullName || email.split("@")[0],
+                is_active: true,
+                admin_level: level,
+            }])
+            .select("id, email, full_name, is_active, admin_level, created_at");
+
+        if (error) return res.status(400).json({ success: false, message: error.message });
+
+        return res.status(201).json({ success: true, data: data[0] });
+    } catch (e) {
+        return res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+/**
+ * PATCH /api/admin/admins/:adminId
+ * Root only — update an admin's level, active status, and/or ticket filters.
+ * Body: { adminLevel?, isActive?, filterType?, filterDepartment?, filterCategory?, filterSite? }
+ */
+router.patch("/admins/:adminId", rootMiddleware, async (req, res) => {
+    try {
+        const { adminId } = req.params;
+
+        if (adminId === req.user.id) {
+            return res.status(400).json({ success: false, message: "Cannot edit your own account" });
+        }
+
+        const updates = { updated_at: new Date().toISOString() };
+
+        if (req.body.adminLevel !== undefined) {
+            const level = Number(req.body.adminLevel);
+            if (![0, 1, 2, 3].includes(level)) {
+                return res.status(400).json({ success: false, message: "adminLevel must be 0, 1, 2, or 3" });
+            }
+            updates.admin_level = level;
+        }
+
+        if (req.body.isActive !== undefined) updates.is_active = Boolean(req.body.isActive);
+
+        // Ticket visibility filters (null clears the filter)
+        if ("filterType"       in req.body) updates.filter_type       = req.body.filterType       || null;
+        if ("filterDepartment" in req.body) updates.filter_department = req.body.filterDepartment || null;
+        if ("filterCategory"   in req.body) updates.filter_category   = req.body.filterCategory   || null;
+        if ("filterSite"       in req.body) updates.filter_site       = req.body.filterSite       || null;
+
+        const { data, error } = await supabase
+            .from("admin_users")
+            .update(updates)
+            .eq("id", adminId)
+            .select("id, email, full_name, is_active, admin_level, filter_type, filter_department, filter_category, filter_site, updated_at");
+
+        if (error) return res.status(400).json({ success: false, message: error.message });
+        if (!data || data.length === 0) return res.status(404).json({ success: false, message: "Admin not found" });
+
+        return res.status(200).json({ success: true, data: data[0] });
+    } catch (e) {
+        return res.status(500).json({ success: false, message: e.message });
     }
 });
 

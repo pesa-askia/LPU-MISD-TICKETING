@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, NavLink, useNavigate } from "react-router-dom";
+import { jwtDecode } from "jwt-decode";
+import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import { Search, ChevronDown, LogOut, Moon, Download } from "lucide-react";
 import { realtimeSupabase } from "../../realtimeSupabaseClient";
 import { useLoading } from "../../context/LoadingContext";
@@ -43,6 +45,20 @@ export default function AdminTickets() {
   const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
   const role = localStorage.getItem("userRole");
   const isAdmin = role === "admin";
+
+  const decoded = useMemo(() => {
+    try {
+      return jwtDecode(localStorage.getItem("authToken") || "");
+    } catch {
+      return null;
+    }
+  }, []);
+  const adminLevel = decoded?.admin_level ?? 3;
+  const isRoot = adminLevel === 0;
+
+  const [assignableAdmins, setAssignableAdmins] = useState([]);
+  const [adminNameMap, setAdminNameMap] = useState({}); // id → display name
+  const [myProfile, setMyProfile] = useState(null); // for level 2/3 filters
 
   const [darkMode, setDarkMode] = useState(
     localStorage.getItem("adminDarkMode") === "true",
@@ -90,8 +106,6 @@ export default function AdminTickets() {
     }
   };
 
-  const mockAssignees = ["Assignee 1", "Assignee 2", "Assignee 3"];
-
   useEffect(() => {
     if (!isLoggedIn || !isAdmin) return;
     if (Array.isArray(adminTickets)) {
@@ -102,6 +116,88 @@ export default function AdminTickets() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (!isLoggedIn || !isAdmin) return;
+    const token = localStorage.getItem("authToken");
+    const headers = { Authorization: `Bearer ${token}` };
+    const base = getApiBaseUrl();
+
+    // Name lookup map — needed by all levels to display assigned admin names
+    fetch(`${base}/api/admin/staff`, { headers })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success) {
+          const map = {};
+          json.data.forEach((a) => {
+            map[a.id] = a.full_name || a.email;
+          });
+          setAdminNameMap(map);
+        }
+      })
+      .catch(() => {});
+
+    // Assignable admins for the dropdown (only if caller can assign to someone)
+    if (adminLevel < 3) {
+      fetch(`${base}/api/admin/assignees`, { headers })
+        .then((r) => r.json())
+        .then((json) => {
+          if (json.success) setAssignableAdmins(json.data);
+        })
+        .catch(() => {});
+    }
+
+    // Own profile with ticket filters — only needed for level 2 and 3
+    if (adminLevel >= 2) {
+      fetch(`${base}/api/admin/me`, { headers })
+        .then((r) => r.json())
+        .then((json) => {
+          if (json.success) setMyProfile(json.data);
+        })
+        .catch(() => {});
+    }
+  }, [isLoggedIn, isAdmin, adminLevel]);
+
+  const currentAdminId = decoded?.id || decoded?.sub;
+
+  const visibleTickets = useMemo(() => {
+    // Root and level 1 see everything
+    if (adminLevel <= 1) return tickets;
+    // Pre-parse comma-separated filter strings into Sets once
+    const fType = new Set(
+      (myProfile?.filter_type || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+    );
+    const fDept = new Set(
+      (myProfile?.filter_department || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+    );
+    const fCat = new Set(
+      (myProfile?.filter_category || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+    );
+    const fSite = new Set(
+      (myProfile?.filter_site || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+    );
+    // Level 2 and 3: only tickets they're assigned to OR that match any of their filters
+    return tickets.filter((t) => {
+      if ([t.Assignee1, t.Assignee2, t.Assignee3].includes(currentAdminId))
+        return true;
+      if (fType.size && fType.has(t.Type)) return true;
+      if (fDept.size && fDept.has(t.Department)) return true;
+      if (fCat.size && fCat.has(t.Category)) return true;
+      if (fSite.size && fSite.has(t.Site)) return true;
+      return false;
+    });
+  }, [tickets, adminLevel, currentAdminId, myProfile]);
   // Realtime: prepend new tickets and apply status updates without a full reload
   useEffect(() => {
     if (!isLoggedIn || !isAdmin) return;
@@ -141,7 +237,7 @@ export default function AdminTickets() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const base = tickets.filter((t) => {
+    const base = visibleTickets.filter((t) => {
       const closed = isClosed(t);
       if (filter === "Closed Tickets") return closed;
       return !closed;
@@ -166,7 +262,7 @@ export default function AdminTickets() {
         .toLowerCase();
       return hay.includes(q);
     });
-  }, [tickets, filter, search]);
+  }, [visibleTickets, filter, search]);
 
   const onLogout = () => {
     localStorage.removeItem("authToken");
@@ -312,6 +408,16 @@ export default function AdminTickets() {
             >
               Analytics
             </NavLink>
+            {isRoot && (
+              <NavLink
+                to="/admin/manage"
+                className={({ isActive }) =>
+                  `analytics-nav-link ${isActive ? "active" : ""}`
+                }
+              >
+                Manage
+              </NavLink>
+            )}
           </nav>
 
           <div className="analytics-actions">
@@ -419,21 +525,37 @@ export default function AdminTickets() {
                           {t.Description || "-"}
                         </div>
                       </td>
-                      <td onClick={(e) => e.stopPropagation()}>
-                        <select
-                          className="admin-assignee-select"
-                          value={t.Assignee1 || ""}
-                          onChange={(e) =>
-                            handleAssigneeChange(t, 1, e.target.value)
-                          }
-                        >
-                          <option value="">Select assignee</option>
-                          {mockAssignees.map((label) => (
-                            <option key={label} value={label}>
-                              {label}
+                      <td
+                        onClick={(e) => e.stopPropagation()}
+                        style={{ minWidth: 160 }}
+                      >
+                        {assignableAdmins.length === 0 ? (
+                          <span
+                            style={{
+                              fontSize: 13,
+                              color: "#888",
+                            }}
+                          >
+                            {adminNameMap[t.Assignee1] || t.Assignee1 || "—"}
+                          </span>
+                        ) : (
+                          <select
+                            className="admin-assignee-select"
+                            value={t.Assignee1 || ""}
+                            onChange={(e) =>
+                              handleAssigneeChange(t, 1, e.target.value)
+                            }
+                          >
+                            <option value="" disabled={adminLevel >= 2}>
+                              Assign to…
                             </option>
-                          ))}
-                        </select>
+                            {assignableAdmins.map((a) => (
+                              <option key={a.id} value={a.id}>
+                                {a.full_name || a.email}
+                              </option>
+                            ))}
+                          </select>
+                        )}
                       </td>
                       <td>{t.Type || "-"}</td>
                       <td>{t.Department || "-"}</td>

@@ -1,0 +1,320 @@
+.manage-heading {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0 0 14px;
+  font-family: "Poppins", "Segoe UI", Arial, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.admin-shell.admin-dark .manage-heading {
+  color: #f2f2f2;
+}
+
+/* Level / status badges */
+.manage-level-badge {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-family: "Poppins", sans-serif;
+}
+.manage-level-self {
+  background: rgba(140, 0, 1, 0.1);
+  color: #8c0001;
+}
+.admin-shell.admin-dark .manage-level-self {
+  background: rgba(255, 180, 180, 0.12);
+  color: #ffb0b0;
+}
+
+/* Filter tags */
+.manage-filter-tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: #f4f5f8;
+  color: #444;
+  margin: 2px 3px 2px 0;
+  white-space: nowrap;
+  font-family: "Poppins", sans-serif;
+  border: 1px solid rgba(17, 17, 17, 0.1);
+}
+.admin-shell.admin-dark .manage-filter-tag {
+  background: rgba(255, 255, 255, 0.07);
+  color: #d0d0d0;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Edit Filters button */
+.manage-filters-btn {
+  display: inline-block;
+  margin-top: 5px;
+  padding: 3px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: "Poppins", sans-serif;
+  border: 1px solid rgba(140, 0, 1, 0.3);
+  border-radius: 999px;
+  background: transparent;
+  color: #8c0001;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.manage-filters-btn:hover {
+  background: rgba(140, 0, 1, 0.07);
+}
+.admin-shell.admin-dark .manage-filters-btn {
+  color: #ffb0b0;
+  border-color: rgba(255, 180, 180, 0.3);
+}
+.admin-shell.admin-dark .manage-filters-btn:hover {
+  background: rgba(255, 180, 180, 0.08);
+}
+
+/* Modal overlay */
+.manage-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+/* Modal box */
+.manage-modal {
+  background: #fff;
+  border-radius: 18px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.18);
+  overflow: hidden;
+  font-family: "Poppins", "Segoe UI", Arial, sans-serif;
+}
+.manage-modal-wide {
+  max-width: 540px;
+}
+.admin-shell.admin-dark .manage-modal {
+  background: #141416;
+  color: #e8e8e8;
+}
+
+.manage-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  font-weight: 700;
+  font-size: 14px;
+  background: #980001;
+  color: #fff;
+}
+.manage-modal-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #fff;
+  opacity: 0.8;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  transition: opacity 0.15s;
+}
+.manage-modal-close:hover {
+  opacity: 1;
+}
+
+.manage-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+}
+.manage-modal-form > p {
+  margin: -6px 0 -4px;
+  font-size: 12px;
+  color: #666;
+  line-height: 1.5;
+}
+.admin-shell.admin-dark .manage-modal-form > p {
+  color: #999;
+}
+
+.manage-modal-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #333;
+}
+.admin-shell.admin-dark .manage-modal-form label {
+  color: #ccc;
+}
+
+.manage-modal-form input,
+.manage-modal-form select {
+  padding: 9px 12px;
+  border: 1px solid rgba(17, 17, 17, 0.14);
+  border-radius: 999px;
+  font-size: 13px;
+  font-family: "Poppins", sans-serif;
+  outline: none;
+  background: #fafafa;
+  color: inherit;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+.manage-modal-form input:focus,
+.manage-modal-form select:focus {
+  border-color: rgba(140, 0, 1, 0.55);
+  box-shadow: 0 0 0 3px rgba(140, 0, 1, 0.12);
+}
+.admin-shell.admin-dark .manage-modal-form input,
+.admin-shell.admin-dark .manage-modal-form select {
+  background: #1e1e22;
+  border-color: #2b2b2f;
+  color: #e8e8e8;
+}
+
+.manage-required {
+  color: #e53935;
+}
+.manage-modal-err {
+  font-size: 12px;
+  color: #c62828;
+  margin: -6px 0;
+  padding: 8px 12px;
+  background: #fce4ec;
+  border-radius: 8px;
+}
+
+.manage-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 4px;
+}
+.manage-modal-actions button {
+  padding: 9px 20px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: "Poppins", sans-serif;
+  cursor: pointer;
+  border: 1px solid rgba(17, 17, 17, 0.14);
+  background: #f4f5f8;
+  color: #333;
+  transition: background 0.15s;
+}
+.manage-modal-actions button:hover {
+  background: #e9eaee;
+}
+.manage-modal-submit {
+  background: #980001 !important;
+  color: #fff !important;
+  border-color: #980001 !important;
+}
+.manage-modal-submit:hover {
+  background: #7a0001 !important;
+}
+.manage-modal-submit:disabled,
+.manage-modal-actions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed !important;
+}
+.admin-shell.admin-dark .manage-modal-actions button {
+  background: #1e1e22;
+  border-color: #2b2b2f;
+  color: #ccc;
+}
+.admin-shell.admin-dark .manage-modal-actions button:hover {
+  background: #26262b;
+}
+
+/* Filter sections (checkbox groups) */
+.manage-filter-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.manage-filter-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #333;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.admin-shell.admin-dark .manage-filter-label {
+  color: #bbb;
+}
+.manage-checkbox-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.manage-checkbox-group.two-columns {
+  display: grid;
+  grid-template-rows: repeat(3, auto);
+  grid-auto-flow: column;
+  gap: 8px 24px;
+  justify-content: start;
+}
+
+/* By using label.manage-checkbox-label we override the global form label column layout */
+label.manage-checkbox-label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 0;
+  background: transparent;
+  border: none;
+  transition: opacity 0.15s;
+  user-select: none;
+  white-space: nowrap;
+}
+label.manage-checkbox-label input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: #980001;
+  flex-shrink: 0;
+}
+label.manage-checkbox-label:hover {
+  background: transparent;
+  border: none;
+  opacity: 0.7;
+}
+
+.admin-table td {
+  max-width: 150px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.admin-shell.admin-dark label.manage-checkbox-label {
+  background: transparent;
+  border: none;
+  color: #ccc;
+}
+.admin-shell.admin-dark label.manage-checkbox-label:hover {
+  background: transparent;
+  border: none;
+  opacity: 0.7;
+}

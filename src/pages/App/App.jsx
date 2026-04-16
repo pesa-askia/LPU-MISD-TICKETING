@@ -10,6 +10,7 @@ import AdminLayout from "../../layouts/AdminLayout";
 import AdminTickets from "../Admin/AdminTickets";
 import AdminTicketChat from "../Admin/AdminTicketChat";
 import AdminAnalytics from "../Admin/AdminAnalytics";
+import AdminManage from "../Admin/AdminManage";
 import LoadingScreen from "../../components/LoadingScreen";
 import { useLoading } from "../../context/LoadingContext";
 
@@ -43,6 +44,13 @@ function AdminRoute({ children }) {
   return decoded.app_role === "admin" ? children : <Navigate to="/" replace />;
 }
 
+function RootRoute({ children }) {
+  const decoded = getValidToken();
+  if (!decoded) return <Navigate to="/" replace />;
+  if (decoded.app_role !== "admin") return <Navigate to="/" replace />;
+  return decoded.admin_level === 0 ? children : <Navigate to="/admin/tickets" replace />;
+}
+
 function App() {
   const { isLoading } = useLoading();
 
@@ -63,6 +71,7 @@ function App() {
           <Route path="/admin/tickets" element={<AdminTickets />} />
           <Route path="/admin/tickets/:id" element={<AdminTicketChat />} />
           <Route path="/admin/analytics" element={<AdminAnalytics />} />
+          <Route path="/admin/manage" element={<RootRoute><AdminManage /></RootRoute>} />
         </Route>
 
         <Route
