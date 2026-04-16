@@ -11,7 +11,7 @@ body {
 
 /* CENTER WRAPPER */
 .wrapper {
-  margin-left: 0; 
+  margin-left: 0;
   padding: 20px;
   display: flex;
   justify-content: center;
@@ -205,7 +205,7 @@ textarea {
 
 @media (min-width: 1024px) {
   .wrapper {
-    margin-left: 80px; 
+    margin-left: 80px;
   }
 }
 
@@ -220,8 +220,8 @@ textarea {
     grid-template-columns: repeat(2, 1fr);
     gap: 1.25rem;
 
-    .input-label:nth-child(1), 
-    .input-label:nth-child(2) { 
+    .input-label:nth-child(1),
+    .input-label:nth-child(2) {
       grid-column: span 2;
     }
 
@@ -233,7 +233,7 @@ textarea {
 
 @media (min-width: 600px) {
   .button-group {
-    flex-direction: row; 
+    flex-direction: row;
     justify-content: flex-end;
   }
 

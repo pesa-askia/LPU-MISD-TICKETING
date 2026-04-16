@@ -84,6 +84,7 @@ const LoginPage = () => {
       localStorage.setItem("isLoggedIn", "true");
       localStorage.setItem("userEmail", data.user?.email || email);
       localStorage.setItem("userRole", data.user?.role || "admin");
+      localStorage.setItem("userFullName", data.user?.full_name || "");
 
       navigate("/admin/tickets");
     } catch (err) {

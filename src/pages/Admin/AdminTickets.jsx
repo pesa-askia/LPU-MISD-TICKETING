@@ -198,6 +198,42 @@ export default function AdminTickets() {
       return false;
     });
   }, [tickets, adminLevel, currentAdminId, myProfile]);
+  // Realtime: prepend new tickets and apply status updates without a full reload
+  useEffect(() => {
+    if (!isLoggedIn || !isAdmin) return;
+
+    const channel = realtimeSupabase
+      .channel("admin_tickets_realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "Tickets" },
+        (payload) => {
+          setTickets((prev) => [payload.new, ...prev]);
+          setAdminTickets((prev) =>
+            Array.isArray(prev) ? [payload.new, ...prev] : [payload.new],
+          );
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "Tickets" },
+        (payload) => {
+          setTickets((prev) =>
+            prev.map((t) => (t.id === payload.new.id ? payload.new : t)),
+          );
+          setAdminTickets((prev) =>
+            Array.isArray(prev)
+              ? prev.map((t) => (t.id === payload.new.id ? payload.new : t))
+              : prev,
+          );
+        },
+      )
+      .subscribe();
+
+    return () => {
+      realtimeSupabase.removeChannel(channel);
+    };
+  }, [isLoggedIn, isAdmin]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -299,11 +335,7 @@ export default function AdminTickets() {
 
       const updated = tickets.map((t) =>
         t.id === ticket.id
-          ? {
-              ...t,
-              ...payload,
-              ...((Array.isArray(data) && data[0]) || {}),
-            }
+          ? { ...t, ...payload, ...((Array.isArray(data) && data[0]) || {}) }
           : t,
       );
       setTickets(updated);
@@ -485,7 +517,9 @@ export default function AdminTickets() {
                       }}
                     >
                       <td>No. {t.id}</td>
-                      <td>{t.Summary || "-"}</td>
+                      <td>
+                        <div className="admin-clamp">{t.Summary || "-"}</div>
+                      </td>
                       <td>
                         <div className="admin-clamp">
                           {t.Description || "-"}

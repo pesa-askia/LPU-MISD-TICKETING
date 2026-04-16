@@ -22,7 +22,9 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
  */
 export const initializeDatabase = async () => {
   try {
-    const kind = process.env.SUPABASE_SERVICE_ROLE_KEY ? "service_role" : "anon";
+    const kind = process.env.SUPABASE_SERVICE_ROLE_KEY
+      ? "service_role"
+      : "anon";
     const origin = (() => {
       try {
         return new URL(supabaseUrl).origin;
@@ -74,12 +76,92 @@ export const initializeDatabase = async () => {
             ticket_id INTEGER NOT NULL,
             sender_id UUID NOT NULL,
             sender_role TEXT NOT NULL CHECK (sender_role IN ('user', 'admin')),
+            sender_name TEXT,
+            sender_email TEXT,
+            attachments TEXT,
             message_text TEXT NOT NULL,
             created_at TIMESTAMPTZ DEFAULT NOW()
           );
 
           CREATE INDEX IF NOT EXISTS idx_ticket_messages_ticket_id
             ON ticket_messages(ticket_id, created_at);
+
+          ALTER TABLE ticket_messages ENABLE ROW LEVEL SECURITY;
+
+          DO $$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_policies
+              WHERE schemaname = 'public'
+                AND tablename = 'ticket_messages'
+                AND policyname = 'ticket_messages_select'
+            ) THEN
+              CREATE POLICY ticket_messages_select
+                ON ticket_messages
+                FOR SELECT
+                USING (
+                  (auth.jwt() ->> 'app_role') = 'admin'
+                  OR EXISTS (
+                    SELECT 1
+                    FROM "Tickets" t
+                    WHERE t.id = ticket_messages.ticket_id
+                      AND t.created_by = auth.uid()
+                  )
+                );
+            END IF;
+
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_policies
+              WHERE schemaname = 'public'
+                AND tablename = 'ticket_messages'
+                AND policyname = 'ticket_messages_insert'
+            ) THEN
+              CREATE POLICY ticket_messages_insert
+                ON ticket_messages
+                FOR INSERT
+                WITH CHECK (
+                  sender_id = auth.uid()
+                  AND (
+                    (auth.jwt() ->> 'app_role') = 'admin'
+                    OR EXISTS (
+                      SELECT 1
+                      FROM "Tickets" t
+                      WHERE t.id = ticket_messages.ticket_id
+                        AND t.created_by = auth.uid()
+                    )
+                  )
+                );
+            END IF;
+          END
+          $$;
+
+          DO $$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT 1
+              FROM information_schema.columns
+              WHERE table_name = 'ticket_messages' AND column_name = 'sender_name'
+            ) THEN
+              ALTER TABLE ticket_messages ADD COLUMN sender_name TEXT;
+            END IF;
+
+            IF NOT EXISTS (
+              SELECT 1
+              FROM information_schema.columns
+              WHERE table_name = 'ticket_messages' AND column_name = 'sender_email'
+            ) THEN
+              ALTER TABLE ticket_messages ADD COLUMN sender_email TEXT;
+            END IF;
+
+            IF NOT EXISTS (
+              SELECT 1
+              FROM information_schema.columns
+              WHERE table_name = 'ticket_messages' AND column_name = 'attachments'
+            ) THEN
+              ALTER TABLE ticket_messages ADD COLUMN attachments TEXT;
+            END IF;
+          END
+          $$;
 
           -- Optional assignee columns on Tickets table (no-op if they already exist)
           DO $$
@@ -99,11 +181,28 @@ export const initializeDatabase = async () => {
                 Category TEXT,
                 Site TEXT,
                 created_by UUID,
-                attachments TEXT,
+                created_by_name TEXT,
+                created_by_email TEXT,
                 status TEXT DEFAULT 'Open',
                 created_at TIMESTAMPTZ DEFAULT NOW(),
                 closed_at TIMESTAMPTZ
               );
+            END IF;
+
+            IF NOT EXISTS (
+              SELECT 1
+              FROM information_schema.columns
+              WHERE table_name = 'Tickets' AND column_name = 'created_by_name'
+            ) THEN
+              ALTER TABLE "Tickets" ADD COLUMN created_by_name TEXT;
+            END IF;
+
+            IF NOT EXISTS (
+              SELECT 1
+              FROM information_schema.columns
+              WHERE table_name = 'Tickets' AND column_name = 'created_by_email'
+            ) THEN
+              ALTER TABLE "Tickets" ADD COLUMN created_by_email TEXT;
             END IF;
 
             IF NOT EXISTS (
@@ -158,18 +257,24 @@ export const initializeDatabase = async () => {
         `,
       });
     } catch (ticketInitError) {
-      console.warn("Ticketing tables/columns initialization skipped:", ticketInitError.message);
+      console.warn(
+        "Ticketing tables/columns initialization skipped:",
+        ticketInitError.message,
+      );
     }
 
     // Ensure the ticket-attachments Storage bucket exists
     try {
-      const { data: buckets, error: listErr } = await supabase.storage.listBuckets();
+      const { data: buckets, error: listErr } =
+        await supabase.storage.listBuckets();
       if (listErr) throw listErr;
       const exists = buckets?.some((b) => b.name === "ticket-attachments");
       if (!exists) {
         const { error: createErr } = await supabase.storage.createBucket(
           "ticket-attachments",
-          { public: true },
+          {
+            public: true,
+          },
         );
         if (createErr) throw createErr;
         console.log("✓ Created storage bucket: ticket-attachments");
@@ -177,7 +282,10 @@ export const initializeDatabase = async () => {
         console.log("✓ Storage bucket already exists: ticket-attachments");
       }
     } catch (storageErr) {
-      console.warn("Storage bucket initialization skipped:", storageErr.message);
+      console.warn(
+        "Storage bucket initialization skipped:",
+        storageErr.message,
+      );
     }
 
     console.log("✓ Database initialized");
@@ -194,6 +302,25 @@ export const initializeAdminUsers = async () => {
   const seedPassword = process.env.ADMIN_SEED_PASSWORD;
   const seedFullName = process.env.ADMIN_SEED_FULL_NAME || "System Admin";
 
+  const isMissingTableError = (err) => {
+    if (!err) return false;
+    if (err.code === "PGRST116") return true;
+    const msg = (err.message || "").toLowerCase();
+    return (
+      msg.includes("schema cache") || msg.includes("could not find the table")
+    );
+  };
+
+  const reloadSchemaCache = async () => {
+    try {
+      await supabase.rpc("execute_sql", {
+        sql: "NOTIFY pgrst, 'reload schema';",
+      });
+    } catch (err) {
+      console.log("Schema cache reload skipped:", err.message);
+    }
+  };
+
   try {
     // Check if table exists
     const { error: tableCheckError } = await supabase
@@ -201,7 +328,7 @@ export const initializeAdminUsers = async () => {
       .select("id")
       .limit(1);
 
-    if (tableCheckError && tableCheckError.code === "PGRST116") {
+    if (isMissingTableError(tableCheckError)) {
       console.log("Creating admin_users table...");
       const { error: createError } = await supabase.rpc("execute_sql", {
         sql: `
@@ -225,6 +352,11 @@ export const initializeAdminUsers = async () => {
           "admin_users table might already exist or execute_sql RPC not available. Continuing...",
         );
       }
+
+      await reloadSchemaCache();
+    } else if (tableCheckError) {
+      console.log("Admin table check error:", tableCheckError.message);
+      return;
     }
 
     // Migrate: add admin_level column if it doesn't exist
@@ -257,12 +389,23 @@ export const initializeAdminUsers = async () => {
       return;
     }
 
-    const { data: existing, error: findError } = await supabase
+    let existing = null;
+    let findError = null;
+
+    ({ data: existing, error: findError } = await supabase
       .from("admin_users")
       .select("id")
-      .eq("email", seedEmail);
+      .eq("email", seedEmail));
 
-    if (findError && findError.code !== "PGRST116") {
+    if (isMissingTableError(findError)) {
+      await reloadSchemaCache();
+      ({ data: existing, error: findError } = await supabase
+        .from("admin_users")
+        .select("id")
+        .eq("email", seedEmail));
+    }
+
+    if (findError) {
       console.log("Admin seed lookup error:", findError.message);
       return;
     }
