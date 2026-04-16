@@ -9,7 +9,9 @@ import "./AdminAnalytics.css";
 import lpuLogo from "../../assets/lpul-logo.png";
 
 function getStatusValue(ticket) {
-  return ticket?.Status ?? ticket?.status ?? ticket?.state ?? ticket?.State ?? "";
+  return (
+    ticket?.Status ?? ticket?.status ?? ticket?.state ?? ticket?.State ?? ""
+  );
 }
 
 function isClosed(ticket) {
@@ -56,7 +58,8 @@ export default function AdminTickets() {
   useEffect(() => {
     const onDocClick = (e) => {
       if (!menuOpen) return;
-      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
+      if (menuRef.current && !menuRef.current.contains(e.target))
+        setMenuOpen(false);
     };
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
@@ -71,7 +74,11 @@ export default function AdminTickets() {
         .select("*")
         .order("id", { ascending: false });
 
-      if (supaError) { setError(supaError.message || "Failed to load tickets"); setTickets([]); return; }
+      if (supaError) {
+        setError(supaError.message || "Failed to load tickets");
+        setTickets([]);
+        return;
+      }
 
       const next = data || [];
       setTickets(next);
@@ -87,7 +94,10 @@ export default function AdminTickets() {
 
   useEffect(() => {
     if (!isLoggedIn || !isAdmin) return;
-    if (Array.isArray(adminTickets)) { setTickets(adminTickets); return; }
+    if (Array.isArray(adminTickets)) {
+      setTickets(adminTickets);
+      return;
+    }
     fetchTickets();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -101,8 +111,22 @@ export default function AdminTickets() {
     });
     if (!q) return base;
     return base.filter((t) => {
-      const hay = [t?.id, t?.Summary, t?.Description, t?.Assignee, t?.Assignee1, t?.Assignee2, t?.Assignee3, t?.Type, t?.Department, t?.Category]
-        .filter(Boolean).map(String).join(" ").toLowerCase();
+      const hay = [
+        t?.id,
+        t?.Summary,
+        t?.Description,
+        t?.Assignee,
+        t?.Assignee1,
+        t?.Assignee2,
+        t?.Assignee3,
+        t?.Type,
+        t?.Department,
+        t?.Category,
+      ]
+        .filter(Boolean)
+        .map(String)
+        .join(" ")
+        .toLowerCase();
       return hay.includes(q);
     });
   }, [tickets, filter, search]);
@@ -117,9 +141,33 @@ export default function AdminTickets() {
   };
 
   const onExportCsv = () => {
-    const headers = ["id", "summary", "description", "department", "type", "category", "site", "status", "created_at", "closed_at"];
-    const rows = tickets.map((t) => [t.id, t.Summary, t.Description, t.Department, t.Type, t.Category, t.Site, t.status || t.Status || "Open", t.created_at, t.closed_at]);
-    const csv = [headers, ...rows].map((row) => row.map(escapeCsv).join(",")).join("\n");
+    const headers = [
+      "id",
+      "summary",
+      "description",
+      "department",
+      "type",
+      "category",
+      "site",
+      "status",
+      "created_at",
+      "closed_at",
+    ];
+    const rows = tickets.map((t) => [
+      t.id,
+      t.Summary,
+      t.Description,
+      t.Department,
+      t.Type,
+      t.Category,
+      t.Site,
+      t.status || t.Status || "Open",
+      t.created_at,
+      t.closed_at,
+    ]);
+    const csv = [headers, ...rows]
+      .map((row) => row.map(escapeCsv).join(","))
+      .join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -147,10 +195,15 @@ export default function AdminTickets() {
         .eq("id", ticket.id)
         .select();
 
-      if (error) { alert(error.message || "Failed to update ticket status"); return; }
+      if (error) {
+        alert(error.message || "Failed to update ticket status");
+        return;
+      }
 
       const updated = tickets.map((t) =>
-        t.id === ticket.id ? { ...t, ...payload, ...((Array.isArray(data) && data[0]) || {}) } : t,
+        t.id === ticket.id
+          ? { ...t, ...payload, ...((Array.isArray(data) && data[0]) || {}) }
+          : t,
       );
       setTickets(updated);
       setAdminTickets(updated);
@@ -180,9 +233,14 @@ export default function AdminTickets() {
         .update(payload)
         .eq("id", ticket.id);
 
-      if (error) { alert(error.message || "Failed to update assignees"); return; }
+      if (error) {
+        alert(error.message || "Failed to update assignees");
+        return;
+      }
 
-      const updated = tickets.map((t) => t.id === ticket.id ? { ...t, ...payload } : t);
+      const updated = tickets.map((t) =>
+        t.id === ticket.id ? { ...t, ...payload } : t,
+      );
       setTickets(updated);
       setAdminTickets(updated);
     } catch (e) {
@@ -201,24 +259,52 @@ export default function AdminTickets() {
           </div>
 
           <nav className="analytics-nav-links" aria-label="Admin navigation">
-            <NavLink to="/admin/tickets" className={({ isActive }) => `analytics-nav-link ${isActive ? "active" : ""}`}>Home</NavLink>
-            <NavLink to="/admin/analytics" className={({ isActive }) => `analytics-nav-link ${isActive ? "active" : ""}`}>Analytics</NavLink>
+            <NavLink
+              to="/admin/tickets"
+              className={({ isActive }) =>
+                `analytics-nav-link ${isActive ? "active" : ""}`
+              }
+            >
+              Home
+            </NavLink>
+            <NavLink
+              to="/admin/analytics"
+              className={({ isActive }) =>
+                `analytics-nav-link ${isActive ? "active" : ""}`
+              }
+            >
+              Analytics
+            </NavLink>
           </nav>
 
           <div className="analytics-actions">
-            <button type="button" className="analytics-export-btn" onClick={onExportCsv}>
+            <button
+              type="button"
+              className="analytics-export-btn"
+              onClick={onExportCsv}
+            >
               <Download size={16} />
               Export CSV
             </button>
             <div className="admin-menu" ref={menuRef}>
-              <button type="button" className="analytics-menu-btn" onClick={() => setMenuOpen((v) => !v)}>
+              <button
+                type="button"
+                className="analytics-menu-btn"
+                onClick={() => setMenuOpen((v) => !v)}
+              >
                 <span>Admin</span>
                 <ChevronDown size={16} />
               </button>
               {menuOpen && (
                 <div className="admin-menu-pop">
-                  <button type="button" onClick={onLogout}><LogOut size={16} /><span>Logout</span></button>
-                  <button type="button" onClick={() => setDarkMode((v) => !v)}><Moon size={16} /><span>Dark Mode</span></button>
+                  <button type="button" onClick={onLogout}>
+                    <LogOut size={16} />
+                    <span>Logout</span>
+                  </button>
+                  <button type="button" onClick={() => setDarkMode((v) => !v)}>
+                    <Moon size={16} />
+                    <span>Dark Mode</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -230,7 +316,12 @@ export default function AdminTickets() {
         <div className="admin-toolbar">
           <div className="admin-search">
             <Search size={16} />
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search Tickets" aria-label="Search Tickets" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search Tickets"
+              aria-label="Search Tickets"
+            />
           </div>
           <div className="admin-filter">
             <select value={filter} onChange={(e) => setFilter(e.target.value)}>
@@ -247,13 +338,26 @@ export default function AdminTickets() {
             <table className="admin-table">
               <thead>
                 <tr>
-                  <th>Ticket No.</th><th>Summary</th><th>Description</th><th>Assignees</th>
-                  <th>Type</th><th>Department</th><th>Category</th><th>Created</th><th>Closed</th><th>Status</th><th>Actions</th>
+                  <th>Ticket No.</th>
+                  <th>Summary</th>
+                  <th>Description</th>
+                  <th>Assignees</th>
+                  <th>Type</th>
+                  <th>Department</th>
+                  <th>Category</th>
+                  <th>Created</th>
+                  <th>Closed</th>
+                  <th>Status</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={11} className="admin-empty">No tickets found.</td></tr>
+                  <tr>
+                    <td colSpan={11} className="admin-empty">
+                      No tickets found.
+                    </td>
+                  </tr>
                 ) : (
                   filtered.map((t) => (
                     <tr
@@ -262,32 +366,64 @@ export default function AdminTickets() {
                       onClick={() => navigate(`/admin/tickets/${t.id}`)}
                       role="button"
                       tabIndex={0}
-                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(`/admin/tickets/${t.id}`); } }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          navigate(`/admin/tickets/${t.id}`);
+                        }
+                      }}
                     >
                       <td>No. {t.id}</td>
-                      <td>{t.Summary || "-"}</td>
-                      <td><div className="admin-clamp">{t.Description || "-"}</div></td>
+                      <td>
+                        <div className="admin-clamp">{t.Summary || "-"}</div>
+                      </td>
+                      <td>
+                        <div className="admin-clamp">
+                          {t.Description || "-"}
+                        </div>
+                      </td>
                       <td onClick={(e) => e.stopPropagation()}>
                         <select
                           className="admin-assignee-select"
                           value={t.Assignee1 || ""}
-                          onChange={(e) => handleAssigneeChange(t, 1, e.target.value)}
+                          onChange={(e) =>
+                            handleAssigneeChange(t, 1, e.target.value)
+                          }
                         >
                           <option value="">Select assignee</option>
-                          {mockAssignees.map((label) => <option key={label} value={label}>{label}</option>)}
+                          {mockAssignees.map((label) => (
+                            <option key={label} value={label}>
+                              {label}
+                            </option>
+                          ))}
                         </select>
                       </td>
                       <td>{t.Type || "-"}</td>
                       <td>{t.Department || "-"}</td>
                       <td>{t.Category || "-"}</td>
-                      <td>{t.created_at ? new Date(t.created_at).toLocaleString() : "-"}</td>
-                      <td>{t.closed_at ? new Date(t.closed_at).toLocaleString() : "-"}</td>
+                      <td>
+                        {t.created_at
+                          ? new Date(t.created_at).toLocaleString()
+                          : "-"}
+                      </td>
+                      <td>
+                        {t.closed_at
+                          ? new Date(t.closed_at).toLocaleString()
+                          : "-"}
+                      </td>
                       <td>{t.status || t.Status || "Open"}</td>
                       <td onClick={(e) => e.stopPropagation()}>
                         <button
                           type="button"
                           onClick={() => toggleTicketStatus(t)}
-                          style={{ padding: "4px 8px", border: "1px solid #888", borderRadius: "4px", background: isClosed(t) ? "#1976d2" : "#4caf50", color: "white", cursor: "pointer" }}
+                          style={{
+                            padding: "4px 8px",
+                            border: "1px solid #888",
+                            borderRadius: "4px",
+                            background: isClosed(t) ? "#1976d2" : "#4caf50",
+                            color: "white",
+                            cursor: "pointer",
+                          }}
                         >
                           {isClosed(t) ? "Reopen" : "Close"}
                         </button>

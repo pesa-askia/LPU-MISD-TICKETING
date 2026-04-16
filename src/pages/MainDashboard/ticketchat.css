@@ -29,6 +29,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .avatar {
@@ -49,6 +50,40 @@
 .assignee-email {
   font-size: 12px;
   color: #666;
+}
+
+.assignee-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+}
+
+.assignee-skeleton {
+  align-items: center;
+}
+
+.skeleton-circle {
+  background: #f0dede;
+  color: transparent;
+}
+
+.skeleton-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.skeleton-line {
+  width: 160px;
+  height: 12px;
+  border-radius: 999px;
+  background: #f0dede;
+}
+
+.skeleton-line.short {
+  width: 210px;
+  height: 10px;
+  background: #f6eaea;
 }
 
 .chat-messages {
@@ -100,6 +135,41 @@
   animation: messagePop 0.3s ease-out;
 }
 
+.msg-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 60%;
+}
+
+.msg-left .msg-content {
+  align-items: flex-start;
+}
+
+.msg-right .msg-content {
+  align-items: flex-end;
+}
+
+.message-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12px;
+  color: #666;
+}
+
+.msg-right .message-meta {
+  color: #7a0b0b;
+}
+
+.msg-other-admin .message-meta {
+  color: #8c1d1d;
+}
+
+.message-name {
+  font-weight: 600;
+}
+
 .msg-left {
   justify-content: flex-start;
 }
@@ -117,7 +187,7 @@
 }
 
 .bubble {
-  max-width: 40%;
+  max-width: 100%;
   padding: 12px 14px;
   border-radius: 12px;
   box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.226);
@@ -132,6 +202,11 @@
 
 .msg-right .bubble {
   background: #d33;
+  color: #fff;
+}
+
+.msg-other-admin .bubble {
+  background: #8c1d1d;
   color: #fff;
 }
 
@@ -179,7 +254,10 @@
   opacity: 0;
   overflow: hidden;
   transform: translateY(-6px);
-  transition: max-height 0.32s ease, opacity 0.24s ease, transform 0.24s ease;
+  transition:
+    max-height 0.32s ease,
+    opacity 0.24s ease,
+    transform 0.24s ease;
 }
 
 .details-extra.open {
@@ -248,7 +326,10 @@
   flex: 0 1 280px;
   min-width: 210px;
   max-width: 300px;
-  transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+  transition:
+    box-shadow 0.2s ease,
+    transform 0.2s ease,
+    border-color 0.2s ease;
 }
 
 .summary-toggle:hover {
@@ -284,7 +365,11 @@
   opacity: 0;
   overflow: hidden;
   transform: translateY(-4px);
-  transition: max-height 0.28s ease, opacity 0.24s ease, margin-top 0.22s ease, transform 0.22s ease;
+  transition:
+    max-height 0.28s ease,
+    opacity 0.24s ease,
+    margin-top 0.22s ease,
+    transform 0.22s ease;
   margin-top: 0;
 }
 
@@ -301,7 +386,6 @@
   color: #4a4a4a;
   line-height: 1.35;
 }
-
 
 .details-col strong {
   display: block;
@@ -431,7 +515,19 @@
   }
 
   .bubble {
-    max-width: 45%;
+    max-width: 100%;
+  }
+
+  .msg-content {
+    max-width: 80%;
+  }
+
+  .skeleton-line {
+    width: 140px;
+  }
+
+  .skeleton-line.short {
+    width: 180px;
   }
 
   .ticket-details {
