@@ -415,6 +415,14 @@ export default function AdminTickets() {
             >
               Analytics
             </NavLink>
+            <NavLink
+              to="/admin/knowledge"
+              className={({ isActive }) =>
+                `analytics-nav-link ${isActive ? "active" : ""}`
+              }
+            >
+              Knowledge
+            </NavLink>
             {isRoot && (
               <NavLink
                 to="/admin/manage"
