@@ -3,13 +3,13 @@ import { useParams, useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import "./ticketchat.css";
 import { useLoading } from "../../context/LoadingContext";
-import { realtimeSupabase } from "../../realtimeSupabaseClient";
+import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
 import { useTicketsCache } from "../../context/TicketsCacheContext";
-import ChatHeader from "./TicketChat/ChatHeader";
-import TicketDetails from "./TicketChat/TicketDetails";
-import ChatMessages from "./TicketChat/ChatMessages";
-import ChatInput from "./TicketChat/ChatInput";
-import AttachmentViewer from "./TicketChat/AttachmentViewer";
+import ChatHeader from "./components/TicketChat/ChatHeader";
+import TicketDetails from "./components/TicketChat/TicketDetails";
+import ChatMessages from "./components/TicketChat/ChatMessages";
+import ChatInput from "./components/TicketChat/ChatInput";
+import AttachmentViewer from "./components/TicketChat/AttachmentViewer";
 
 export default function TicketChat({ adminView = false } = {}) {
   const { id } = useParams();

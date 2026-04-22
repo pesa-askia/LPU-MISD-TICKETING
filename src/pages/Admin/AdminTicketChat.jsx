@@ -1,4 +1,4 @@
-import TicketChat from "../MainDashboard/TicketChat";
+import TicketChat from "../dashboard/TicketChat";
 
 export default function AdminTicketChat() {
   return <TicketChat adminView />;

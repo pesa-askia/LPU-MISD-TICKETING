@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import supabaseAuth from "../../supabaseAuthClient";
-import { realtimeSupabase } from "../../realtimeSupabaseClient";
+import supabaseAuth from "../../lib/supabaseAuthClient";
+import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import "./MagicLinkCallback.css";
 

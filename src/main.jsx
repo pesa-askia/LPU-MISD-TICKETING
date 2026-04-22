@@ -1,11 +1,11 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import "../MainDashboard/maindashboard.css";
-import "../MainDashboard/submitticket.css";
-import App from "../App/App";
+import "./pages/dashboard/maindashboard.css";
+import "./pages/dashboard/submitticket.css";
+import App from "./App";
 import { BrowserRouter } from "react-router-dom";
-import { LoadingProvider } from "../../context/LoadingContext";
-import { TicketsCacheProvider } from "../../context/TicketsCacheContext";
+import { LoadingProvider } from "./context/LoadingContext";
+import { TicketsCacheProvider } from "./context/TicketsCacheContext";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>

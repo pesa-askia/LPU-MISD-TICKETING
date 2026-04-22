@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { X, User } from "lucide-react";
-import { getApiBaseUrl } from "../../utils/apiBaseUrl";
-import { realtimeSupabase } from "../../realtimeSupabaseClient";
-import "./AdminManage.css";
+import { getApiBaseUrl } from "../../../utils/apiBaseUrl";
+import { realtimeSupabase } from "../../../lib/realtimeSupabaseClient";
+import "../AdminManage.css";
 
 function getAuthHeader() {
     return {

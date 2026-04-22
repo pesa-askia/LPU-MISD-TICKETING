@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { NavLink } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import { ChevronDown, LogOut, Plus, Trash2, BookOpen, X } from "lucide-react";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
-import lpuLogo from "../../assets/lpul-logo.png";
+import AdminNavbar from "./components/AdminNavbar";
 import "./AdminAnalytics.css";
 import "./AdminTickets.css";
 import "./AdminKnowledge.css";
@@ -122,48 +121,17 @@ export default function AdminKnowledge() {
 
   return (
     <div className="knowledge-page">
-      {/* Navbar — same as AdminTickets */}
-      <header className="analytics-topbar">
-        <div className="analytics-topbar-inner">
-          <div className="analytics-brand" aria-label="LPU MIS Help Desk">
-            <img src={lpuLogo} alt="LPU" className="analytics-brand-logo" />
-            <span className="analytics-brand-text">MIS HELP DESK</span>
-          </div>
-
-          <nav className="analytics-nav-links" aria-label="Admin navigation">
-            <NavLink
-              to="/admin/tickets"
-              className={({ isActive }) => `analytics-nav-link ${isActive ? "active" : ""}`}
-            >
-              Home
-            </NavLink>
-            <NavLink
-              to="/admin/analytics"
-              className={({ isActive }) => `analytics-nav-link ${isActive ? "active" : ""}`}
-            >
-              Analytics
-            </NavLink>
-            <NavLink
-              to="/admin/knowledge"
-              className={({ isActive }) => `analytics-nav-link ${isActive ? "active" : ""}`}
-            >
-              Knowledge
-            </NavLink>
-            {isRoot && (
-              <NavLink
-                to="/admin/manage"
-                className={({ isActive }) => `analytics-nav-link ${isActive ? "active" : ""}`}
-              >
-                Manage
-              </NavLink>
-            )}
-          </nav>
-
-          <div className="analytics-actions">
+      <AdminNavbar
+        isRoot={isRoot}
+        actions={
+          <>
             <button
               type="button"
               className="analytics-export-btn"
-              onClick={() => { setShowAddModal(true); setAddError(""); }}
+              onClick={() => {
+                setShowAddModal(true);
+                setAddError("");
+              }}
             >
               <Plus size={16} />
               Add Entry
@@ -185,9 +153,9 @@ export default function AdminKnowledge() {
                 </div>
               )}
             </div>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       {/* Content */}
       <div className="knowledge-content">
