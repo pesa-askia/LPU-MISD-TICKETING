@@ -5,6 +5,7 @@ import { useLocation } from "react-router-dom";
 import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
 import { useLoading } from "../../context/LoadingContext";
 import { useTicketsCache } from "../../context/TicketsCacheContext";
+import "./SubmitTicket.css";
 
 function SubmitTicket() {
   const { showLoading, hideLoading, isLoading } = useLoading();
@@ -81,7 +82,6 @@ function SubmitTicket() {
       const userEmail = storedEmail || decoded.email || "";
       const userName = storedName || (userEmail ? userEmail.split("@")[0] : "");
 
-      // Upload attachments directly to Supabase Storage (RLS allows writes to own folder)
       const attachmentData = [];
       for (const file of attachments) {
         const meta = await uploadAttachment(file, userId);
@@ -117,9 +117,6 @@ function SubmitTicket() {
         ? createdTickets[0]
         : createdTickets;
 
-      // Bust the cache so Tickets.jsx re-fetches instead of showing stale data.
-      // The INSERT fires while Tickets.jsx isn't mounted, so the realtime event
-      // is missed — a fresh fetch on next navigation is the reliable fallback.
       clearTicketsCache();
 
       if (createdTicket?.id && descriptionText) {
@@ -145,19 +142,18 @@ function SubmitTicket() {
           setSuccessMessage(
             "Ticket submitted, but the initial message failed to post. Open the ticket to send it manually.",
           );
-          setTimeout(() => setSuccessMessage(null), 6000);
         } else {
           setSuccessMessage(
             "Ticket submitted successfully! Your ticket has been created.",
           );
-          setTimeout(() => setSuccessMessage(null), 5000);
         }
       } else {
         setSuccessMessage(
           "Ticket submitted successfully! Your ticket has been created.",
         );
-        setTimeout(() => setSuccessMessage(null), 5000);
       }
+
+      setTimeout(() => setSuccessMessage(null), 5000);
 
       setFormData({
         userType: "",
@@ -179,61 +175,37 @@ function SubmitTicket() {
   return (
     <div className="wrapper">
       <div className="card">
-        <h1>Submit Ticket</h1>
-        <p>
-          Simply create a ticket below. A technician will respond promptly to
-          your issue. You may also send tickets directly to &nbsp;
-          <a href="mailto:help@lpul-mis.on.spiceworks.com">
-            help@lpul-mis.on.spiceworks.com
-          </a>
-        </p>
+        <div className="card-header">
+          <h1>Submit Ticket</h1>
+          <p>
+            Create a ticket below and a technician will respond promptly to your
+            issue. You may also email directly to &nbsp;
+            <a href="mailto:help@lpul-mis.on.spiceworks.com">
+              help@lpul-mis.on.spiceworks.com
+            </a>
+          </p>
+        </div>
 
         <hr className="divider" />
+
         {chatPrefill && (
-          <div
-            style={{
-              backgroundColor: "#e8f0fe",
-              color: "#1a56c4",
-              padding: "10px 16px",
-              borderRadius: "4px",
-              marginBottom: "16px",
-              border: "1px solid #c5d8fc",
-              fontSize: "13.5px",
-            }}
-          >
+          <div className="alert-box alert-info">
             Chat transcript pre-filled below. Add your details and submit.
           </div>
         )}
         {errorMessage && (
-          <div
-            style={{
-              backgroundColor: "#ffebee",
-              color: "#d32f2f",
-              padding: "12px 16px",
-              borderRadius: "4px",
-              marginBottom: "16px",
-              border: "1px solid #ef5350",
-            }}
-          >
+          <div className="alert-box alert-error">
             <strong>Error:</strong> {errorMessage}
           </div>
         )}
         {successMessage && (
-          <div
-            style={{
-              backgroundColor: "#e8f5e9",
-              color: "#2e7d32",
-              padding: "12px 16px",
-              borderRadius: "4px",
-              marginBottom: "16px",
-              border: "1px solid #66bb6a",
-            }}
-          >
+          <div className="alert-box alert-success">
             <strong>Success:</strong> {successMessage}
           </div>
         )}
+
         <form onSubmit={handleSubmit}>
-          <div className="input-label">
+          <div className="input-label full-width">
             <textarea
               name="summary"
               placeholder=" "
@@ -244,7 +216,7 @@ function SubmitTicket() {
             <label>Summary (Required)</label>
           </div>
 
-          <div className="input-label">
+          <div className="input-label full-width">
             <textarea
               name="description"
               placeholder=" "
@@ -320,7 +292,33 @@ function SubmitTicket() {
             </select>
             <label>Site (Required)</label>
           </div>
-          <div className="button-group">
+
+          {attachments.length > 0 && (
+            <div className="attachments-container full-width">
+              <p className="attachments-title">
+                Attached Files ({attachments.length}):
+              </p>
+              <div className="attachments-list">
+                {attachments.map((file, index) => (
+                  <div key={index} className="attachment-item">
+                    <span>
+                      {file.name} ({(file.size / 1024).toFixed(2)} KB)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeAttachment(index)}
+                      className="remove-btn"
+                      aria-label="Remove file"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="button-group full-width">
             <input
               ref={fileInputRef}
               type="file"
@@ -339,68 +337,9 @@ function SubmitTicket() {
               Attach Files
             </button>
             <button type="submit" className="submit-btn" disabled={isLoading}>
-              {isLoading ? "Submitting..." : "Submit"}
+              {isLoading ? "Submitting..." : "Submit Ticket"}
             </button>
           </div>
-
-          {attachments.length > 0 && (
-            <div
-              style={{
-                marginTop: "20px",
-                padding: "12px",
-                backgroundColor: "#f5f5f5",
-                borderRadius: "4px",
-              }}
-            >
-              <p
-                style={{
-                  margin: "0 0 12px 0",
-                  fontWeight: "bold",
-                }}
-              >
-                Attached Files ({attachments.length}):
-              </p>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "8px",
-                }}
-              >
-                {attachments.map((file, index) => (
-                  <div
-                    key={index}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: "8px 12px",
-                      backgroundColor: "white",
-                      borderRadius: "4px",
-                      border: "1px solid #ddd",
-                    }}
-                  >
-                    <span style={{ fontSize: "14px" }}>
-                      {file.name} ({(file.size / 1024).toFixed(2)} KB)
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => removeAttachment(index)}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        color: "#d32f2f",
-                      }}
-                      aria-label="Remove file"
-                    >
-                      <X size={18} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </form>
       </div>
     </div>

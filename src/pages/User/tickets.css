@@ -4,7 +4,6 @@
     opacity: 0;
     transform: translateX(-20px);
   }
-
   to {
     opacity: 1;
     transform: translateX(0);
@@ -14,15 +13,12 @@
 .tickets-table tbody tr {
   animation: rowSlideIn 0.3s ease-out;
 }
-
 .tickets-table tbody tr:nth-child(1) {
   animation-delay: 0.1s;
 }
-
 .tickets-table tbody tr:nth-child(2) {
   animation-delay: 0.15s;
 }
-
 .tickets-table tbody tr:nth-child(3) {
   animation-delay: 0.2s;
 }
@@ -31,6 +27,8 @@
   width: 100%;
   border-collapse: collapse;
   margin-top: 12px;
+  /* CRITICAL: Forces the table to stay wide so it triggers a scrollable area on mobile */
+  min-width: 650px;
 }
 
 .tickets-table thead th {
@@ -44,15 +42,15 @@
   padding: 12px 8px;
   color: #333;
   border-bottom: 1px solid #f0f0f0;
+  vertical-align: middle;
 }
 
 .tickets-table thead th:last-child {
   text-align: right;
 }
-
-.tickets-table thead th,
-.tickets-table tbody td {
-  vertical-align: middle;
+.tickets-table tbody td:last-child {
+  text-align: right;
+  color: #666;
 }
 
 .tickets-table tbody tr td:first-child {
@@ -62,7 +60,6 @@
 .summary {
   max-width: 150px;
 }
-
 .description {
   max-width: 200px;
 }
@@ -76,7 +73,7 @@
 }
 
 .tickets-card h1 {
-  margin: 0 0 30px 0;
+  margin: 0 0 20px 0;
   font-size: 1.5rem;
   font-weight: 600;
   color: #1a1a1a;
@@ -87,38 +84,41 @@
   min-height: 40vh;
   max-width: 800px;
   margin: 0 auto;
-  padding: 2.5rem;
+  padding: 1.5rem 1.25rem;
   display: flex;
   flex-direction: column;
   background: white;
-  overflow-y: auto;
   border-radius: 6px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
-  transition:
-    transform 160ms ease,
-    box-shadow 160ms ease;
+  box-sizing: border-box;
+
+  /* CRITICAL FIX 1: Stops the card from stretching past the screen width to fit the table */
+  min-width: 0;
 }
 
-.table-wrapper tbody {
-  overflow-y: auto;
+.table-wrapper {
+  width: 100%;
+  /* CRITICAL FIX 2: Prevents flex blowout on the inner container */
+  min-width: 0;
+  overflow-x: auto;
+  /* Enables smooth momentum scrolling on iOS devices */
+  -webkit-overflow-scrolling: touch;
 }
 
 .tickets-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 6px 12px;
-  border-radius: 8px;
+  gap: 12px;
+  padding: 0 0 16px 0;
 }
 
 .search-box {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  border-radius: 8px;
+  width: 100%;
+  max-width: 250px;
 }
 
 input {
@@ -126,25 +126,27 @@ input {
   padding: 12px 20px 12px 40px;
   border-radius: 8px;
   border: 1px solid #ddd;
-  width: 250px;
   font-size: 0.95em;
+  box-sizing: border-box;
 }
 
 select {
   width: 100%;
+  max-width: 250px;
   padding: 12px 15px 12px 10px;
   border-radius: 8px;
   border: 1px solid #ddd;
-  width: 250px;
   font-size: 0.95em;
+  box-sizing: border-box;
 }
 
 .search-box .lucide-search {
   position: absolute;
-  left: 20px;
+  left: 12px;
   top: 50%;
   transform: translateY(-50%);
   pointer-events: none;
+  color: #666;
 }
 
 input:focus,
@@ -153,36 +155,38 @@ select:focus {
   outline: none;
 }
 
-.tickets-table tbody td:last-child {
-  text-align: right;
-  color: #666;
-}
-
 .clickable-row {
   cursor: pointer;
 }
-
 .clickable-row:hover {
   background: rgba(0, 0, 0, 0.02);
 }
 
+/* MOBILE FIXES */
 @media (max-width: 600px) {
+  .content {
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+    margin-right: 0 !important;
+    padding-right: 0 !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    box-sizing: border-box !important;
+  }
+
   .tickets-card {
-    padding: 1rem;
+    padding: 1.25rem 1rem;
   }
 
-  .tickets-header,
-  .search-box {
+  .tickets-header {
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
+    gap: 10px;
+    padding-bottom: 12px;
   }
 
-  input,
+  .search-box,
   select {
-    width: 100;
-  }
-  .table-wrapper {
-    width: 100%;
-    overflow-x: auto;
+    max-width: 100%; /* Ensures dropdown and input don't break bounds */
   }
 }
