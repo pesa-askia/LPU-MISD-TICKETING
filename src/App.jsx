@@ -1,18 +1,16 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import LoginPage from "./pages/auth/LoginPage";
-import MagicLinkCallback from "./pages/auth/MagicLinkCallback";
-import Tickets from "./pages/dashboard/Tickets";
-import TicketChat from "./pages/dashboard/TicketChat";
-import SubmitTicket from "./pages/dashboard/SubmitTicket";
-import DashboardLayout from "./layouts/DashboardLayout";
+import AuthVerifyCallback from "./components/AuthVerifyCallback";
+import Tickets from "./pages/User/Tickets";
+import TicketChat from "./components/TicketChat/TicketChat";
+import SubmitTicket from "./pages/User/SubmitTicket";
+import UserLayout from "./layouts/UserLayout";
 import AdminLayout from "./layouts/AdminLayout";
 import AdminTickets from "./pages/Admin/AdminTickets";
-import AdminTicketChat from "./pages/Admin/AdminTicketChat";
 import AdminAnalytics from "./pages/Admin/AdminAnalytics";
 import AdminManage from "./pages/Admin/AdminManage";
 import AdminKnowledge from "./pages/Admin/AdminKnowledge";
-import AdminVerifyEmail from "./pages/Admin/AdminVerifyEmail";
 import LoadingScreen from "./components/LoadingScreen";
 import { useLoading } from "./context/LoadingContext";
 
@@ -50,7 +48,11 @@ function RootRoute({ children }) {
   const decoded = getValidToken();
   if (!decoded) return <Navigate to="/" replace />;
   if (decoded.app_role !== "admin") return <Navigate to="/" replace />;
-  return decoded.admin_level === 0 ? children : <Navigate to="/admin/tickets" replace />;
+  return decoded.admin_level === 0 ? (
+    children
+  ) : (
+    <Navigate to="/admin/tickets" replace />
+  );
 }
 
 function App() {
@@ -61,8 +63,14 @@ function App() {
       <LoadingScreen isLoading={isLoading} />
       <Routes>
         <Route path="/" element={<LoginPage />} />
-        <Route path="/auth/callback" element={<MagicLinkCallback />} />
-        <Route path="/admin/verify-email" element={<AdminVerifyEmail />} />
+        <Route
+          path="/auth/callback"
+          element={<AuthVerifyCallback mode="magic" />}
+        />
+        <Route
+          path="/admin/verify-email"
+          element={<AuthVerifyCallback mode="admin" />}
+        />
 
         <Route
           element={
@@ -72,16 +80,23 @@ function App() {
           }
         >
           <Route path="/admin/tickets" element={<AdminTickets />} />
-          <Route path="/admin/tickets/:id" element={<AdminTicketChat />} />
+          <Route path="/admin/tickets/:id" element={<TicketChat adminView />} />
           <Route path="/admin/analytics" element={<AdminAnalytics />} />
           <Route path="/admin/knowledge" element={<AdminKnowledge />} />
-          <Route path="/admin/manage" element={<RootRoute><AdminManage /></RootRoute>} />
+          <Route
+            path="/admin/manage"
+            element={
+              <RootRoute>
+                <AdminManage />
+              </RootRoute>
+            }
+          />
         </Route>
 
         <Route
           element={
             <ProtectedRoute>
-              <DashboardLayout />
+              <UserLayout />
             </ProtectedRoute>
           }
         >
