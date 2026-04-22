@@ -5,11 +5,11 @@ import "./ticketchat.css";
 import { useLoading } from "../../context/LoadingContext";
 import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
 import { useTicketsCache } from "../../context/TicketsCacheContext";
-import ChatHeader from "./components/TicketChat/ChatHeader";
-import TicketDetails from "./components/TicketChat/TicketDetails";
-import ChatMessages from "./components/TicketChat/ChatMessages";
-import ChatInput from "./components/TicketChat/ChatInput";
-import AttachmentViewer from "./components/TicketChat/AttachmentViewer";
+import ChatHeader from "./ChatHeader";
+import TicketDetails from "./TicketDetails";
+import ChatMessages from "./ChatMessages";
+import ChatInput from "./ChatInput";
+import AttachmentViewer from "./AttachmentViewer";
 
 export default function TicketChat({ adminView = false } = {}) {
   const { id } = useParams();

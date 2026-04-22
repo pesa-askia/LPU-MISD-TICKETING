@@ -136,7 +136,7 @@ const LoginPage = () => {
               className={`mode-btn ${mode === "magic" ? "active" : ""}`}
               onClick={() => switchMode("magic")}
             >
-              Student
+              User
             </button>
             <button
               type="button"
