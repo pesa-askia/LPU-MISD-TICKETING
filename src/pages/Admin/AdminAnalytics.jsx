@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, NavLink } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
-import { Download, ChevronDown, LogOut, Moon, Calendar } from "lucide-react";
+import { Download, ChevronDown, LogOut, Moon, Calendar, User } from "lucide-react";
 import { realtimeSupabase } from "../../realtimeSupabaseClient";
 import { useLoading } from "../../context/LoadingContext";
 import { useTicketsCache } from "../../context/TicketsCacheContext";
 import lpuLogo from "../../assets/lpul-logo.png";
 import "./AdminTickets.css";
 import "./AdminAnalytics.css";
+import AdminAccountSettingsModal from "./AdminAccountSettingsModal";
 
 function getStatusValue(ticket) {
   return (
@@ -130,6 +131,7 @@ export default function AdminAnalytics() {
   const [tickets, setTickets] = useState([]);
   const [error, setError] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [accountModalOpen, setAccountModalOpen] = useState(false);
   const menuRef = useRef(null);
 
   const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
@@ -389,6 +391,16 @@ export default function AdminAnalytics() {
 
               {menuOpen && (
                 <div className="admin-menu-pop">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setAccountModalOpen(true);
+                    }}
+                  >
+                    <User size={16} />
+                    <span>My account</span>
+                  </button>
                   <button type="button" onClick={onLogout}>
                     <LogOut size={16} />
                     <span>Logout</span>
@@ -475,6 +487,11 @@ export default function AdminAnalytics() {
           </div>
         )}
       </section>
+
+      <AdminAccountSettingsModal
+        open={accountModalOpen}
+        onClose={() => setAccountModalOpen(false)}
+      />
     </div>
   );
 }

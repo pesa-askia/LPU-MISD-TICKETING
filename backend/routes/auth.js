@@ -3,12 +3,11 @@ import {
     registerUser,
     loginAny,
     loginAdmin,
-    getUserById,
-    getAllUsers,
-    updateUser,
-    deleteUser,
     changePassword,
     verifyMagicLinkToken,
+    getMeProfile,
+    updateOwnAccountProfile,
+    generateToken,
 } from "../services/authService.js";
 import { authMiddleware } from "../middleware/auth.js";
 
@@ -120,7 +119,9 @@ router.post("/admin-login", async (req, res) => {
  */
 router.get("/me", authMiddleware, async (req, res) => {
     try {
-        const result = await getUserById(req.user.id);
+        const userId = req.user.id || req.user.sub;
+        const appRole = req.user.app_role || "user";
+        const result = await getMeProfile(userId, appRole);
 
         if (!result.success) {
             return res.status(404).json(result);
@@ -142,20 +143,28 @@ router.get("/me", authMiddleware, async (req, res) => {
  */
 router.put("/me", authMiddleware, async (req, res) => {
     try {
-        const { fullName } = req.body;
+        const { fullName, full_name, email } = req.body;
+        const userId = req.user.id || req.user.sub;
+        const appRole = req.user.app_role || "user";
+        const namePayload = fullName !== undefined ? fullName : full_name;
 
-        const result = await updateUser(req.user.id, {
-            full_name: fullName,
+        const result = await updateOwnAccountProfile(userId, appRole, {
+            fullName: namePayload,
+            email,
         });
 
         if (!result.success) {
             return res.status(400).json(result);
         }
 
+        const adminLevel = appRole === "admin" ? (req.user.admin_level ?? 1) : null;
+        const token = generateToken(result.user.id, result.user.email, appRole, adminLevel);
+
         return res.status(200).json({
             success: true,
             message: "Profile updated",
             user: result.user,
+            token,
         });
     } catch (error) {
         return res.status(500).json({
@@ -188,7 +197,9 @@ router.post("/change-password", authMiddleware, async (req, res) => {
             });
         }
 
-        const result = await changePassword(req.user.id, oldPassword, newPassword);
+        const userId = req.user.id || req.user.sub;
+        const appRole = req.user.app_role || "user";
+        const result = await changePassword(userId, oldPassword, newPassword, appRole);
 
         if (!result.success) {
             return res.status(400).json(result);
