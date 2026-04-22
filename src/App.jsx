@@ -1,20 +1,20 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
-import LoginPage from "../LoginPage/LoginPage";
-import MagicLinkCallback from "../MagicLinkCallback/MagicLinkCallback";
-import Tickets from "../MainDashboard/Tickets";
-import TicketChat from "../MainDashboard/TicketChat";
-import SubmitTicket from "../MainDashboard/SubmitTicket";
-import DashboardLayout from "../../layouts/DashboardLayout";
-import AdminLayout from "../../layouts/AdminLayout";
-import AdminTickets from "../Admin/AdminTickets";
-import AdminTicketChat from "../Admin/AdminTicketChat";
-import AdminAnalytics from "../Admin/AdminAnalytics";
-import AdminManage from "../Admin/AdminManage";
-import AdminKnowledge from "../Admin/AdminKnowledge";
-import AdminVerifyEmail from "../Admin/AdminVerifyEmail";
-import LoadingScreen from "../../components/LoadingScreen";
-import { useLoading } from "../../context/LoadingContext";
+import LoginPage from "./pages/auth/LoginPage";
+import MagicLinkCallback from "./pages/auth/MagicLinkCallback";
+import Tickets from "./pages/dashboard/Tickets";
+import TicketChat from "./pages/dashboard/TicketChat";
+import SubmitTicket from "./pages/dashboard/SubmitTicket";
+import DashboardLayout from "./layouts/DashboardLayout";
+import AdminLayout from "./layouts/AdminLayout";
+import AdminTickets from "./pages/Admin/AdminTickets";
+import AdminTicketChat from "./pages/Admin/AdminTicketChat";
+import AdminAnalytics from "./pages/Admin/AdminAnalytics";
+import AdminManage from "./pages/Admin/AdminManage";
+import AdminKnowledge from "./pages/Admin/AdminKnowledge";
+import AdminVerifyEmail from "./pages/Admin/AdminVerifyEmail";
+import LoadingScreen from "./components/LoadingScreen";
+import { useLoading } from "./context/LoadingContext";
 
 function getValidToken() {
   const token = localStorage.getItem("authToken");

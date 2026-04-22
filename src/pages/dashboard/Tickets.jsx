@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { Search } from "lucide-react";
 import { jwtDecode } from "jwt-decode";
-import { realtimeSupabase } from "../../realtimeSupabaseClient";
+import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
 import { useLoading } from "../../context/LoadingContext";
 import { useTicketsCache } from "../../context/TicketsCacheContext";
 

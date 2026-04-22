@@ -4,8 +4,8 @@ import { jwtDecode } from "jwt-decode";
 import { Eye, EyeOff, Mail } from "lucide-react";
 import "./LoginPage.css";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
-import supabaseAuth from "../../supabaseAuthClient";
-import { realtimeSupabase } from "../../realtimeSupabaseClient";
+import supabaseAuth from "../../lib/supabaseAuthClient";
+import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
 
 const LoginPage = () => {
   const [mode, setMode] = useState("magic"); // "magic" | "admin"

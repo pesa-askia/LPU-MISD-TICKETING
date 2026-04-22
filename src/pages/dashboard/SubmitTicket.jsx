@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { Paperclip, X } from "lucide-react";
 import { jwtDecode } from "jwt-decode";
 import { useLocation } from "react-router-dom";
-import { realtimeSupabase } from "../../realtimeSupabaseClient";
+import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
 import { useLoading } from "../../context/LoadingContext";
 import { useTicketsCache } from "../../context/TicketsCacheContext";
 

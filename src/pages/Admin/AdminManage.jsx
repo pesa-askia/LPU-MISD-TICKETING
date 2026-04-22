@@ -1,14 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { NavLink } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import { ChevronDown, LogOut, Moon, UserPlus, X, User } from "lucide-react";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import { ADMIN_LEVEL_LABELS } from "../../utils/adminLevels";
-import lpuLogo from "../../assets/lpul-logo.png";
+import AdminNavbar from "./components/AdminNavbar";
 import "./AdminTickets.css";
 import "./AdminAnalytics.css";
 import "./AdminManage.css";
-import AdminAccountSettingsModal from "./AdminAccountSettingsModal";
+import AdminAccountSettingsModal from "./components/AdminAccountSettingsModal";
 
 const LEVEL_LABELS = { 0: "Root", 1: "Level 3", 2: "Level 2", 3: "Level 1   " };
 
@@ -43,6 +42,7 @@ export default function AdminManage() {
         }
     })();
     const currentId = decoded?.id || decoded?.sub;
+    const isRoot = decoded?.admin_level === 0;
 
     useEffect(() => {
         const root = document.querySelector(".admin-shell");
@@ -194,61 +194,10 @@ export default function AdminManage() {
 
     return (
         <div className="admin-page analytics-page admin-tickets-page">
-            <header className="analytics-topbar">
-                <div className="analytics-topbar-inner">
-                    <div
-                        className="analytics-brand"
-                        aria-label="LPU MIS Help Desk"
-                    >
-                        <img
-                            src={lpuLogo}
-                            alt="LPU"
-                            className="analytics-brand-logo"
-                        />
-                        <span className="analytics-brand-text">
-                            MIS HELP DESK
-                        </span>
-                    </div>
-
-                    <nav
-                        className="analytics-nav-links"
-                        aria-label="Admin navigation"
-                    >
-                        <NavLink
-                            to="/admin/tickets"
-                            className={({ isActive }) =>
-                                `analytics-nav-link ${isActive ? "active" : ""}`
-                            }
-                        >
-                            Home
-                        </NavLink>
-                        <NavLink
-                            to="/admin/analytics"
-                            className={({ isActive }) =>
-                                `analytics-nav-link ${isActive ? "active" : ""}`
-                            }
-                        >
-                            Analytics
-                        </NavLink>
-                        <NavLink
-                            to="/admin/knowledge"
-                            className={({ isActive }) =>
-                                `analytics-nav-link ${isActive ? "active" : ""}`
-                            }
-                        >
-                            Knowledge
-                        </NavLink>
-                        <NavLink
-                            to="/admin/manage"
-                            className={({ isActive }) =>
-                                `analytics-nav-link ${isActive ? "active" : ""}`
-                            }
-                        >
-                            Manage
-                        </NavLink>
-                    </nav>
-
-                    <div className="analytics-actions">
+            <AdminNavbar
+                isRoot={isRoot}
+                actions={
+                    <>
                         <button
                             type="button"
                             className="analytics-export-btn"
@@ -292,9 +241,9 @@ export default function AdminManage() {
                                 </div>
                             )}
                         </div>
-                    </div>
-                </div>
-            </header>
+                    </>
+                }
+            />
 
             <section className="admin-content analytics-content-wrap">
                 <h2 className="manage-heading">Admin Accounts</h2>

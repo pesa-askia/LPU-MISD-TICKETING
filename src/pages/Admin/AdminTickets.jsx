@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Navigate, NavLink, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import {
@@ -10,13 +10,13 @@ import {
   needsTicketFilters,
 } from "../../utils/adminLevels";
 import { Search, ChevronDown, LogOut, Moon, Download, User } from "lucide-react";
-import { realtimeSupabase } from "../../realtimeSupabaseClient";
+import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
 import { useLoading } from "../../context/LoadingContext";
 import { useTicketsCache } from "../../context/TicketsCacheContext";
 import "./AdminTickets.css";
 import "./AdminAnalytics.css";
-import lpuLogo from "../../assets/lpul-logo.png";
-import AdminAccountSettingsModal from "./AdminAccountSettingsModal";
+import AdminNavbar from "./components/AdminNavbar";
+import AdminAccountSettingsModal from "./components/AdminAccountSettingsModal";
 
 function getStatusValue(ticket) {
   return (
@@ -393,51 +393,10 @@ export default function AdminTickets() {
 
   return (
     <div className="admin-page analytics-page admin-tickets-page">
-      <header className="analytics-topbar">
-        <div className="analytics-topbar-inner">
-          <div className="analytics-brand" aria-label="LPU MIS Help Desk">
-            <img src={lpuLogo} alt="LPU" className="analytics-brand-logo" />
-            <span className="analytics-brand-text">MIS HELP DESK</span>
-          </div>
-
-          <nav className="analytics-nav-links" aria-label="Admin navigation">
-            <NavLink
-              to="/admin/tickets"
-              className={({ isActive }) =>
-                `analytics-nav-link ${isActive ? "active" : ""}`
-              }
-            >
-              Home
-            </NavLink>
-            <NavLink
-              to="/admin/analytics"
-              className={({ isActive }) =>
-                `analytics-nav-link ${isActive ? "active" : ""}`
-              }
-            >
-              Analytics
-            </NavLink>
-            <NavLink
-              to="/admin/knowledge"
-              className={({ isActive }) =>
-                `analytics-nav-link ${isActive ? "active" : ""}`
-              }
-            >
-              Knowledge
-            </NavLink>
-            {isRoot && (
-              <NavLink
-                to="/admin/manage"
-                className={({ isActive }) =>
-                  `analytics-nav-link ${isActive ? "active" : ""}`
-                }
-              >
-                Manage
-              </NavLink>
-            )}
-          </nav>
-
-          <div className="analytics-actions">
+      <AdminNavbar
+        isRoot={isRoot}
+        actions={
+          <>
             <button
               type="button"
               className="analytics-export-btn"
@@ -478,9 +437,9 @@ export default function AdminTickets() {
                 </div>
               )}
             </div>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       <section className="admin-content analytics-content-wrap">
         <div className="admin-toolbar">

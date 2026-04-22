@@ -1,4 +1,4 @@
-import SidePanel from "../pages/SidePanel/SidePanel";
+import SidePanel from "./SidePanel/SidePanel";
 import { Outlet } from "react-router-dom";
 import ChatbotWidget from "../components/ChatbotWidget/ChatbotWidget";
 import "./DashboardLayout.css";
