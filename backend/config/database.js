@@ -338,7 +338,7 @@ export const initializeAdminUsers = async () => {
             password_hash VARCHAR(255) NOT NULL,
             full_name VARCHAR(255),
             is_active BOOLEAN DEFAULT true,
-            admin_level INTEGER NOT NULL DEFAULT 3 CHECK (admin_level IN (0, 1, 2, 3)),
+            admin_level INTEGER NOT NULL DEFAULT 1 CHECK (admin_level IN (0, 1, 2, 3)),
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
           );
@@ -370,9 +370,12 @@ export const initializeAdminUsers = async () => {
               WHERE table_name = 'admin_users' AND column_name = 'admin_level'
             ) THEN
               ALTER TABLE admin_users
-                ADD COLUMN admin_level INTEGER NOT NULL DEFAULT 3
+                ADD COLUMN admin_level INTEGER NOT NULL DEFAULT 1
                 CHECK (admin_level IN (0, 1, 2, 3));
             END IF;
+
+            ALTER TABLE admin_users
+              ALTER COLUMN admin_level SET DEFAULT 1;
           END
           $$;
         `,

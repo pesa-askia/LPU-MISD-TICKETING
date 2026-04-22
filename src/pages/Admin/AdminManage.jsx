@@ -3,12 +3,13 @@ import { NavLink } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import { ChevronDown, LogOut, Moon, UserPlus, X } from "lucide-react";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
+import { ADMIN_LEVEL_LABELS } from "../../utils/adminLevels";
 import lpuLogo from "../../assets/lpul-logo.png";
 import "./AdminTickets.css";
 import "./AdminAnalytics.css";
 import "./AdminManage.css";
 
-const LEVEL_LABELS = { 0: "Root", 1: "Level 1", 2: "Level 2", 3: "Level 3" };
+const LEVEL_LABELS = { 0: "Root", 1: "Level 3", 2: "Level 2", 3: "Level 1   " };
 
 function getAuthHeader() {
     return {
@@ -287,7 +288,7 @@ export default function AdminManage() {
                                                 <td>
                                                     {isSelf ? (
                                                         <span className="manage-level-badge manage-level-self">
-                                                            {LEVEL_LABELS[
+                                                            {ADMIN_LEVEL_LABELS[
                                                                 a.admin_level
                                                             ] ??
                                                                 a.admin_level}{" "}
@@ -309,7 +310,7 @@ export default function AdminManage() {
                                                             }
                                                         >
                                                             {Object.entries(
-                                                                LEVEL_LABELS,
+                                                                ADMIN_LEVEL_LABELS,
                                                             ).map(
                                                                 ([
                                                                     val,
@@ -447,7 +448,7 @@ function AddAdminModal({ onClose, onCreated }) {
         email: "",
         password: "",
         fullName: "",
-        adminLevel: "3",
+        adminLevel: "1",
     });
     const [submitting, setSubmitting] = useState(false);
     const [err, setErr] = useState("");
@@ -535,7 +536,7 @@ function AddAdminModal({ onClose, onCreated }) {
                             value={form.adminLevel}
                             onChange={onChange("adminLevel")}
                         >
-                            {Object.entries(LEVEL_LABELS).map(
+                            {Object.entries(ADMIN_LEVEL_LABELS).map(
                                 ([val, label]) => (
                                     <option key={val} value={val}>
                                         {label}

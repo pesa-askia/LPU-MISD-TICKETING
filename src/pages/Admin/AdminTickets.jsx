@@ -2,6 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, NavLink, useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
+import {
+  canAssignTickets,
+  canViewAllTickets,
+  getAdminPrivilegeRank,
+  isRootAdmin,
+  needsTicketFilters,
+} from "../../utils/adminLevels";
 import { Search, ChevronDown, LogOut, Moon, Download } from "lucide-react";
 import { realtimeSupabase } from "../../realtimeSupabaseClient";
 import { useLoading } from "../../context/LoadingContext";
@@ -53,8 +60,8 @@ export default function AdminTickets() {
       return null;
     }
   }, []);
-  const adminLevel = decoded?.admin_level ?? 3;
-  const isRoot = adminLevel === 0;
+  const adminLevel = decoded?.admin_level ?? 1;
+  const isRoot = isRootAdmin(adminLevel);
 
   const [assignableAdmins, setAssignableAdmins] = useState([]);
   const [adminNameMap, setAdminNameMap] = useState({}); // id → display name
@@ -137,7 +144,7 @@ export default function AdminTickets() {
       .catch(() => {});
 
     // Assignable admins for the dropdown (only if caller can assign to someone)
-    if (adminLevel < 3) {
+    if (canAssignTickets(adminLevel)) {
       fetch(`${base}/api/admin/assignees`, { headers })
         .then((r) => r.json())
         .then((json) => {
@@ -147,7 +154,7 @@ export default function AdminTickets() {
     }
 
     // Own profile with ticket filters — only needed for level 2 and 3
-    if (adminLevel >= 2) {
+    if (needsTicketFilters(adminLevel)) {
       fetch(`${base}/api/admin/me`, { headers })
         .then((r) => r.json())
         .then((json) => {
@@ -161,7 +168,7 @@ export default function AdminTickets() {
 
   const visibleTickets = useMemo(() => {
     // Root and level 1 see everything
-    if (adminLevel <= 1) return tickets;
+    if (canViewAllTickets(adminLevel)) return tickets;
     // Pre-parse comma-separated filter strings into Sets once
     const fType = new Set(
       (myProfile?.filter_type || "")
@@ -233,7 +240,7 @@ export default function AdminTickets() {
     return () => {
       realtimeSupabase.removeChannel(channel);
     };
-  }, [isLoggedIn, isAdmin]);
+  }, [isLoggedIn, isAdmin, setAdminTickets]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -546,7 +553,10 @@ export default function AdminTickets() {
                               handleAssigneeChange(t, 1, e.target.value)
                             }
                           >
-                            <option value="" disabled={adminLevel >= 2}>
+                            <option
+                              value=""
+                              disabled={getAdminPrivilegeRank(adminLevel) >= 2}
+                            >
                               Assign to…
                             </option>
                             {assignableAdmins.map((a) => (
