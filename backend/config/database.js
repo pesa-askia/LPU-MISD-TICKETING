@@ -288,6 +288,29 @@ export const initializeDatabase = async () => {
       );
     }
 
+    // Chatbot sessions table
+    try {
+      await supabase.rpc("execute_sql", {
+        sql: `
+          CREATE TABLE IF NOT EXISTS chatbot_sessions (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            session_id TEXT NOT NULL UNIQUE,
+            user_id UUID,
+            messages JSONB DEFAULT '[]'::jsonb,
+            status TEXT DEFAULT 'active' CHECK (status IN ('active', 'resolved', 'transferred')),
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+          );
+
+          CREATE INDEX IF NOT EXISTS idx_chatbot_sessions_session_id ON chatbot_sessions(session_id);
+          CREATE INDEX IF NOT EXISTS idx_chatbot_sessions_user_id ON chatbot_sessions(user_id);
+        `,
+      });
+      console.log("✓ chatbot_sessions table ready");
+    } catch (chatbotInitError) {
+      console.warn("chatbot_sessions init skipped:", chatbotInitError.message);
+    }
+
     console.log("✓ Database initialized");
   } catch (error) {
     console.error("Database initialization error:", error.message);
