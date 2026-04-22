@@ -1,5 +1,6 @@
 import SidePanel from "../pages/SidePanel/SidePanel";
 import { Outlet } from "react-router-dom";
+import ChatbotWidget from "../components/ChatbotWidget/ChatbotWidget";
 import "./DashboardLayout.css";
 
 const DashboardLayout = () => {
@@ -9,6 +10,7 @@ const DashboardLayout = () => {
       <main className="content">
         <Outlet />
       </main>
+      <ChatbotWidget />
     </div>
   );
 };

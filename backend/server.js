@@ -8,6 +8,8 @@ import { verifyAdminEmailFromToken } from "./services/authService.js";
 import authRoutes from "./routes/auth.js";
 import adminRoutes from "./routes/admin.js";
 import ticketRoutes from "./routes/tickets.js";
+import chatbotRoutes from "./routes/chatbot.js";
+import knowledgeRoutes from "./routes/knowledge.js";
 import os from "os";
 
 dotenv.config();
@@ -92,6 +94,8 @@ app.get("/health", (req, res) => {
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/tickets", ticketRoutes);
+app.use("/api/chatbot", chatbotRoutes);
+app.use("/api/knowledge", knowledgeRoutes);
 
 // Root endpoint
 app.get("/", (req, res) => {

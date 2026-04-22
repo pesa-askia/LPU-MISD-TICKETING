@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { Paperclip, X } from "lucide-react";
 import { jwtDecode } from "jwt-decode";
+import { useLocation } from "react-router-dom";
 import { realtimeSupabase } from "../../realtimeSupabaseClient";
 import { useLoading } from "../../context/LoadingContext";
 import { useTicketsCache } from "../../context/TicketsCacheContext";
@@ -8,13 +9,15 @@ import { useTicketsCache } from "../../context/TicketsCacheContext";
 function SubmitTicket() {
   const { showLoading, hideLoading, isLoading } = useLoading();
   const { clearTicketsCache } = useTicketsCache();
+  const location = useLocation();
+  const chatPrefill = location.state?.chatPrefill;
   const fileInputRef = useRef(null);
   const [formData, setFormData] = useState({
     userType: "",
     department: "",
     category: "",
-    description: "",
-    summary: "",
+    description: chatPrefill?.description || "",
+    summary: chatPrefill?.summary || "",
     site: "",
   });
   const [attachments, setAttachments] = useState([]);
@@ -186,6 +189,21 @@ function SubmitTicket() {
         </p>
 
         <hr className="divider" />
+        {chatPrefill && (
+          <div
+            style={{
+              backgroundColor: "#e8f0fe",
+              color: "#1a56c4",
+              padding: "10px 16px",
+              borderRadius: "4px",
+              marginBottom: "16px",
+              border: "1px solid #c5d8fc",
+              fontSize: "13.5px",
+            }}
+          >
+            Chat transcript pre-filled below. Add your details and submit.
+          </div>
+        )}
         {errorMessage && (
           <div
             style={{
