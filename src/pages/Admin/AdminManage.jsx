@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
-import { ChevronDown, LogOut, Moon, UserPlus, X } from "lucide-react";
+import { ChevronDown, LogOut, Moon, UserPlus, X, User } from "lucide-react";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import { ADMIN_LEVEL_LABELS } from "../../utils/adminLevels";
 import lpuLogo from "../../assets/lpul-logo.png";
 import "./AdminTickets.css";
 import "./AdminAnalytics.css";
 import "./AdminManage.css";
+import AdminAccountSettingsModal from "./AdminAccountSettingsModal";
 
 const LEVEL_LABELS = { 0: "Root", 1: "Level 3", 2: "Level 2", 3: "Level 1   " };
 
@@ -31,6 +32,7 @@ export default function AdminManage() {
     const [showAddModal, setShowAddModal] = useState(false);
     const [filterTarget, setFilterTarget] = useState(null); // admin being edited for filters
     const [saving, setSaving] = useState(null); // adminId being patched
+    const [accountModalOpen, setAccountModalOpen] = useState(false);
     const menuRef = useRef(null);
 
     const decoded = (() => {
@@ -166,6 +168,30 @@ export default function AdminManage() {
         }
     };
 
+    const handleDeleteAdmin = async (admin) => {
+        const label = admin.full_name || admin.email || "this admin";
+        const ok = window.confirm(`Delete ${label}? This cannot be undone.`);
+        if (!ok) return;
+
+        setSaving(admin.id);
+        try {
+            const res = await fetch(apiUrl(`/api/admin/admins/${admin.id}`), {
+                method: "DELETE",
+                headers: getAuthHeader(),
+            });
+            const json = await res.json();
+            if (!json.success) {
+                alert(json.message || "Failed to delete admin");
+                return;
+            }
+            setAdmins((prev) => prev.filter((a) => a.id !== admin.id));
+        } catch (e) {
+            alert(e.message || "Failed to delete admin");
+        } finally {
+            setSaving(null);
+        }
+    };
+
     return (
         <div className="admin-page analytics-page admin-tickets-page">
             <header className="analytics-topbar">
@@ -242,6 +268,16 @@ export default function AdminManage() {
                             </button>
                             {menuOpen && (
                                 <div className="admin-menu-pop">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setMenuOpen(false);
+                                            setAccountModalOpen(true);
+                                        }}
+                                    >
+                                        <User size={16} />
+                                        <span>My account</span>
+                                    </button>
                                     <button type="button" onClick={onLogout}>
                                         <LogOut size={16} />
                                         <span>Logout</span>
@@ -272,6 +308,7 @@ export default function AdminManage() {
                                 <tr>
                                     <th>Name</th>
                                     <th>Email</th>
+                                    <th>Status</th>
                                     <th>Level</th>
                                     <th>Ticket Filters</th>
                                     <th>Joined</th>
@@ -281,7 +318,7 @@ export default function AdminManage() {
                             <tbody>
                                 {admins.length === 0 ? (
                                     <tr>
-                                        <td colSpan={6} className="admin-empty">
+                                        <td colSpan={7} className="admin-empty">
                                             No admin accounts found.
                                         </td>
                                     </tr>
@@ -293,6 +330,18 @@ export default function AdminManage() {
                                             <tr key={a.id}>
                                                 <td>{a.full_name || "—"}</td>
                                                 <td>{a.email}</td>
+                                                <td>
+                                                    {!a.email_verified_at ? (
+                                                        <span
+                                                            className="manage-verify-pending"
+                                                            title="User must open the link in the invitation email"
+                                                        >
+                                                            Pending email
+                                                        </span>
+                                                    ) : (
+                                                        <span className="manage-verify-ok">Verified</span>
+                                                    )}
+                                                </td>
                                                 <td>
                                                     {isSelf ? (
                                                         <span className="manage-level-badge manage-level-self">
@@ -387,34 +436,57 @@ export default function AdminManage() {
                                                 </td>
                                                 <td>
                                                     {!isSelf && (
-                                                        <button
-                                                            type="button"
-                                                            disabled={isBusy}
-                                                            onClick={() =>
-                                                                handleToggleActive(
-                                                                    a,
-                                                                )
-                                                            }
-                                                            style={{
-                                                                padding:
-                                                                    "4px 10px",
-                                                                border: "1px solid #888",
-                                                                borderRadius: 4,
-                                                                background:
-                                                                    a.is_active
-                                                                        ? "#e53935"
-                                                                        : "#43a047",
-                                                                color: "white",
-                                                                cursor: isBusy
-                                                                    ? "not-allowed"
-                                                                    : "pointer",
-                                                                fontSize: 13,
-                                                            }}
-                                                        >
-                                                            {a.is_active
-                                                                ? "Deactivate"
-                                                                : "Activate"}
-                                                        </button>
+                                                        <div style={{ display: "flex", gap: 8 }}>
+                                                            <button
+                                                                type="button"
+                                                                disabled={isBusy}
+                                                                onClick={() =>
+                                                                    handleToggleActive(
+                                                                        a,
+                                                                    )
+                                                                }
+                                                                style={{
+                                                                    padding:
+                                                                        "4px 10px",
+                                                                    border: "1px solid #888",
+                                                                    borderRadius: 4,
+                                                                    background:
+                                                                        a.is_active
+                                                                            ? "#e53935"
+                                                                            : "#43a047",
+                                                                    color: "white",
+                                                                    cursor: isBusy
+                                                                        ? "not-allowed"
+                                                                        : "pointer",
+                                                                    fontSize: 13,
+                                                                }}
+                                                            >
+                                                                {a.is_active
+                                                                    ? "Deactivate"
+                                                                    : "Activate"}
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                disabled={isBusy}
+                                                                onClick={() => handleDeleteAdmin(a)}
+                                                                style={{
+                                                                    padding:
+                                                                        "4px 10px",
+                                                                    border: "1px solid rgba(229,57,53,0.55)",
+                                                                    borderRadius: 4,
+                                                                    background:
+                                                                        "transparent",
+                                                                    color: "#e53935",
+                                                                    cursor: isBusy
+                                                                        ? "not-allowed"
+                                                                        : "pointer",
+                                                                    fontSize: 13,
+                                                                    fontWeight: 600,
+                                                                }}
+                                                            >
+                                                                Delete
+                                                            </button>
+                                                        </div>
                                                     )}
                                                 </td>
                                             </tr>
@@ -430,9 +502,22 @@ export default function AdminManage() {
             {showAddModal && (
                 <AddAdminModal
                     onClose={() => setShowAddModal(false)}
-                    onCreated={(newAdmin) => {
-                        setAdmins((prev) => [...prev, newAdmin]);
+                    onCreated={(payload) => {
+                        setAdmins((prev) => [...prev, payload.data]);
                         setShowAddModal(false);
+                        if (payload.verifyEmail && payload.invitationEmailSent) {
+                            alert(
+                                "An invitation was sent. The new admin must click the link in that email before they can sign in.",
+                            );
+                        } else if (payload.invitationEmailError) {
+                            alert(
+                                `Account was created, but the invitation email could not be sent: ${payload.invitationEmailError}`,
+                            );
+                        } else if (payload.verifyEmail && payload.invitationEmailSent === false) {
+                            alert(
+                                "Account created, but the invitation email was not sent. Check RESEND_ configuration or server logs.",
+                            );
+                        }
                     }}
                 />
             )}
@@ -447,6 +532,11 @@ export default function AdminManage() {
                     saving={saving === filterTarget.id}
                 />
             )}
+
+            <AdminAccountSettingsModal
+                open={accountModalOpen}
+                onClose={() => setAccountModalOpen(false)}
+            />
         </div>
     );
 }
@@ -487,7 +577,7 @@ function AddAdminModal({ onClose, onCreated }) {
                 setErr(json.message || "Failed to create admin");
                 return;
             }
-            onCreated(json.data);
+            onCreated(json);
         } catch (e) {
             setErr(e.message || "Failed to create admin");
         } finally {

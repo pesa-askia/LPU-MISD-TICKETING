@@ -1,12 +1,15 @@
 import express from "express";
 import bcrypt from "bcryptjs";
-import { getAllUsers, getUserById, deleteUser, updateUser } from "../services/authService.js";
+import { getAllUsers, getUserById, deleteUser, updateUser, createAdminEmailVerificationToken } from "../services/authService.js";
+import { sendAdminInviteEmail, isAdminInviteEmailEnabled } from "../services/adminInviteMailer.js";
 import { adminMiddleware, rootMiddleware } from "../middleware/auth.js";
 import { supabase } from "../config/database.js";
 import {
     canAssignToAdminLevel,
     compareAdminsByPrivilege,
 } from "../utils/adminLevels.js";
+
+const resendApiConfigured = () => Boolean(String(process.env.RESEND_API_KEY || "").trim());
 
 const router = express.Router();
 
@@ -176,11 +179,15 @@ router.get("/assignees", adminMiddleware, async (req, res) => {
         const callerLevel = req.user?.admin_level ?? 1;
         const callerId = req.user?.id;
 
-        const { data: admins, error } = await supabase
+        let assigneeQuery = supabase
             .from("admin_users")
             .select("id, full_name, email, admin_level")
             .eq("is_active", true)
             .neq("id", callerId);
+        if (resendApiConfigured()) {
+            assigneeQuery = assigneeQuery.not("email_verified_at", "is", null);
+        }
+        const { data: admins, error } = await assigneeQuery;
 
         if (error) return res.status(400).json({ success: false, message: error.message });
 
@@ -232,7 +239,7 @@ router.get("/me", adminMiddleware, async (req, res) => {
     try {
         const { data, error } = await supabase
             .from("admin_users")
-            .select("id, email, full_name, admin_level, filter_type, filter_department, filter_category, filter_site")
+            .select("id, email, full_name, admin_level, email_verified_at, filter_type, filter_department, filter_category, filter_site")
             .eq("id", req.user.id)
             .single();
 
@@ -252,7 +259,7 @@ router.get("/admins", rootMiddleware, async (req, res) => {
     try {
         const { data, error } = await supabase
             .from("admin_users")
-            .select("id, email, full_name, is_active, admin_level, filter_type, filter_department, filter_category, filter_site, created_at, updated_at");
+            .select("id, email, full_name, is_active, admin_level, email_verified_at, filter_type, filter_department, filter_category, filter_site, created_at, updated_at");
 
         if (error) return res.status(400).json({ success: false, message: error.message });
 
@@ -294,6 +301,9 @@ router.post("/admins", rootMiddleware, async (req, res) => {
         }
 
         const passwordHash = await bcrypt.hash(password, 10);
+        const inviteEnabled = isAdminInviteEmailEnabled();
+        // Only the verification link (or manual SQL) sets email_verified_at. Never set it here — otherwise
+        // the UI shows "Verified" before the user actually verifies.
 
         const { data, error } = await supabase
             .from("admin_users")
@@ -303,12 +313,96 @@ router.post("/admins", rootMiddleware, async (req, res) => {
                 full_name: fullName || email.split("@")[0],
                 is_active: true,
                 admin_level: level,
+                email_verified_at: null,
             }])
-            .select("id, email, full_name, is_active, admin_level, created_at");
+            .select("id, email, full_name, is_active, admin_level, email_verified_at, created_at, updated_at");
 
         if (error) return res.status(400).json({ success: false, message: error.message });
 
-        return res.status(201).json({ success: true, data: data[0] });
+        const created = data[0];
+        let invitationEmailSent = false;
+        let invitationEmailError = null;
+
+        if (inviteEnabled) {
+            const publicBase = (process.env.PUBLIC_BASE_URL || process.env.FRONTEND_URL || "http://localhost:5173")
+                .replace(/\/$/, "");
+            const token = createAdminEmailVerificationToken(created.id);
+            const verifyUrl = `${publicBase}/admin/verify-email?token=${encodeURIComponent(token)}`;
+            const send = await sendAdminInviteEmail({
+                to: created.email,
+                fullName: created.full_name,
+                verifyUrl,
+            });
+            invitationEmailSent = send.success;
+            if (!send.success) {
+                invitationEmailError = send.error || "Failed to send email";
+                console.error("[admin create] invite email error:", invitationEmailError);
+            } else {
+                console.log("[admin create] invite email sent via", send.provider);
+            }
+        }
+
+        return res.status(201).json({
+            success: true,
+            data: created,
+            verifyEmail: inviteEnabled,
+            invitationEmailSent: inviteEnabled ? invitationEmailSent : false,
+            invitationEmailError: inviteEnabled ? invitationEmailError : null,
+        });
+    } catch (e) {
+        return res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+/**
+ * DELETE /api/admin/admins/:adminId
+ * Root only — delete an admin account.
+ */
+router.delete("/admins/:adminId", rootMiddleware, async (req, res) => {
+    try {
+        const { adminId } = req.params;
+        const callerId = req.user?.id || req.user?.sub;
+
+        if (!adminId) {
+            return res.status(400).json({ success: false, message: "adminId is required" });
+        }
+
+        if (adminId === callerId) {
+            return res.status(400).json({ success: false, message: "Cannot delete your own account" });
+        }
+
+        const { data: existing, error: findErr } = await supabase
+            .from("admin_users")
+            .select("id, email, full_name, admin_level")
+            .eq("id", adminId)
+            .limit(1);
+
+        if (findErr) return res.status(400).json({ success: false, message: findErr.message });
+        if (!existing || existing.length === 0) {
+            return res.status(404).json({ success: false, message: "Admin not found" });
+        }
+
+        // Safety: avoid deleting the last remaining root admin
+        const target = existing[0];
+        if (Number(target.admin_level) === 0) {
+            const { data: roots, error: rootsErr } = await supabase
+                .from("admin_users")
+                .select("id")
+                .eq("admin_level", 0);
+            if (rootsErr) return res.status(400).json({ success: false, message: rootsErr.message });
+            if ((roots || []).length <= 1) {
+                return res.status(400).json({ success: false, message: "Cannot delete the last root admin" });
+            }
+        }
+
+        const { error: delErr } = await supabase.from("admin_users").delete().eq("id", adminId);
+        if (delErr) return res.status(400).json({ success: false, message: delErr.message });
+
+        return res.status(200).json({
+            success: true,
+            message: "Admin deleted",
+            data: { id: target.id, email: target.email, full_name: target.full_name },
+        });
     } catch (e) {
         return res.status(500).json({ success: false, message: e.message });
     }
@@ -349,7 +443,7 @@ router.patch("/admins/:adminId", rootMiddleware, async (req, res) => {
             .from("admin_users")
             .update(updates)
             .eq("id", adminId)
-            .select("id, email, full_name, is_active, admin_level, filter_type, filter_department, filter_category, filter_site, updated_at");
+            .select("id, email, full_name, is_active, admin_level, email_verified_at, filter_type, filter_department, filter_category, filter_site, updated_at");
 
         if (error) return res.status(400).json({ success: false, message: error.message });
         if (!data || data.length === 0) return res.status(404).json({ success: false, message: "Admin not found" });

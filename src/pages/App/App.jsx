@@ -12,6 +12,7 @@ import AdminTicketChat from "../Admin/AdminTicketChat";
 import AdminAnalytics from "../Admin/AdminAnalytics";
 import AdminManage from "../Admin/AdminManage";
 import AdminKnowledge from "../Admin/AdminKnowledge";
+import AdminVerifyEmail from "../Admin/AdminVerifyEmail";
 import LoadingScreen from "../../components/LoadingScreen";
 import { useLoading } from "../../context/LoadingContext";
 
@@ -61,6 +62,7 @@ function App() {
       <Routes>
         <Route path="/" element={<LoginPage />} />
         <Route path="/auth/callback" element={<MagicLinkCallback />} />
+        <Route path="/admin/verify-email" element={<AdminVerifyEmail />} />
 
         <Route
           element={

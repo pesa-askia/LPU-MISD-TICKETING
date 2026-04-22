@@ -9,13 +9,14 @@ import {
   isRootAdmin,
   needsTicketFilters,
 } from "../../utils/adminLevels";
-import { Search, ChevronDown, LogOut, Moon, Download } from "lucide-react";
+import { Search, ChevronDown, LogOut, Moon, Download, User } from "lucide-react";
 import { realtimeSupabase } from "../../realtimeSupabaseClient";
 import { useLoading } from "../../context/LoadingContext";
 import { useTicketsCache } from "../../context/TicketsCacheContext";
 import "./AdminTickets.css";
 import "./AdminAnalytics.css";
 import lpuLogo from "../../assets/lpul-logo.png";
+import AdminAccountSettingsModal from "./AdminAccountSettingsModal";
 
 function getStatusValue(ticket) {
   return (
@@ -47,6 +48,7 @@ export default function AdminTickets() {
   const [filter, setFilter] = useState("Open Tickets");
   const [search, setSearch] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [accountModalOpen, setAccountModalOpen] = useState(false);
   const menuRef = useRef(null);
 
   const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
@@ -455,6 +457,16 @@ export default function AdminTickets() {
               </button>
               {menuOpen && (
                 <div className="admin-menu-pop">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setAccountModalOpen(true);
+                    }}
+                  >
+                    <User size={16} />
+                    <span>My account</span>
+                  </button>
                   <button type="button" onClick={onLogout}>
                     <LogOut size={16} />
                     <span>Logout</span>
@@ -613,6 +625,11 @@ export default function AdminTickets() {
           </div>
         )}
       </section>
+
+      <AdminAccountSettingsModal
+        open={accountModalOpen}
+        onClose={() => setAccountModalOpen(false)}
+      />
     </div>
   );
 }

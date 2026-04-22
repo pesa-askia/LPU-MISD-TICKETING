@@ -8,6 +8,9 @@ if (!JWT_SECRET) {
     throw new Error("JWT_SECRET environment variable must be set. Refusing to start.");
 }
 
+/** If false, unverified admins may still sign in (local dev without Resend). UI should only show "Verified" when `email_verified_at` is set. */
+const isAdminEmailVerificationEnforced = () => Boolean(String(process.env.RESEND_API_KEY || "").trim());
+
 /**
  * Hash password
  */
@@ -40,6 +43,67 @@ export const generateToken = (userId, email, role = "user", adminLevel = null) =
     const payload = { sub: userId, id: userId, email, role: "authenticated", app_role: role };
     if (adminLevel !== null) payload.admin_level = adminLevel;
     return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
+};
+
+const ADMIN_INVITE_PURPOSE = "admin_invite";
+
+/**
+ * One-time link token emailed to a new admin (7-day expiry). Not the same as session JWT.
+ */
+export const createAdminEmailVerificationToken = (adminId) => {
+    return jwt.sign(
+        { sub: adminId, pur: ADMIN_INVITE_PURPOSE },
+        JWT_SECRET,
+        { expiresIn: "7d" },
+    );
+};
+
+/**
+ * Mark admin email as verified after they open the link from the invitation email.
+ */
+export const verifyAdminEmailFromToken = async (token) => {
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        if (decoded.pur !== ADMIN_INVITE_PURPOSE || !decoded.sub) {
+            return { success: false, message: "This link is invalid or has expired." };
+        }
+        const adminId = decoded.sub;
+
+        const { data: row, error: readErr } = await supabase
+            .from("admin_users")
+            .select("id, email, full_name, email_verified_at")
+            .eq("id", adminId)
+            .single();
+
+        if (readErr || !row) {
+            return { success: false, message: "Account not found." };
+        }
+
+        if (row.email_verified_at) {
+            return {
+                success: true,
+                message: "Your email is already verified. You can sign in to the admin portal.",
+                alreadyVerified: true,
+            };
+        }
+
+        const now = new Date().toISOString();
+        const { error: upErr } = await supabase
+            .from("admin_users")
+            .update({ email_verified_at: now, updated_at: now })
+            .eq("id", adminId);
+
+        if (upErr) {
+            return { success: false, message: "Could not complete verification. Try again later." };
+        }
+
+        return {
+            success: true,
+            message: "Your email is verified. You can sign in to the admin portal.",
+        };
+    } catch {
+        return { success: false, message: "This link is invalid or has expired." };
+    }
 };
 
 /**
@@ -146,6 +210,15 @@ export const loginAny = async (email, password) => {
             return { success: false, message: "Invalid email or password" };
         }
 
+        if (admin && !admin.email_verified_at && isAdminEmailVerificationEnforced()) {
+            return {
+                success: false,
+                message:
+                    "Please verify your email first. Open the invitation link we sent to your inbox, then try signing in again.",
+                code: "ADMIN_EMAIL_UNVERIFIED",
+            };
+        }
+
         const adminLevel = admin ? (admin.admin_level ?? 1) : null;
         const token = generateToken(account.id, account.email, role, adminLevel);
 
@@ -208,6 +281,15 @@ export const loginAdmin = async (email, password) => {
             return { success: false, message: "Invalid email or password" };
         }
 
+        if (!admin.email_verified_at && isAdminEmailVerificationEnforced()) {
+            return {
+                success: false,
+                message:
+                    "Please verify your email first. Open the invitation link we sent to your inbox, then try signing in again.",
+                code: "ADMIN_EMAIL_UNVERIFIED",
+            };
+        }
+
         const adminLevel = admin.admin_level ?? 1;
         const token = generateToken(admin.id, admin.email, "admin", adminLevel);
 
@@ -228,6 +310,120 @@ export const loginAdmin = async (email, password) => {
             },
             token: token,
         };
+    } catch (error) {
+        return { success: false, message: error.message };
+    }
+};
+
+const normalizeEmail = (email) => String(email ?? "").trim().toLowerCase();
+
+/**
+ * Ensure an email is not taken on the other account table (and not by another row
+ * in the same table). Used when admins or users update their own email.
+ */
+export const assertEmailAvailableForAccount = async (normalizedEmail, userId, isAdminAccount) => {
+    try {
+        if (!normalizedEmail) {
+            return { success: false, message: "Email is required" };
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+            return { success: false, message: "Invalid email format" };
+        }
+
+        const [{ data: admins }, { data: users }] = await Promise.all([
+            supabase.from("admin_users").select("id").eq("email", normalizedEmail),
+            supabase.from("auth_users").select("id").eq("email", normalizedEmail),
+        ]);
+
+        const adminRows = admins ?? [];
+        const userRows = users ?? [];
+
+        if (isAdminAccount) {
+            if (adminRows.some((r) => r.id !== userId)) {
+                return { success: false, message: "Email already in use" };
+            }
+            if (userRows.length > 0) {
+                return { success: false, message: "Email already in use" };
+            }
+        } else {
+            if (userRows.some((r) => r.id !== userId)) {
+                return { success: false, message: "Email already in use" };
+            }
+            if (adminRows.length > 0) {
+                return { success: false, message: "Email already in use" };
+            }
+        }
+
+        return { success: true };
+    } catch (error) {
+        return { success: false, message: error.message };
+    }
+};
+
+/**
+ * Profile for GET /api/auth/me — reads admin_users or auth_users from JWT app_role.
+ */
+export const getMeProfile = async (userId, appRole) => {
+    try {
+        const table = appRole === "admin" ? "admin_users" : "auth_users";
+        const adminSelect =
+            "id, email, full_name, is_active, email_verified_at, created_at, updated_at";
+        const userSelect = "id, email, full_name, is_active, created_at, updated_at";
+        const { data: user, error } = await supabase
+            .from(table)
+            .select(appRole === "admin" ? adminSelect : userSelect)
+            .eq("id", userId)
+            .single();
+
+        if (error) {
+            return { success: false, message: error.message };
+        }
+
+        return { success: true, user };
+    } catch (error) {
+        return { success: false, message: error.message };
+    }
+};
+
+/**
+ * PUT /api/auth/me — update own name/email on the correct table.
+ */
+export const updateOwnAccountProfile = async (userId, appRole, { fullName, email }) => {
+    try {
+        const isAdmin = appRole === "admin";
+        const table = isAdmin ? "admin_users" : "auth_users";
+        const updates = { updated_at: new Date().toISOString() };
+
+        if (fullName !== undefined && fullName !== null) {
+            updates.full_name = fullName;
+        }
+        if (email !== undefined && email !== null) {
+            const normalized = normalizeEmail(email);
+            const check = await assertEmailAvailableForAccount(normalized, userId, isAdmin);
+            if (!check.success) {
+                return check;
+            }
+            updates.email = normalized;
+        }
+
+        if (Object.keys(updates).length === 1) {
+            return { success: false, message: "No profile fields to update" };
+        }
+
+        const selectFields = isAdmin
+            ? "id, email, full_name, is_active, email_verified_at, created_at, updated_at"
+            : "id, email, full_name, is_active, created_at, updated_at";
+        const { data, error } = await supabase
+            .from(table)
+            .update(updates)
+            .eq("id", userId)
+            .select(selectFields);
+
+        if (error) {
+            return { success: false, message: error.message };
+        }
+
+        return { success: true, user: data[0] };
     } catch (error) {
         return { success: false, message: error.message };
     }
@@ -410,13 +606,14 @@ export const verifyMagicLinkToken = async (accessToken) => {
 };
 
 /**
- * Change password
+ * Change password (auth_users or admin_users depending on app_role)
  */
-export const changePassword = async (userId, oldPassword, newPassword) => {
+export const changePassword = async (userId, oldPassword, newPassword, appRole = "user") => {
     try {
-        // Get user
+        const table = appRole === "admin" ? "admin_users" : "auth_users";
+
         const { data: user, error: getUserError } = await supabase
-            .from("auth_users")
+            .from(table)
             .select("*")
             .eq("id", userId)
             .single();
@@ -425,20 +622,17 @@ export const changePassword = async (userId, oldPassword, newPassword) => {
             return { success: false, message: "User not found" };
         }
 
-        // Verify old password
         const isValidPassword = await comparePassword(oldPassword, user.password_hash);
 
         if (!isValidPassword) {
             return { success: false, message: "Incorrect old password" };
         }
 
-        // Hash new password
         const newPasswordHash = await hashPassword(newPassword);
 
-        // Update password
         const { error: updateError } = await supabase
-            .from("auth_users")
-            .update({ password_hash: newPasswordHash })
+            .from(table)
+            .update({ password_hash: newPasswordHash, updated_at: new Date().toISOString() })
             .eq("id", userId);
 
         if (updateError) {
