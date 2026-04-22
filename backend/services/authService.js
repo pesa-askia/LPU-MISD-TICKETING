@@ -60,47 +60,50 @@ export const createAdminEmailVerificationToken = (adminId) => {
 
 /**
  * Mark admin email as verified after they open the link from the invitation email.
+ * Supports two token formats:
+ *  1. Legacy custom JWT (pur: "admin_invite") — for any invites sent before the Supabase flow
+ *  2. Supabase access_token — from supabase.auth.admin.inviteUserByEmail redirect
  */
 export const verifyAdminEmailFromToken = async (token) => {
+    const markVerifiedById = async (adminId) => {
+        const { data: row, error: readErr } = await supabase
+            .from("admin_users").select("id, email_verified_at").eq("id", adminId).single();
+        if (readErr || !row) return { success: false, message: "Account not found." };
+        if (row.email_verified_at) return { success: true, message: "Your email is already verified. You can sign in to the admin portal.", alreadyVerified: true };
+        const now = new Date().toISOString();
+        const { error: upErr } = await supabase.from("admin_users").update({ email_verified_at: now, updated_at: now }).eq("id", adminId);
+        if (upErr) return { success: false, message: "Could not complete verification. Try again later." };
+        return { success: true, message: "Your email is verified. You can sign in to the admin portal." };
+    };
+
+    const markVerifiedByEmail = async (email) => {
+        const { data: row, error: readErr } = await supabase
+            .from("admin_users").select("id, email_verified_at").eq("email", email.toLowerCase()).single();
+        if (readErr || !row) return { success: false, message: "Admin account not found." };
+        if (row.email_verified_at) return { success: true, message: "Your email is already verified. You can sign in to the admin portal.", alreadyVerified: true };
+        const now = new Date().toISOString();
+        const { error: upErr } = await supabase.from("admin_users").update({ email_verified_at: now, updated_at: now }).eq("id", row.id);
+        if (upErr) return { success: false, message: "Could not complete verification. Try again later." };
+        return { success: true, message: "Your email is verified. You can sign in to the admin portal." };
+    };
+
     try {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        if (decoded.pur !== ADMIN_INVITE_PURPOSE || !decoded.sub) {
+        // 1) Legacy custom JWT (backward compat for any pending invitations)
+        try {
+            const decoded = jwt.verify(token, JWT_SECRET);
+            if (decoded.pur === ADMIN_INVITE_PURPOSE && decoded.sub) {
+                return await markVerifiedById(decoded.sub);
+            }
+        } catch {
+            // Not our JWT — fall through to Supabase token
+        }
+
+        // 2) Supabase access_token issued by inviteUserByEmail redirect
+        const { data: { user }, error: supaErr } = await supabase.auth.getUser(token);
+        if (supaErr || !user?.email) {
             return { success: false, message: "This link is invalid or has expired." };
         }
-        const adminId = decoded.sub;
-
-        const { data: row, error: readErr } = await supabase
-            .from("admin_users")
-            .select("id, email, full_name, email_verified_at")
-            .eq("id", adminId)
-            .single();
-
-        if (readErr || !row) {
-            return { success: false, message: "Account not found." };
-        }
-
-        if (row.email_verified_at) {
-            return {
-                success: true,
-                message: "Your email is already verified. You can sign in to the admin portal.",
-                alreadyVerified: true,
-            };
-        }
-
-        const now = new Date().toISOString();
-        const { error: upErr } = await supabase
-            .from("admin_users")
-            .update({ email_verified_at: now, updated_at: now })
-            .eq("id", adminId);
-
-        if (upErr) {
-            return { success: false, message: "Could not complete verification. Try again later." };
-        }
-
-        return {
-            success: true,
-            message: "Your email is verified. You can sign in to the admin portal.",
-        };
+        return await markVerifiedByEmail(user.email);
     } catch {
         return { success: false, message: "This link is invalid or has expired." };
     }

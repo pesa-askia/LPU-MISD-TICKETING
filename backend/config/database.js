@@ -408,6 +408,26 @@ export const initializeAdminUsers = async () => {
       console.warn("admin_level migration skipped:", migrateErr.message);
     }
 
+    // Migrate: add supabase_auth_id to track the corresponding Supabase Auth user
+    try {
+      await supabase.rpc("execute_sql", {
+        sql: `
+          DO $$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_schema = 'public' AND table_name = 'admin_users' AND column_name = 'supabase_auth_id'
+            ) THEN
+              ALTER TABLE admin_users ADD COLUMN supabase_auth_id UUID;
+            END IF;
+          END
+          $$;
+        `,
+      });
+    } catch (migrateErr) {
+      console.warn("supabase_auth_id migration skipped:", migrateErr.message);
+    }
+
     // New admins invited by root must verify email; existing rows are backfilled once when
     // this column is first added (same migration block — not on every startup).
     try {

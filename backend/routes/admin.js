@@ -1,7 +1,6 @@
 import express from "express";
 import bcrypt from "bcryptjs";
-import { getAllUsers, getUserById, deleteUser, updateUser, createAdminEmailVerificationToken } from "../services/authService.js";
-import { sendAdminInviteEmail, isAdminInviteEmailEnabled } from "../services/adminInviteMailer.js";
+import { getAllUsers, getUserById, deleteUser, updateUser } from "../services/authService.js";
 import { adminMiddleware, rootMiddleware } from "../middleware/auth.js";
 import { supabase } from "../config/database.js";
 import {
@@ -301,9 +300,6 @@ router.post("/admins", rootMiddleware, async (req, res) => {
         }
 
         const passwordHash = await bcrypt.hash(password, 10);
-        const inviteEnabled = isAdminInviteEmailEnabled();
-        // Only the verification link (or manual SQL) sets email_verified_at. Never set it here — otherwise
-        // the UI shows "Verified" before the user actually verifies.
 
         const { data, error } = await supabase
             .from("admin_users")
@@ -323,31 +319,45 @@ router.post("/admins", rootMiddleware, async (req, res) => {
         let invitationEmailSent = false;
         let invitationEmailError = null;
 
-        if (inviteEnabled) {
-            const publicBase = (process.env.PUBLIC_BASE_URL || process.env.FRONTEND_URL || "http://localhost:5173")
+        // Use supabase.auth.admin.inviteUserByEmail — creates admin in Supabase Auth AND
+        // sends the invite email via the project's configured email provider (Resend).
+        // No RESEND_API_KEY or nodemailer needed in our .env.
+        try {
+            const rawBase =
+                process.env.PUBLIC_BASE_URL ||
+                (process.env.CORS_ORIGINS || "").split(",")[0].trim() ||
+                "http://localhost:5173";
+            const publicBase = (/^https?:\/\//i.test(rawBase) ? rawBase : `http://${rawBase}`)
                 .replace(/\/$/, "");
-            const token = createAdminEmailVerificationToken(created.id);
-            const verifyUrl = `${publicBase}/admin/verify-email?token=${encodeURIComponent(token)}`;
-            const send = await sendAdminInviteEmail({
-                to: created.email,
-                fullName: created.full_name,
-                verifyUrl,
-            });
-            invitationEmailSent = send.success;
-            if (!send.success) {
-                invitationEmailError = send.error || "Failed to send email";
-                console.error("[admin create] invite email error:", invitationEmailError);
-            } else {
-                console.log("[admin create] invite email sent via", send.provider);
+            const verifyUrl = `${publicBase}/admin/verify-email`;
+            const { data: inviteData, error: inviteErr } = await supabase.auth.admin.inviteUserByEmail(
+                email.toLowerCase(),
+                {
+                    redirectTo: verifyUrl,
+                    data: { full_name: created.full_name, admin_level: level, role: "admin" },
+                },
+            );
+            if (!inviteErr && inviteData?.user?.id) {
+                await supabase.from("admin_users")
+                    .update({ supabase_auth_id: inviteData.user.id })
+                    .eq("id", created.id);
+                invitationEmailSent = true;
+                console.log("[admin create] Supabase invite sent, auth_id:", inviteData.user.id);
+            } else if (inviteErr) {
+                invitationEmailError = inviteErr.message;
+                console.error("[admin create] Supabase invite error:", inviteErr.message);
             }
+        } catch (inviteEx) {
+            invitationEmailError = inviteEx.message;
+            console.error("[admin create] Supabase invite exception:", inviteEx.message);
         }
 
         return res.status(201).json({
             success: true,
             data: created,
-            verifyEmail: inviteEnabled,
-            invitationEmailSent: inviteEnabled ? invitationEmailSent : false,
-            invitationEmailError: inviteEnabled ? invitationEmailError : null,
+            verifyEmail: true,
+            invitationEmailSent,
+            invitationEmailError,
         });
     } catch (e) {
         return res.status(500).json({ success: false, message: e.message });
@@ -373,7 +383,7 @@ router.delete("/admins/:adminId", rootMiddleware, async (req, res) => {
 
         const { data: existing, error: findErr } = await supabase
             .from("admin_users")
-            .select("id, email, full_name, admin_level")
+            .select("id, email, full_name, admin_level, supabase_auth_id")
             .eq("id", adminId)
             .limit(1);
 
@@ -397,6 +407,14 @@ router.delete("/admins/:adminId", rootMiddleware, async (req, res) => {
 
         const { error: delErr } = await supabase.from("admin_users").delete().eq("id", adminId);
         if (delErr) return res.status(400).json({ success: false, message: delErr.message });
+
+        if (target.supabase_auth_id) {
+            try {
+                await supabase.auth.admin.deleteUser(target.supabase_auth_id);
+            } catch (authDelErr) {
+                console.warn("[admin delete] Supabase Auth cleanup failed:", authDelErr.message);
+            }
+        }
 
         return res.status(200).json({
             success: true,
