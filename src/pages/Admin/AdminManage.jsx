@@ -205,6 +205,14 @@ export default function AdminManage() {
                             Analytics
                         </NavLink>
                         <NavLink
+                            to="/admin/knowledge"
+                            className={({ isActive }) =>
+                                `analytics-nav-link ${isActive ? "active" : ""}`
+                            }
+                        >
+                            Knowledge
+                        </NavLink>
+                        <NavLink
                             to="/admin/manage"
                             className={({ isActive }) =>
                                 `analytics-nav-link ${isActive ? "active" : ""}`

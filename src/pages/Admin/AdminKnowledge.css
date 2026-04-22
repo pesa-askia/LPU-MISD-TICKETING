@@ -1,0 +1,312 @@
+.knowledge-page {
+  font-family: "Poppins", "Segoe UI", Arial, sans-serif;
+  min-height: 100vh;
+  background: #f5f5f5;
+}
+
+.knowledge-content {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 32px 28px 60px;
+}
+
+.knowledge-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  gap: 16px;
+}
+
+.knowledge-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #111;
+}
+
+.knowledge-subtitle {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #888;
+}
+
+.knowledge-add-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #8c0001;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.knowledge-add-btn:hover {
+  background: #6a0001;
+}
+
+.knowledge-search {
+  width: 100%;
+  max-width: 400px;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 16px;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.knowledge-search:focus {
+  outline: none;
+  border-color: #8c0001;
+}
+
+.knowledge-error {
+  background: #ffebee;
+  color: #c62828;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+
+.knowledge-empty {
+  text-align: center;
+  padding: 60px 0;
+  color: #aaa;
+}
+
+.knowledge-empty p {
+  margin: 12px 0 0;
+  font-size: 14px;
+}
+
+.knowledge-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.knowledge-entry {
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.knowledge-entry-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.knowledge-entry-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #8c0001;
+  margin-bottom: 4px;
+}
+
+.knowledge-entry-content {
+  margin: 0;
+  font-size: 13px;
+  color: #444;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.knowledge-entry-meta {
+  font-size: 11px;
+  color: #bbb;
+  margin-top: 6px;
+}
+
+.knowledge-delete-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #e53935;
+  padding: 4px;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+
+.knowledge-delete-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Modal */
+.knowledge-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.knowledge-modal {
+  background: #fff;
+  border-radius: 14px;
+  padding: 28px;
+  width: 100%;
+  max-width: 560px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.18);
+}
+
+.knowledge-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.knowledge-modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.knowledge-modal-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #888;
+  padding: 2px;
+}
+
+.knowledge-modal-label {
+  font-size: 13px;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.knowledge-modal-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 13px;
+  box-sizing: border-box;
+  font-family: inherit;
+  margin-bottom: 14px;
+}
+
+.knowledge-modal-input:focus {
+  outline: none;
+  border-color: #8c0001;
+}
+
+.knowledge-modal-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 13px;
+  resize: vertical;
+  font-family: inherit;
+  box-sizing: border-box;
+  line-height: 1.5;
+  min-height: 260px;
+}
+
+.knowledge-modal-textarea:focus {
+  outline: none;
+  border-color: #8c0001;
+}
+
+.knowledge-modal-hint {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: #aaa;
+}
+
+.knowledge-modal-error {
+  background: #ffebee;
+  color: #c62828;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin: 14px 0 0;
+}
+
+.knowledge-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.knowledge-modal-cancel {
+  padding: 9px 20px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  background: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.knowledge-modal-save {
+  padding: 9px 20px;
+  border-radius: 8px;
+  border: none;
+  background: #8c0001;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity 0.15s;
+}
+
+.knowledge-modal-save:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Dark mode */
+.admin-dark .knowledge-page {
+  background: #1a1a1a;
+}
+
+.admin-dark .knowledge-title {
+  color: #f0f0f0;
+}
+
+.admin-dark .knowledge-entry {
+  background: #252525;
+  border-color: #333;
+}
+
+.admin-dark .knowledge-entry-content {
+  color: #ccc;
+}
+
+.admin-dark .knowledge-modal {
+  background: #252525;
+  color: #f0f0f0;
+}
+
+.admin-dark .knowledge-modal-input,
+.admin-dark .knowledge-modal-textarea {
+  background: #333;
+  border-color: #444;
+  color: #f0f0f0;
+}

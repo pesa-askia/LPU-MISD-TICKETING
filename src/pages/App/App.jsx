@@ -11,6 +11,7 @@ import AdminTickets from "../Admin/AdminTickets";
 import AdminTicketChat from "../Admin/AdminTicketChat";
 import AdminAnalytics from "../Admin/AdminAnalytics";
 import AdminManage from "../Admin/AdminManage";
+import AdminKnowledge from "../Admin/AdminKnowledge";
 import LoadingScreen from "../../components/LoadingScreen";
 import { useLoading } from "../../context/LoadingContext";
 
@@ -71,6 +72,7 @@ function App() {
           <Route path="/admin/tickets" element={<AdminTickets />} />
           <Route path="/admin/tickets/:id" element={<AdminTicketChat />} />
           <Route path="/admin/analytics" element={<AdminAnalytics />} />
+          <Route path="/admin/knowledge" element={<AdminKnowledge />} />
           <Route path="/admin/manage" element={<RootRoute><AdminManage /></RootRoute>} />
         </Route>
 
