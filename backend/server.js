@@ -4,6 +4,7 @@ import bodyParser from "body-parser";
 import dotenv from "dotenv";
 import rateLimit from "express-rate-limit";
 import { initializeAdminUsers, initializeDatabase } from "./config/database.js";
+import { verifyAdminEmailFromToken } from "./services/authService.js";
 import authRoutes from "./routes/auth.js";
 import adminRoutes from "./routes/admin.js";
 import ticketRoutes from "./routes/tickets.js";
@@ -58,6 +59,27 @@ const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: "Too many requests, please try again later." },
+});
+
+// Public: admin email verification (not behind strict auth rate limiter)
+app.post("/api/auth/verify-admin-email", async (req, res) => {
+    try {
+        const { token } = req.body || {};
+        if (!token || typeof token !== "string" || !token.trim()) {
+            return res.status(400).json({ success: false, message: "Token is required" });
+        }
+        const result = await verifyAdminEmailFromToken(token.trim());
+        if (!result.success) {
+            return res.status(400).json(result);
+        }
+        return res.status(200).json(result);
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Verification error",
+            error: process.env.NODE_ENV === "development" ? error.message : undefined,
+        });
+    }
 });
 
 // Health check endpoint
@@ -149,6 +171,18 @@ const start = async () => {
       ? "supabase"
       : "unknown";
 
+  // Admin invite email debug (never print secrets)
+  const adminInviteDebug = String(process.env.ADMIN_INVITE_DEBUG || "").trim().toLowerCase() === "true";
+  const smtpHost = String(process.env.ADMIN_INVITE_SMTP_HOST || "").trim();
+  const smtpPort = Number(process.env.ADMIN_INVITE_SMTP_PORT || 587);
+  const smtpSecure =
+    String(process.env.ADMIN_INVITE_SMTP_SECURE || "").trim().toLowerCase() === "true" || smtpPort === 465;
+  const smtpUserPresent = Boolean(String(process.env.ADMIN_INVITE_SMTP_USER || "").trim());
+  const smtpPassPresent = Boolean(String(process.env.ADMIN_INVITE_SMTP_PASS || "").trim());
+  const smtpConfigured = Boolean(smtpHost) && smtpUserPresent && smtpPassPresent;
+  const resendApiKeyPresent = Boolean(String(process.env.RESEND_API_KEY || "").trim());
+  const inviteEnabled = smtpConfigured || resendApiKeyPresent;
+
   try {
     await initializeDatabase();
     await initializeAdminUsers();
@@ -170,6 +204,20 @@ const start = async () => {
 ║  🔌 DB URL: ${dbUrl}                        ║
 ╚════════════════════════════════════════╝
             `);
+
+      console.log(
+        "[Admin invite email]",
+        inviteEnabled ? "enabled" : "disabled",
+        "| SMTP:",
+        smtpConfigured ? "configured" : "not configured",
+        `(${smtpHost || "no-host"}:${smtpPort} secure=${smtpSecure})`,
+        "| RESEND_API_KEY:",
+        resendApiKeyPresent ? "present" : "missing",
+        "| PUBLIC_BASE_URL:",
+        publicBase || "(none)",
+        "| DEBUG:",
+        adminInviteDebug ? "on" : "off",
+      );
     });
   } catch (error) {
     console.error("Failed to start server:", error);

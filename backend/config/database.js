@@ -362,6 +362,7 @@ export const initializeAdminUsers = async () => {
             full_name VARCHAR(255),
             is_active BOOLEAN DEFAULT true,
             admin_level INTEGER NOT NULL DEFAULT 1 CHECK (admin_level IN (0, 1, 2, 3)),
+            email_verified_at TIMESTAMPTZ,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
           );
@@ -407,6 +408,30 @@ export const initializeAdminUsers = async () => {
       console.warn("admin_level migration skipped:", migrateErr.message);
     }
 
+    // New admins invited by root must verify email; existing rows are backfilled once when
+    // this column is first added (same migration block — not on every startup).
+    try {
+      await supabase.rpc("execute_sql", {
+        sql: `
+          DO $$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_schema = 'public' AND table_name = 'admin_users' AND column_name = 'email_verified_at'
+            ) THEN
+              ALTER TABLE admin_users ADD COLUMN email_verified_at TIMESTAMPTZ;
+              UPDATE admin_users
+                SET email_verified_at = COALESCE(created_at, NOW())
+                WHERE email_verified_at IS NULL;
+            END IF;
+          END
+          $$;
+        `,
+      });
+    } catch (migrateErr) {
+      console.warn("email_verified_at migration skipped:", migrateErr.message);
+    }
+
     // Seed mock admin (only if env vars provided)
     if (!seedEmail || !seedPassword) {
       console.log(
@@ -450,6 +475,7 @@ export const initializeAdminUsers = async () => {
         full_name: seedFullName,
         is_active: true,
         admin_level: 0,
+        email_verified_at: new Date().toISOString(),
       },
     ]);
 
