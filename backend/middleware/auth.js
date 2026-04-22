@@ -1,4 +1,5 @@
 import { verifyToken } from "../services/authService.js";
+import { getAdminPrivilegeRank } from "../utils/adminLevels.js";
 
 /**
  * Middleware to verify JWT token
@@ -68,12 +69,13 @@ export const rootMiddleware = (req, res, next) => {
 };
 
 /**
- * Middleware factory — requires admin role AND admin_level <= maxLevel.
- * e.g. requireLevel(1) allows root (0) and level-1 admins but not 2 or 3.
+ * Middleware factory — requires admin role AND a privilege rank at or above
+ * the requested level.
+ * e.g. requireLevel(3) allows root (0) and level-1 admins but not level-2/3.
  */
 export const requireLevel = (maxLevel) => (req, res, next) => {
     adminMiddleware(req, res, () => {
-        if ((req.user?.admin_level ?? 99) > maxLevel) {
+        if (getAdminPrivilegeRank(req.user?.admin_level) > getAdminPrivilegeRank(maxLevel)) {
             return res.status(403).json({
                 success: false,
                 message: "Insufficient admin level",
@@ -99,7 +101,7 @@ export const optionalAuthMiddleware = (req, _res, next) => {
         }
 
         next();
-    } catch (error) {
+    } catch {
         // Continue without auth
         next();
     }
