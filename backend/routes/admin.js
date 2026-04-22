@@ -1,8 +1,12 @@
 import express from "express";
 import bcrypt from "bcryptjs";
 import { getAllUsers, getUserById, deleteUser, updateUser } from "../services/authService.js";
-import { adminMiddleware, rootMiddleware, requireLevel } from "../middleware/auth.js";
+import { adminMiddleware, rootMiddleware } from "../middleware/auth.js";
 import { supabase } from "../config/database.js";
+import {
+    canAssignToAdminLevel,
+    compareAdminsByPrivilege,
+} from "../utils/adminLevels.js";
 
 const router = express.Router();
 
@@ -164,25 +168,22 @@ router.get("/stats", adminMiddleware, async (req, res) => {
 /**
  * GET /api/admin/assignees
  * Returns admin users that the caller is allowed to assign tickets to.
- * Rule: you can assign to admins whose level is strictly greater than yours.
- * Root (0) → everyone; Level 1 → levels 2 & 3; Level 2 → level 3; Level 3 → nobody.
+ * Rule: you can assign to admins with lower privilege than yours.
+ * Root (0) → everyone; Level 1 (3) → levels 2 & 3; Level 2 (2) → level 3; Level 3 (1) → nobody.
  */
 router.get("/assignees", adminMiddleware, async (req, res) => {
     try {
-        const callerLevel = req.user?.admin_level ?? 99;
-        const callerId    = req.user?.id;
+        const callerLevel = req.user?.admin_level ?? 1;
+        const callerId = req.user?.id;
 
-        // Fetch admins strictly below the caller's level
-        const { data: below, error } = await supabase
+        const { data: admins, error } = await supabase
             .from("admin_users")
             .select("id, full_name, email, admin_level")
             .eq("is_active", true)
-            .gt("admin_level", callerLevel)
-            .order("admin_level", { ascending: true });
+            .neq("id", callerId);
 
         if (error) return res.status(400).json({ success: false, message: error.message });
 
-        // Also include the caller themselves so their name shows when they're assigned
         const { data: self } = await supabase
             .from("admin_users")
             .select("id, full_name, email, admin_level")
@@ -190,9 +191,10 @@ router.get("/assignees", adminMiddleware, async (req, res) => {
             .limit(1);
 
         const selfRow = self?.[0];
-        const belowList = below || [];
-        // Put self first, then everyone below
-        const data = selfRow ? [selfRow, ...belowList] : belowList;
+        const assignableAdmins = (admins || [])
+            .filter((admin) => canAssignToAdminLevel(callerLevel, admin.admin_level))
+            .sort(compareAdminsByPrivilege);
+        const data = selfRow ? [selfRow, ...assignableAdmins] : assignableAdmins;
 
         return res.status(200).json({ success: true, data });
     } catch (e) {
@@ -209,12 +211,14 @@ router.get("/staff", adminMiddleware, async (req, res) => {
         const { data, error } = await supabase
             .from("admin_users")
             .select("id, full_name, email, admin_level")
-            .eq("is_active", true)
-            .order("admin_level", { ascending: true });
+            .eq("is_active", true);
 
         if (error) return res.status(400).json({ success: false, message: error.message });
 
-        return res.status(200).json({ success: true, data: data || [] });
+        return res.status(200).json({
+            success: true,
+            data: (data || []).sort(compareAdminsByPrivilege),
+        });
     } catch (e) {
         return res.status(500).json({ success: false, message: e.message });
     }
@@ -248,12 +252,14 @@ router.get("/admins", rootMiddleware, async (req, res) => {
     try {
         const { data, error } = await supabase
             .from("admin_users")
-            .select("id, email, full_name, is_active, admin_level, filter_type, filter_department, filter_category, filter_site, created_at, updated_at")
-            .order("admin_level", { ascending: true });
+            .select("id, email, full_name, is_active, admin_level, filter_type, filter_department, filter_category, filter_site, created_at, updated_at");
 
         if (error) return res.status(400).json({ success: false, message: error.message });
 
-        return res.status(200).json({ success: true, data: data || [] });
+        return res.status(200).json({
+            success: true,
+            data: (data || []).sort(compareAdminsByPrivilege),
+        });
     } catch (e) {
         return res.status(500).json({ success: false, message: e.message });
     }

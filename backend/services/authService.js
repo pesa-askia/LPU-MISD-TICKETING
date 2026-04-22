@@ -48,7 +48,7 @@ export const generateToken = (userId, email, role = "user", adminLevel = null) =
 export const verifyToken = (token) => {
     try {
         return jwt.verify(token, JWT_SECRET);
-    } catch (error) {
+    } catch {
         return null;
     }
 };
@@ -146,7 +146,7 @@ export const loginAny = async (email, password) => {
             return { success: false, message: "Invalid email or password" };
         }
 
-        const adminLevel = admin ? (admin.admin_level ?? 3) : null;
+        const adminLevel = admin ? (admin.admin_level ?? 1) : null;
         const token = generateToken(account.id, account.email, role, adminLevel);
 
         const table = admin ? "admin_users" : "auth_users";
@@ -208,7 +208,7 @@ export const loginAdmin = async (email, password) => {
             return { success: false, message: "Invalid email or password" };
         }
 
-        const adminLevel = admin.admin_level ?? 3;
+        const adminLevel = admin.admin_level ?? 1;
         const token = generateToken(admin.id, admin.email, "admin", adminLevel);
 
         await supabase
