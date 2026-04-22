@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
-import { Download, ChevronDown, LogOut, Moon, Calendar, User } from "lucide-react";
+import {
+  Download,
+  ChevronDown,
+  LogOut,
+  Moon,
+  Calendar,
+  User,
+} from "lucide-react";
 import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
 import { useLoading } from "../../context/LoadingContext";
 import { useTicketsCache } from "../../context/TicketsCacheContext";
@@ -12,11 +19,7 @@ import AdminAccountSettingsModal from "./components/AdminAccountSettingsModal";
 
 function getStatusValue(ticket) {
   return (
-    ticket?.Status ??
-    ticket?.status ??
-    ticket?.state ??
-    ticket?.State ??
-    ""
+    ticket?.Status ?? ticket?.status ?? ticket?.state ?? ticket?.State ?? ""
   );
 }
 
@@ -44,15 +47,20 @@ function PieChart({ closedCount, openCount }) {
       <div
         className="analytics-pie"
         style={{
-          background: `conic-gradient(#336be3 0deg ${closedAngle}deg, #e6bc23 ${closedAngle}deg ${closedAngle + openAngle
-            }deg)`,
+          background: `conic-gradient(#336be3 0deg ${closedAngle}deg, #e6bc23 ${closedAngle}deg ${
+            closedAngle + openAngle
+          }deg)`,
         }}
       >
         <div className="analytics-pie-inner">{closedCount + openCount}</div>
       </div>
       <div className="analytics-legend">
-        <div><span className="dot closed" /> Closed: {closedCount}</div>
-        <div><span className="dot open" /> Open: {openCount}</div>
+        <div>
+          <span className="dot closed" /> Closed: {closedCount}
+        </div>
+        <div>
+          <span className="dot open" /> Open: {openCount}
+        </div>
       </div>
     </div>
   );
@@ -62,7 +70,10 @@ function DepartmentBarChart({ chartData }) {
   const { stats = [], maxTotal = 1 } = chartData || {};
 
   return (
-    <div className="dept-chart-wrap dept-barchart-wrap" aria-label="Tickets by department bar chart">
+    <div
+      className="dept-chart-wrap dept-barchart-wrap"
+      aria-label="Tickets by department bar chart"
+    >
       <div className="dept-barchart-grid">
         {stats.map((item) => {
           const isEmpty = item.total === 0;
@@ -123,7 +134,14 @@ function DepartmentBarChart({ chartData }) {
   );
 }
 
-const ALL_DEPARTMENTS = ["CAS", "CBA", "CITHM", "COECS", "LPU-SC", "HIGHSCHOOL"];
+const ALL_DEPARTMENTS = [
+  "CAS",
+  "CBA",
+  "CITHM",
+  "COECS",
+  "LPU-SC",
+  "HIGHSCHOOL",
+];
 
 export default function AdminAnalytics() {
   const { showLoading, hideLoading } = useLoading();
@@ -139,8 +157,13 @@ export default function AdminAnalytics() {
   const isAdmin = role === "admin";
 
   const isRoot = (() => {
-    try { return jwtDecode(localStorage.getItem("authToken") || "")?.admin_level === 0; }
-    catch { return false; }
+    try {
+      return (
+        jwtDecode(localStorage.getItem("authToken") || "")?.admin_level === 0
+      );
+    } catch {
+      return false;
+    }
   })();
 
   const [darkMode, setDarkMode] = useState(
@@ -213,7 +236,9 @@ export default function AdminAnalytics() {
         // Only fetch columns needed for analytics — skip attachments, Description, etc.
         const { data, error: supaError } = await realtimeSupabase
           .from("Tickets")
-          .select("id,status,Status,closed_at,created_at,Department,Type,Category")
+          .select(
+            "id,status,Status,closed_at,created_at,Department,Type,Category",
+          )
           .order("id", { ascending: false });
 
         if (supaError) {
@@ -347,7 +372,11 @@ export default function AdminAnalytics() {
         isRoot={isRoot}
         actions={
           <>
-            <button type="button" className="analytics-export-btn" onClick={onExportCsv}>
+            <button
+              type="button"
+              className="analytics-export-btn"
+              onClick={onExportCsv}
+            >
               <Download size={16} />
               Export CSV
             </button>
@@ -378,10 +407,7 @@ export default function AdminAnalytics() {
                     <LogOut size={16} />
                     <span>Logout</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setDarkMode((v) => !v)}
-                  >
+                  <button type="button" onClick={() => setDarkMode((v) => !v)}>
                     <Moon size={16} />
                     <span>Dark Mode</span>
                   </button>
@@ -406,11 +432,14 @@ export default function AdminAnalytics() {
                 aria-label="Filter by from date"
                 onClick={handleDatePillClick}
                 onKeyDown={(e) =>
-                  e.key === "Enter" && handleDatePillClick({ currentTarget: e.currentTarget })
+                  e.key === "Enter" &&
+                  handleDatePillClick({ currentTarget: e.currentTarget })
                 }
               >
                 <span className="date-pill-text">
-                  {fromDate ? `From ${formatFilterDate(fromDate)}` : "From MM/DD/YY"}
+                  {fromDate
+                    ? `From ${formatFilterDate(fromDate)}`
+                    : "From MM/DD/YY"}
                 </span>
                 <Calendar size={12} />
                 <input
@@ -428,7 +457,8 @@ export default function AdminAnalytics() {
                 aria-label="Filter by to date"
                 onClick={handleDatePillClick}
                 onKeyDown={(e) =>
-                  e.key === "Enter" && handleDatePillClick({ currentTarget: e.currentTarget })
+                  e.key === "Enter" &&
+                  handleDatePillClick({ currentTarget: e.currentTarget })
                 }
               >
                 <span className="date-pill-text">
@@ -468,4 +498,3 @@ export default function AdminAnalytics() {
     </div>
   );
 }
-

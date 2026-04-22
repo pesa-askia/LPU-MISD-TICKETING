@@ -9,7 +9,14 @@ import {
   isRootAdmin,
   needsTicketFilters,
 } from "../../utils/adminLevels";
-import { Search, ChevronDown, LogOut, Moon, Download, User } from "lucide-react";
+import {
+  Search,
+  ChevronDown,
+  LogOut,
+  Moon,
+  Download,
+  User,
+} from "lucide-react";
 import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
 import { useLoading } from "../../context/LoadingContext";
 import { useTicketsCache } from "../../context/TicketsCacheContext";
