@@ -3,7 +3,7 @@ import { jwtDecode } from "jwt-decode";
 import LoginPage from "./pages/auth/LoginPage";
 import AuthVerifyCallback from "./components/AuthVerifyCallback";
 import Tickets from "./pages/User/Tickets";
-import TicketChat from "./components/TicketChat/TicketChat";
+import TicketChat from "./features/TicketChat/TicketChat";
 import SubmitTicket from "./pages/User/SubmitTicket";
 import UserLayout from "./layouts/UserLayout";
 import AdminLayout from "./layouts/AdminLayout";

@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import { Eye, EyeOff, Mail } from "lucide-react";
-import "./LoginPage.css";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import supabaseAuth from "../../lib/supabaseAuthClient";
 import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
@@ -64,9 +63,7 @@ const LoginPage = () => {
       });
 
       if (supaError) {
-        setError(
-          supaError.message || "Failed to send magic link. Please try again.",
-        );
+        setError(supaError.message || "Failed to send magic link.");
         return;
       }
 
@@ -103,12 +100,10 @@ const LoginPage = () => {
         localStorage.setItem("authToken", data.token);
         realtimeSupabase.realtime.setAuth(data.token);
       }
-      if (data.user?.id) localStorage.setItem("userId", data.user.id);
       localStorage.setItem("isLoggedIn", "true");
+      localStorage.setItem("userId", data.user?.id || "");
       localStorage.setItem("userEmail", data.user?.email || email);
       localStorage.setItem("userRole", data.user?.role || "admin");
-      localStorage.setItem("userFullName", data.user?.full_name || "");
-
       navigate("/admin/tickets");
     } catch (err) {
       setError(err.message || "Login failed");
@@ -118,114 +113,136 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="login-container">
-      <div className="login-card">
-        <div className="login-image" aria-hidden="true" />
+    <div className="min-h-screen flex items-center justify-center p-4 md:p-6 font-poppins bg-[radial-gradient(1200px_700px_at_20%_15%,#ffffff_0%,#f3f3f3_45%,#ededed_100%)]">
+      <div className="w-full max-w-245 rounded-[18px] overflow-hidden flex flex-col md:grid md:grid-cols-[1.25fr_1fr] shadow-[0_18px_50px_rgba(0,0,0,0.18)] bg-lpu-maroon">
+        {/* Image Side - Visible on all devices */}
+        <div
+          className="relative h-48 md:h-auto bg-gray-300 bg-[url('/lpu-building.jpg')] bg-center bg-cover bg-no-repeat after:content-[''] after:absolute after:inset-0 after:bg-lpu-maroon/30"
+          aria-hidden="true"
+        />
 
-        <div className="login-panel">
-          <div className="login-heading">
-            <h1 className="login-title">WELCOME</h1>
-            <p className="login-subtitle">TO LPU-L MISD HELP DESK</p>
+        {/* Form Side */}
+        <div className="bg-lpu-maroon p-8 md:p-16 flex flex-col justify-center gap-6">
+          <div className="text-center">
+            <h1 className="text-white text-3xl md:text-5xl font-bold tracking-wider leading-none m-0">
+              WELCOME
+            </h1>
+            <p className="mt-2.5 text-white/90 text-[10px] md:text-xs tracking-[0.22em] uppercase">
+              TO LPU-L MISD HELP DESK
+            </p>
           </div>
 
-          {/* ── Mode Toggle Flip ── */}
-          <div className="mode-toggle-container">
-            <div className={`mode-toggle-slider ${mode}`} />
+          {/* Mode Toggle */}
+          <div className="relative flex bg-black/20 rounded-xl p-1 border border-white/70 w-full">
+            <div
+              className={`absolute top-1 left-1 w-[calc(50%-4px)] h-[calc(100%-8px)] bg-white rounded-lg transition-transform duration-300 ease-in-out z-10 ${
+                mode === "admin" ? "translate-x-full" : "translate-x-0"
+              }`}
+            />
             <button
               type="button"
-              className={`mode-btn ${mode === "magic" ? "active" : ""}`}
+              className={`flex-1 py-2.5 z-20 font-semibold text-[13px] uppercase tracking-wider transition-colors duration-300 ${mode === "magic" ? "text-lpu-maroon" : "text-white/70"}`}
               onClick={() => switchMode("magic")}
             >
               User
             </button>
             <button
               type="button"
-              className={`mode-btn ${mode === "admin" ? "active" : ""}`}
+              className={`flex-1 py-2.5 z-20 font-semibold text-[13px] uppercase tracking-wider transition-colors duration-300 ${mode === "admin" ? "text-lpu-maroon" : "text-white/70"}`}
               onClick={() => switchMode("admin")}
             >
               Admin
             </button>
           </div>
 
-          {error && <div className="error-message">{error}</div>}
-
-          {/* ── Student Form ── */}
-          {mode === "magic" && !emailSent && (
-            <form onSubmit={handleMagicLink}>
-              <input
-                type="email"
-                placeholder="Email"
-                className="login-input"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
-                required
-              />
-              <button type="submit" className="login-btn" disabled={isLoading}>
-                {isLoading ? "Logging in..." : "Login"}
-              </button>
-            </form>
-          )}
-
-          {mode === "magic" && emailSent && (
-            <div className="magic-sent">
-              <div className="magic-sent-icon" aria-hidden="true">
-                <Mail size={32} />
-              </div>
-              <p className="magic-sent-title">Check your inbox</p>
-              <p className="magic-sent-body">
-                We sent a sign-in link to
-                <br />
-                <strong>{email}</strong>
-              </p>
-              <button
-                type="button"
-                className="magic-resend-btn"
-                onClick={() => {
-                  setEmailSent(false);
-                  setEmail("");
-                }}
-              >
-                Use a different email
-              </button>
+          {error && (
+            <div className="bg-lpu-gold text-lpu-maroon border border-white/70 p-3 rounded-lg text-sm font-bold text-center shadow-lg animate-in fade-in zoom-in duration-300">
+              {error}
             </div>
           )}
 
-          {/* ── Admin Form ── */}
-          {mode === "admin" && (
-            <form onSubmit={handleAdminLogin}>
-              <input
-                type="email"
-                placeholder="Email"
-                className="login-input"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="username"
-                required
-              />
-              <div className="password-input-wrapper">
+          {/* Forms */}
+          <div className="w-full">
+            {mode === "magic" && !emailSent && (
+              <form onSubmit={handleMagicLink} className="flex flex-col gap-4">
                 <input
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Password"
-                  className="login-input"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete="current-password"
+                  type="email"
+                  placeholder="Email"
+                  className="w-full p-3.5 px-4.5 rounded-lg bg-lpu-maroon/40 border border-white/70 text-white placeholder-white/60 outline-none focus:border-white focus:ring-4 focus:ring-white/10 transition-all"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
                 />
                 <button
-                  type="button"
-                  className="password-toggle-btn"
-                  onClick={() => setShowPassword(!showPassword)}
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full py-3.5 mt-2 rounded-full bg-white text-lpu-maroon font-black uppercase tracking-widest hover:bg-lpu-gold hover:text-lpu-maroon hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_4px_15px_rgba(0,0,0,0.2)]"
                 >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  {isLoading ? "Logging in..." : "Login"}
+                </button>
+              </form>
+            )}
+
+            {mode === "magic" && emailSent && (
+              <div className="flex flex-col items-center gap-2.5 text-center py-2">
+                <Mail size={32} className="text-white mb-2" />
+                <p className="text-white font-semibold text-lg">
+                  Check your inbox
+                </p>
+                <p className="text-white/85 text-sm leading-relaxed">
+                  We sent a sign-in link to <br />
+                  <strong className="text-white break-all">{email}</strong>
+                </p>
+                <button
+                  type="button"
+                  className="w-full py-3.5 mt-2 rounded-full bg-white text-lpu-maroon font-black uppercase tracking-widest hover:bg-lpu-gold hover:text-lpu-maroon hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_4px_15px_rgba(0,0,0,0.2)]"
+                  onClick={() => {
+                    setEmailSent(false);
+                    setEmail("");
+                  }}
+                >
+                  Use a different email
                 </button>
               </div>
-              <button type="submit" className="login-btn" disabled={isLoading}>
-                {isLoading ? "Logging in..." : "Login"}
-              </button>
-            </form>
-          )}
+            )}
+
+            {mode === "admin" && (
+              <form onSubmit={handleAdminLogin} className="flex flex-col gap-4">
+                <input
+                  type="email"
+                  placeholder="Email"
+                  className="w-full p-3.5 px-4.5 rounded-lg bg-lpu-maroon/40 border border-white/70 text-white placeholder-white/60 outline-none focus:border-white focus:ring-4 focus:ring-white/10 transition-all"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+                <div className="relative w-full">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Password"
+                    className="w-full p-3.5 pr-12 rounded-lg bg-lpu-maroon/40 border border-white/70 text-white placeholder-white/60 outline-none focus:border-white focus:ring-4 focus:ring-white/10 transition-all"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition-colors"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full py-3.5 mt-2 rounded-full bg-white text-lpu-maroon font-black uppercase tracking-widest hover:bg-lpu-gold hover:text-lpu-maroon hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_4px_15px_rgba(0,0,0,0.2)]"
+                >
+                  {isLoading ? "Logging in..." : "Login"}
+                </button>
+              </form>
+            )}
+          </div>
         </div>
       </div>
     </div>
