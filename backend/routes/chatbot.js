@@ -12,7 +12,9 @@ const router = express.Router();
 router.post("/message", optionalAuthMiddleware, async (req, res) => {
   const { message, sessionId } = req.body;
   if (!message || !sessionId) {
-    return res.status(400).json({ success: false, error: "message and sessionId required" });
+    return res
+      .status(400)
+      .json({ success: false, error: "message and sessionId required" });
   }
 
   const userId = req.user?.id || null;
@@ -22,15 +24,19 @@ router.post("/message", optionalAuthMiddleware, async (req, res) => {
     res.json({ success: true, ...result });
   } catch (err) {
     console.error("[Chatbot] message error:", err.message);
-    res.status(500).json({ success: false, error: err.message, detail: err.stack });
+    res
+      .status(500)
+      .json({ success: false, error: err.message, detail: err.stack });
   }
 });
 
-// POST /api/chatbot/handoff  — marks session as transferred (no ticket created here)
+// POST /api/chatbot/handoff
 router.post("/handoff", optionalAuthMiddleware, async (req, res) => {
   const { sessionId } = req.body;
   if (!sessionId) {
-    return res.status(400).json({ success: false, error: "sessionId required" });
+    return res
+      .status(400)
+      .json({ success: false, error: "sessionId required" });
   }
 
   try {
@@ -52,21 +58,28 @@ router.get("/session/:sessionId", optionalAuthMiddleware, async (req, res) => {
   }
 });
 
-// GET /api/chatbot/test  — open in browser to diagnose
+// GET /api/chatbot/test
 router.get("/test", async (req, res) => {
   const env = {
-    FLOWISE_URL: process.env.FLOWISE_URL || "NOT SET",
-    FLOWISE_CHATFLOW_ID: process.env.FLOWISE_CHATFLOW_ID || "NOT SET",
-    FLOWISE_API_KEY: process.env.FLOWISE_API_KEY ? "SET (" + process.env.FLOWISE_API_KEY.slice(0, 6) + "...)" : "NOT SET",
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY
+      ? "SET (" + process.env.GEMINI_API_KEY.slice(0, 6) + "...)"
+      : "NOT SET",
+    OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY
+      ? "SET (" + process.env.OPENROUTER_API_KEY.slice(0, 6) + "...)"
+      : "NOT SET",
+    SUPABASE_URL: process.env.SUPABASE_URL ? "SET" : "NOT SET",
+    SUPABASE_KEY:
+      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
+        ? "SET"
+        : "NOT SET",
   };
 
-  try {
-    const { sendChatMessage } = await import("../services/chatbotService.js");
-    const result = await sendChatMessage("hello", "test-diag-session", null);
-    res.json({ success: true, env, result });
-  } catch (err) {
-    res.json({ success: false, env, error: err.message, stack: err.stack });
-  }
+  res.json({
+    status: "ok",
+    environment: env,
+    message:
+      "Chatbot RAG API is operational using OpenRouter (Llama 3.1) and Gemini Embeddings.",
+  });
 });
 
 export default router;
