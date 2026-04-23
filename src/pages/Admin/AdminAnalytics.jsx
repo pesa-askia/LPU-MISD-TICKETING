@@ -234,10 +234,12 @@ export default function AdminAnalytics() {
         showLoading();
         setError("");
         // Only fetch columns needed for analytics — skip attachments, Description, etc.
+        // Do not list both status and Status: Supabase validates each name; this DB
+        // has lowercase `status` only (Pascal `Status` causes refresh-on-analytics to fail).
         const { data, error: supaError } = await realtimeSupabase
           .from("Tickets")
           .select(
-            "id,status,Status,closed_at,created_at,Department,Type,Category",
+            "id,status,closed_at,created_at,Department,Type,Category",
           )
           .order("id", { ascending: false });
 
