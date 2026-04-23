@@ -1,11 +1,18 @@
-import { useState, useRef } from "react";
-import { Paperclip, X } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Paperclip, X, ChevronDown, Send } from "lucide-react";
 import { jwtDecode } from "jwt-decode";
 import { useLocation } from "react-router-dom";
 import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
 import { useLoading } from "../../context/LoadingContext";
 import { useTicketsCache } from "../../context/TicketsCacheContext";
-import "./SubmitTicket.css";
+import {
+  PrimaryButton,
+  FilePicker,
+  AttachmentPreview,
+  FloatingSelect,
+  FloatingTextarea,
+  Alert,
+} from "../../components/FormFields";
 
 function SubmitTicket() {
   const { showLoading, hideLoading, isLoading } = useLoading();
@@ -13,6 +20,7 @@ function SubmitTicket() {
   const location = useLocation();
   const chatPrefill = location.state?.chatPrefill;
   const fileInputRef = useRef(null);
+
   const [formData, setFormData] = useState({
     userType: "",
     department: "",
@@ -24,6 +32,25 @@ function SubmitTicket() {
   const [attachments, setAttachments] = useState([]);
   const [successMessage, setSuccessMessage] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768) {
+        document.documentElement.style.overflow = "hidden";
+        document.body.style.overflow = "hidden";
+      } else {
+        document.documentElement.style.overflow = "";
+        document.body.style.overflow = "";
+      }
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      document.documentElement.style.overflow = "";
+      document.body.style.overflow = "";
+    };
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -108,16 +135,11 @@ function SubmitTicket() {
         ])
         .select("id");
 
-      if (error) {
-        setErrorMessage(error.message || "Failed to submit ticket");
-        return;
-      }
+      if (error) throw error;
 
       const createdTicket = Array.isArray(createdTickets)
         ? createdTickets[0]
         : createdTickets;
-
-      clearTicketsCache();
 
       if (createdTicket?.id && descriptionText) {
         const { error: messageError } = await realtimeSupabase
@@ -139,19 +161,17 @@ function SubmitTicket() {
           ]);
 
         if (messageError) {
-          setSuccessMessage(
-            "Ticket submitted, but the initial message failed to post. Open the ticket to send it manually.",
-          );
-        } else {
-          setSuccessMessage(
-            "Ticket submitted successfully! Your ticket has been created.",
+          setErrorMessage(
+            "Ticket created, but initial message failed to post.",
           );
         }
-      } else {
-        setSuccessMessage(
-          "Ticket submitted successfully! Your ticket has been created.",
-        );
       }
+
+      clearTicketsCache();
+
+      setSuccessMessage(
+        "Ticket submitted successfully! Our technicians will review it shortly.",
+      );
 
       setTimeout(() => setSuccessMessage(null), 5000);
 
@@ -173,172 +193,103 @@ function SubmitTicket() {
   };
 
   return (
-    <div className="wrapper">
-      <div className="card">
-        <div className="card-header">
-          <h1>Submit Ticket</h1>
-          <p>
+    <div className="w-full min-h-screen flex flex-col items-center bg-gray-50 px-3 py-8 font-poppins overflow-y-auto md:h-screen md:justify-center md:py-4 md:overflow-hidden">
+      <div className="w-full max-w-200 h-auto mx-auto px-4 py-6 flex flex-col box-border bg-white rounded-2xl shadow-xl border-t-[6px] border-lpu-maroon md:px-10 md:py-[clamp(1.25rem,3vh,2rem)]">
+        <div className="text-center">
+          <h1 className="m-0 text-2xl md:text-3xl font-black text-lpu-maroon tracking-tight">
+            Submit Ticket
+          </h1>
+          <p className="text-[0.85rem] text-[#666] my-4 md:my-[clamp(8px,2vh,16px)]">
             Create a ticket below and a technician will respond promptly to your
             issue. You may also email directly to &nbsp;
-            <a href="mailto:help@lpul-mis.on.spiceworks.com">
+            <a
+              href="mailto:help@lpul-mis.on.spiceworks.com"
+              className="text-lpu-maroon font-semibold hover:underline"
+            >
               help@lpul-mis.on.spiceworks.com
             </a>
           </p>
         </div>
 
-        <hr className="divider" />
+        <Alert type="success" message={successMessage} />
+        <Alert type="error" message={errorMessage} />
 
-        {chatPrefill && (
-          <div className="alert-box alert-info">
-            Chat transcript pre-filled below. Add your details and submit.
-          </div>
-        )}
-        {errorMessage && (
-          <div className="alert-box alert-error">
-            <strong>Error:</strong> {errorMessage}
-          </div>
-        )}
-        {successMessage && (
-          <div className="alert-box alert-success">
-            <strong>Success:</strong> {successMessage}
-          </div>
-        )}
+        <form
+          onSubmit={handleSubmit}
+          className="grid grid-cols-1 gap-4 w-full md:grid-cols-2"
+        >
+          <FloatingTextarea
+            label="Summary (Required)"
+            name="summary"
+            value={formData.summary}
+            onChange={handleChange}
+            heightClass="h-[50px]"
+          />
 
-        <form onSubmit={handleSubmit}>
-          <div className="input-label full-width">
-            <textarea
-              name="summary"
-              placeholder=" "
-              value={formData.summary}
-              onChange={handleChange}
-              required
-            ></textarea>
-            <label>Summary (Required)</label>
-          </div>
+          <FloatingTextarea
+            label="Description (Required)"
+            name="description"
+            value={formData.description}
+            onChange={handleChange}
+            heightClass="h-[120px] md:h-[clamp(80px,15vh,180px)]"
+          />
 
-          <div className="input-label full-width">
-            <textarea
-              name="description"
-              placeholder=" "
-              value={formData.description}
-              onChange={handleChange}
-              required
-            ></textarea>
-            <label>Description (Required)</label>
-          </div>
+          <FloatingSelect
+            label="Type (Required)"
+            name="userType"
+            value={formData.userType}
+            onChange={handleChange}
+            options={["Student", "Faculty", "Admin"]}
+          />
 
-          <div className="input-label">
-            <select
-              name="userType"
-              value={formData.userType}
-              onChange={handleChange}
-              required
-            >
-              <option value="" disabled hidden></option>
-              <option value="STUDENT">STUDENT</option>
-              <option value="FACULTY">FACULTY</option>
-              <option value="ADMIN">ADMIN</option>
-            </select>
-            <label>Type (Required)</label>
-          </div>
+          <FloatingSelect
+            label="Department (Required)"
+            name="department"
+            value={formData.department}
+            onChange={handleChange}
+            options={["CAS", "CBA", "CITHM", "COECS", "LPU-SC", "Highschool"]}
+          />
 
-          <div className="input-label">
-            <select
-              name="department"
-              value={formData.department}
-              onChange={handleChange}
-              required
-            >
-              <option value="" disabled hidden></option>
-              <option value="CAS">CAS</option>
-              <option value="CBA">CBA</option>
-              <option value="CITHM">CITHM</option>
-              <option value="COECS">COECS</option>
-              <option value="LPU-SC">LPU-SC</option>
-              <option value="HIGHSCHOOL">HIGHSCHOOL</option>
-            </select>
-            <label>Department (Required)</label>
-          </div>
+          <FloatingSelect
+            label="Category (Required)"
+            name="category"
+            value={formData.category}
+            onChange={handleChange}
+            options={[
+              "Student Portal ",
+              "Learning Management System (LMS)",
+              "Enterprise Resource Planning (ERP)",
+              "Microsoft 365",
+              "Hardware",
+              "Software",
+              "Others",
+            ]}
+          />
 
-          <div className="input-label">
-            <select
-              name="category"
-              value={formData.category}
-              onChange={handleChange}
-              required
-            >
-              <option value="" disabled hidden></option>
-              <option value="LMS">LMS</option>
-              <option value="Microsoft 365">Microsoft 365</option>
-              <option value="STUDENT PORTAL">STUDENT PORTAL</option>
-              <option value="ERP">ERP</option>
-              <option value="HARDWARE">HARDWARE</option>
-              <option value="SOFTWARE">SOFTWARE</option>
-              <option value="OTHERS">OTHERS</option>
-            </select>
-            <label>Category (Required)</label>
-          </div>
+          <FloatingSelect
+            label="Site (Required)"
+            name="site"
+            value={formData.site}
+            onChange={handleChange}
+            options={["Onsite", "Online"]}
+          />
 
-          <div className="input-label">
-            <select
-              name="site"
-              value={formData.site}
-              onChange={handleChange}
-              required
-            >
-              <option value="" disabled hidden></option>
-              <option value="Onsite">Onsite</option>
-              <option value="Online">Online</option>
-            </select>
-            <label>Site (Required)</label>
-          </div>
+          <AttachmentPreview
+            attachments={attachments}
+            onRemove={removeAttachment}
+          />
 
-          {attachments.length > 0 && (
-            <div className="attachments-container full-width">
-              <p className="attachments-title">
-                Attached Files ({attachments.length}):
-              </p>
-              <div className="attachments-list">
-                {attachments.map((file, index) => (
-                  <div key={index} className="attachment-item">
-                    <span>
-                      {file.name} ({(file.size / 1024).toFixed(2)} KB)
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => removeAttachment(index)}
-                      className="remove-btn"
-                      aria-label="Remove file"
-                    >
-                      <X size={18} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="button-group full-width">
-            <input
+          <div className="flex flex-col gap-4 justify-between mt-2 w-full md:flex-row md:justify-end md:col-span-2">
+            <FilePicker
               ref={fileInputRef}
-              type="file"
-              multiple
-              onChange={handleFileSelect}
-              style={{ display: "none" }}
-              accept="*/*"
+              onFileSelect={handleFileSelect}
+              isLoading={isLoading}
             />
-            <button
-              type="button"
-              className="add-photo-btn"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isLoading}
-            >
-              <Paperclip size={18} />
-              Attach Files
-            </button>
-            <button type="submit" className="submit-btn" disabled={isLoading}>
-              {isLoading ? "Submitting..." : "Submit Ticket"}
-            </button>
+            <PrimaryButton
+              label="Submit Ticket"
+              isLoading={isLoading}
+              icon={Send}
+            />
           </div>
         </form>
       </div>
