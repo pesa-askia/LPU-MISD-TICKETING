@@ -548,9 +548,7 @@ export const verifyMagicLinkToken = async (accessToken) => {
         const email = supaUser.email?.toLowerCase();
 
         // Domain guard — enforced on the backend regardless of what the frontend sends
-        if (!email || !email.endsWith("@lpulaguna.edu.ph")) {
-            return { success: false, message: "Only @lpulaguna.edu.ph accounts are allowed." };
-        }
+
 
         // Look up existing user
         const { data: existing } = await supabase
