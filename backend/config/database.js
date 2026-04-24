@@ -311,6 +311,64 @@ export const initializeDatabase = async () => {
       console.warn("chatbot_sessions init skipped:", chatbotInitError.message);
     }
 
+    // Chatbot messages table (used by chatbotService logging)
+    try {
+      await supabase.rpc("execute_sql", {
+        sql: `
+          CREATE TABLE IF NOT EXISTS chatbot_messages (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            session_id TEXT NOT NULL,
+            role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+            content TEXT NOT NULL,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+          );
+
+          CREATE INDEX IF NOT EXISTS idx_chatbot_messages_session_id
+            ON chatbot_messages(session_id, created_at);
+        `,
+      });
+      console.log("✓ chatbot_messages table ready");
+    } catch (chatbotMsgsInitError) {
+      console.warn("chatbot_messages init skipped:", chatbotMsgsInitError.message);
+    }
+
+    // Chatbot per-account limiter table
+    try {
+      await supabase.rpc("execute_sql", {
+        sql: `
+          CREATE TABLE IF NOT EXISTS chatbot_account_limits (
+            key TEXT PRIMARY KEY,
+            user_id UUID,
+            chat_count INTEGER NOT NULL DEFAULT 0,
+            cooldown_until TIMESTAMPTZ,
+            window_start TIMESTAMPTZ,
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+          );
+
+          DO $$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_schema = 'public' AND table_name = 'chatbot_account_limits' AND column_name = 'window_start'
+            ) THEN
+              ALTER TABLE public.chatbot_account_limits
+                ADD COLUMN window_start TIMESTAMPTZ;
+            END IF;
+          END
+          $$;
+
+          CREATE INDEX IF NOT EXISTS idx_chatbot_account_limits_user_id
+            ON chatbot_account_limits(user_id);
+        `,
+      });
+      console.log("✓ chatbot_account_limits table ready");
+    } catch (limiterInitError) {
+      console.warn(
+        "chatbot_account_limits init skipped:",
+        limiterInitError.message,
+      );
+    }
+
     console.log("✓ Database initialized");
   } catch (error) {
     console.error("Database initialization error:", error.message);

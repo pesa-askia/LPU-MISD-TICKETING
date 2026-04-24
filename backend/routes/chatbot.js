@@ -5,6 +5,7 @@ import {
   markSessionTransferred,
   getSession,
 } from "../services/chatbotService.js";
+import { enforceChatbotAccountCooldown } from "../services/chatbotRateLimitService.js";
 
 const router = express.Router();
 
@@ -17,9 +18,30 @@ router.post("/message", optionalAuthMiddleware, async (req, res) => {
       .json({ success: false, error: "message and sessionId required" });
   }
 
-  const userId = req.user?.id || null;
+  const userId = req.user?.id || req.user?.sub || null;
 
   try {
+    const limit = await enforceChatbotAccountCooldown({ userId, sessionId });
+    if (!limit.allowed) {
+      const retryAfterSec = Math.ceil((limit.retryAfterMs || 0) / 1000);
+      res.setHeader("Retry-After", String(retryAfterSec));
+      if (limit.source) res.setHeader("X-Chatbot-Limiter", String(limit.source));
+      if (limit.keyType) res.setHeader("X-Chatbot-Limiter-Key", String(limit.keyType));
+      return res.status(429).json({
+        success: false,
+        error: "Chat cooldown active. Please wait before sending another message.",
+        code: "CHAT_COOLDOWN",
+        retryAfterMs: limit.retryAfterMs,
+        cooldownUntil: limit.cooldownUntil,
+        violationCount:
+          typeof limit.violationCount === "number" ? limit.violationCount : null,
+        limiter: {
+          source: limit.source || null,
+          keyType: limit.keyType || null,
+        },
+      });
+    }
+
     const result = await sendChatMessage(message, sessionId, userId);
     res.json({ success: true, ...result });
   } catch (err) {

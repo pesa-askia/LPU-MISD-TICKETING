@@ -2,7 +2,23 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { MessageCircle, X, Send, User, Bot, ArrowRight } from "lucide-react";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
+import { jwtDecode } from "jwt-decode";
 
+// Local limiter (mirrors backend `chatbotRateLimitService` env names; use VITE_ on client)
+const envGet = (env, k) => env?.[k] ?? env?.[`VITE_${k}`];
+function getRateWindowMs(env) {
+  const v = Number(
+    envGet(env, "CHATBOT_LIMIT_WINDOW_MS") ||
+      envGet(env, "CHATBOT_RATE_WINDOW_MS"),
+  );
+  if (v > 0) return v;
+  return 24 * 60 * 60 * 1000;
+}
+function getMinMessageGapMs(env) {
+  const v = Number(envGet(env, "CHATBOT_MIN_MESSAGE_GAP_MS"));
+  if (v >= 0) return v;
+  return 2_000;
+}
 const GREETING =
   "Hi! I'm the MISD Support Bot. How can I help you today? I can assist with LMS, Microsoft 365, Student Portal, ERP, hardware, and software issues.";
 
@@ -20,8 +36,128 @@ function ChatbotWidget() {
   const [isTyping, setIsTyping] = useState(false);
   const [shouldHandoff, setShouldHandoff] = useState(false);
   const [sessionId] = useState(generateSessionId);
+  const [cooldownUntilMs, setCooldownUntilMs] = useState(null);
+  const [cooldownLabel, setCooldownLabel] = useState("");
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+
+  const limiterKey = (() => {
+    try {
+      const token = localStorage.getItem("authToken");
+      if (token) {
+        const decoded = jwtDecode(token);
+        const userId = decoded?.id || decoded?.sub;
+        if (userId) return `chatLimiter:user:${userId}`;
+      }
+    } catch {
+      // ignore
+    }
+    return `chatLimiter:session:${sessionId}`;
+  })();
+
+  const rateWindowMs = getRateWindowMs(import.meta.env);
+
+  const readLocalLimiter = () => {
+    const now = Date.now();
+    try {
+      const raw = localStorage.getItem(limiterKey);
+      if (!raw) {
+        return { violationCount: 0, cooldownUntilMs: null, windowStartMs: null };
+      }
+      const parsed = JSON.parse(raw);
+      // persisted key "chatCount" = violation count (fast-send attempts)
+      const chatCount = Number(parsed?.chatCount || 0);
+      const violationCount = chatCount;
+      const cooldownUntilMs =
+        typeof parsed?.cooldownUntilMs === "number"
+          ? parsed.cooldownUntilMs
+          : null;
+      const windowStartMs =
+        typeof parsed?.windowStartMs === "number"
+          ? parsed.windowStartMs
+          : null;
+
+      // Sync with backend: rolling window (default 24h) — then counts reset.
+      if (windowStartMs && now - windowStartMs > rateWindowMs) {
+        const reset = {
+          chatCount: 0,
+          cooldownUntilMs: null,
+          windowStartMs: now,
+        };
+        writeLocalLimiterRaw(reset);
+        return { violationCount: 0, cooldownUntilMs: null, windowStartMs: now };
+      }
+      if (!windowStartMs && chatCount > 0) {
+        const reset = {
+          chatCount: 0,
+          cooldownUntilMs: null,
+          windowStartMs: now,
+        };
+        writeLocalLimiterRaw(reset);
+        return { violationCount: 0, cooldownUntilMs: null, windowStartMs: now };
+      }
+      return { violationCount, cooldownUntilMs, windowStartMs };
+    } catch {
+      return { violationCount: 0, cooldownUntilMs: null, windowStartMs: null };
+    }
+  };
+
+  const writeLocalLimiterRaw = (payload) => {
+    try {
+      localStorage.setItem(
+        limiterKey,
+        JSON.stringify({ ...payload, updatedAt: Date.now() }),
+      );
+    } catch {
+      // ignore
+    }
+  };
+
+  const writeLocalLimiter = ({
+    violationCount,
+    cooldownUntilMs: until,
+    windowStartMs,
+  }) => {
+    writeLocalLimiterRaw({
+      chatCount: Number(violationCount || 0),
+      cooldownUntilMs: typeof until === "number" ? until : null,
+      windowStartMs:
+        typeof windowStartMs === "number" ? windowStartMs : null,
+    });
+  };
+
+  const formatWait = (ms) => {
+    const s = Math.max(1, Math.ceil(ms / 1000));
+    if (s < 60) return `${s}s`;
+    const m = Math.ceil(s / 60);
+    return `${m}m`;
+  };
+
+  // Bootstrap cooldown from localStorage on mount / key changes
+  useEffect(() => {
+    const { cooldownUntilMs: until } = readLocalLimiter();
+    if (until && Date.now() < until) {
+      setCooldownUntilMs(until);
+      setCooldownLabel(`You can continue chatting after ${formatWait(until - Date.now())}.`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [limiterKey]);
+
+  useEffect(() => {
+    if (!cooldownUntilMs) return;
+    const tick = () => {
+      const left = cooldownUntilMs - Date.now();
+      if (left <= 0) {
+        setCooldownUntilMs(null);
+        setCooldownLabel("");
+        return;
+      }
+      setCooldownLabel(`You can continue chatting after ${formatWait(left)}.`);
+    };
+    tick();
+    const id = setInterval(tick, 250);
+    return () => clearInterval(id);
+  }, [cooldownUntilMs]);
 
   useEffect(() => {
     if (isOpen) {
@@ -55,7 +191,29 @@ function ChatbotWidget() {
         });
 
         const data = await res.json();
-        if (!data.success) throw new Error(data.error || "Bot unavailable");
+        if (!res.ok || !data.success) {
+          const retryAfterMs =
+            typeof data?.retryAfterMs === "number" ? data.retryAfterMs : null;
+          if (res.status === 429 && retryAfterMs) {
+            const until = Date.now() + retryAfterMs;
+            setCooldownUntilMs(until);
+            setCooldownLabel(
+              `You can continue chatting after ${formatWait(retryAfterMs)}.`,
+            );
+            const cur = readLocalLimiter();
+            const v =
+              typeof data?.violationCount === "number"
+                ? data.violationCount
+                : cur.violationCount + 1;
+            writeLocalLimiter({
+              violationCount: v,
+              cooldownUntilMs: until,
+              windowStartMs: cur.windowStartMs ?? Date.now(),
+            });
+            return;
+          }
+          throw new Error(data?.error || "Bot unavailable");
+        }
 
         const botMsg = {
           role: "bot",
@@ -64,8 +222,20 @@ function ChatbotWidget() {
         };
         setMessages((prev) => [...prev, botMsg]);
 
+        // Local: after a successful message, only min gap (no bump to violation count)
+        const cur = readLocalLimiter();
+        const windowStartMs = cur.windowStartMs ?? Date.now();
+        const gap = getMinMessageGapMs(import.meta.env);
+        const until = gap > 0 ? Date.now() + gap : null;
+        writeLocalLimiter({
+          violationCount: cur.violationCount,
+          cooldownUntilMs: until,
+          windowStartMs,
+        });
+        if (until) setCooldownUntilMs(until);
+
         if (data.shouldHandoff) setShouldHandoff(true);
-      } catch (err) {
+      } catch {
         setMessages((prev) => [
           ...prev,
           {
@@ -80,7 +250,7 @@ function ChatbotWidget() {
         setIsTyping(false);
       }
     },
-    [isTyping, sessionId],
+    [isTyping, sessionId, limiterKey],
   );
 
   const handleKeyDown = (e) => {
@@ -100,7 +270,9 @@ function ChatbotWidget() {
         headers,
         body: JSON.stringify({ sessionId }),
       });
-    } catch (_) {}
+    } catch {
+      // ignore
+    }
 
     const userMessages = messages.filter((m) => m.role === "user");
     const summary = userMessages[0]?.content?.slice(0, 120) || "";
@@ -215,14 +387,18 @@ function ChatbotWidget() {
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Type a message..."
+              placeholder={cooldownLabel || "Type a message..."}
               rows={1}
-              disabled={isTyping}
+              disabled={isTyping || (cooldownUntilMs && Date.now() < cooldownUntilMs)}
             />
             <button
               className="shrink-0 w-8.5 h-8.5 rounded-full bg-lpu-maroon text-white flex items-center justify-center transition-colors hover:bg-lpu-red disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={() => sendMessage(inputText)}
-              disabled={!inputText.trim() || isTyping}
+              disabled={
+                !inputText.trim() ||
+                isTyping ||
+                (cooldownUntilMs && Date.now() < cooldownUntilMs)
+              }
             >
               <Send size={16} />
             </button>
