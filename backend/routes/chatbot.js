@@ -61,24 +61,16 @@ router.get("/session/:sessionId", optionalAuthMiddleware, async (req, res) => {
 // GET /api/chatbot/test
 router.get("/test", async (req, res) => {
   const env = {
-    GEMINI_API_KEY: process.env.GEMINI_API_KEY
-      ? "SET (" + process.env.GEMINI_API_KEY.slice(0, 6) + "...)"
-      : "NOT SET",
-    OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY
-      ? "SET (" + process.env.OPENROUTER_API_KEY.slice(0, 6) + "...)"
-      : "NOT SET",
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY ? "SET" : "NOT SET",
+    GROQ_API_KEY: process.env.GROQ_API_KEY ? "SET" : "NOT SET", // Updated
     SUPABASE_URL: process.env.SUPABASE_URL ? "SET" : "NOT SET",
-    SUPABASE_KEY:
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
-        ? "SET"
-        : "NOT SET",
   };
 
   res.json({
     status: "ok",
     environment: env,
     message:
-      "Chatbot RAG API is operational using OpenRouter (Llama 3.1) and Gemini Embeddings.",
+      "Chatbot RAG API is operational using Groq (Llama 3.3) and Gemini Embeddings.",
   });
 });
 
