@@ -132,10 +132,8 @@ const SidePanel = ({ collapsed, onToggleCollapse }) => {
             <div
               className={`overflow-hidden transition-[max-width,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${collapsed ? "max-w-0 opacity-0 pl-0" : "max-w-44 opacity-100 pl-11"}`}
             >
-              <p className="font-bold truncate text-base">
-                {userEmail.split("@")[0]}
-              </p>
-              <p className="text-xs opacity-70 truncate">{userEmail}</p>
+              <p className="font-bold text-base">{userEmail.split("@")[0]}</p>
+              <p className="text-xs opacity-70">{userEmail}</p>
             </div>
           </div>
         </div>

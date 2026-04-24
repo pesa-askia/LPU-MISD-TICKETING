@@ -50,7 +50,7 @@ export const SearchInput = ({ value, onChange, placeholder = "Search..." }) => {
         placeholder={placeholder}
         value={value}
         onChange={onChange}
-        className="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-xl text-[0.95rem] font-medium outline-none transition-all duration-200 focus:ring-2 focus:ring-lpu-gold focus:border-lpu-gold"
+        className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-[0.95rem] font-medium outline-none transition-all duration-200 focus:ring-2 focus:ring-lpu-gold focus:border-lpu-gold"
       />
     </div>
   );

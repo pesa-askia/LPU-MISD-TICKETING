@@ -256,9 +256,9 @@ function SubmitTicket() {
             value={formData.category}
             onChange={handleChange}
             options={[
+              "ERP",
+              "LMS",
               "Student Portal ",
-              "Learning Management System (LMS)",
-              "Enterprise Resource Planning (ERP)",
               "Microsoft 365",
               "Hardware",
               "Software",

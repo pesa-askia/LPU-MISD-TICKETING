@@ -238,9 +238,7 @@ export default function AdminAnalytics() {
         // has lowercase `status` only (Pascal `Status` causes refresh-on-analytics to fail).
         const { data, error: supaError } = await realtimeSupabase
           .from("Tickets")
-          .select(
-            "id,status,closed_at,created_at,Department,Type,Category",
-          )
+          .select("id,status,closed_at,created_at,Department,Type,Category")
           .order("id", { ascending: false });
 
         if (supaError) {

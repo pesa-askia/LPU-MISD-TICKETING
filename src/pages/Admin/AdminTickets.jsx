@@ -9,14 +9,7 @@ import {
   isRootAdmin,
   needsTicketFilters,
 } from "../../utils/adminLevels";
-import {
-  Search,
-  ChevronDown,
-  LogOut,
-  Moon,
-  Download,
-  User,
-} from "lucide-react";
+import { ChevronDown, LogOut, Moon, Download, User } from "lucide-react";
 import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
 import { useLoading } from "../../context/LoadingContext";
 import { useTicketsCache } from "../../context/TicketsCacheContext";
@@ -24,6 +17,8 @@ import "./AdminTickets.css";
 import "./AdminAnalytics.css";
 import AdminNavbar from "./components/AdminNavbar";
 import AdminAccountSettingsModal from "./components/AdminAccountSettingsModal";
+import { FilterSelect, SearchInput } from "../../components/DashboardControls";
+import { DataTable } from "../../components/DataTable";
 
 function getStatusValue(ticket) {
   return (
@@ -32,10 +27,7 @@ function getStatusValue(ticket) {
 }
 
 function isClosed(ticket) {
-  if (!ticket) return false;
-  if (ticket.closed_at) return true;
-  const s = String(getStatusValue(ticket)).toLowerCase();
-  return s.includes("closed") || s.includes("resolved") || s.includes("done");
+  return !!ticket?.closed_at;
 }
 
 function escapeCsv(value) {
@@ -73,8 +65,8 @@ export default function AdminTickets() {
   const isRoot = isRootAdmin(adminLevel);
 
   const [assignableAdmins, setAssignableAdmins] = useState([]);
-  const [adminNameMap, setAdminNameMap] = useState({}); // id → display name
-  const [myProfile, setMyProfile] = useState(null); // for level 2/3 filters
+  const [adminNameMap, setAdminNameMap] = useState({});
+  const [myProfile, setMyProfile] = useState(null);
 
   const [darkMode, setDarkMode] = useState(
     localStorage.getItem("adminDarkMode") === "true",
@@ -129,7 +121,6 @@ export default function AdminTickets() {
       return;
     }
     fetchTickets();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -138,7 +129,6 @@ export default function AdminTickets() {
     const headers = { Authorization: `Bearer ${token}` };
     const base = getApiBaseUrl();
 
-    // Name lookup map — needed by all levels to display assigned admin names
     fetch(`${base}/api/admin/staff`, { headers })
       .then((r) => r.json())
       .then((json) => {
@@ -152,7 +142,6 @@ export default function AdminTickets() {
       })
       .catch(() => {});
 
-    // Assignable admins for the dropdown (only if caller can assign to someone)
     if (canAssignTickets(adminLevel)) {
       fetch(`${base}/api/admin/assignees`, { headers })
         .then((r) => r.json())
@@ -162,7 +151,6 @@ export default function AdminTickets() {
         .catch(() => {});
     }
 
-    // Own profile with ticket filters — only needed for level 2 and 3
     if (needsTicketFilters(adminLevel)) {
       fetch(`${base}/api/admin/me`, { headers })
         .then((r) => r.json())
@@ -176,9 +164,7 @@ export default function AdminTickets() {
   const currentAdminId = decoded?.id || decoded?.sub;
 
   const visibleTickets = useMemo(() => {
-    // Root and level 1 see everything
     if (canViewAllTickets(adminLevel)) return tickets;
-    // Pre-parse comma-separated filter strings into Sets once
     const fType = new Set(
       (myProfile?.filter_type || "")
         .split(",")
@@ -203,7 +189,7 @@ export default function AdminTickets() {
         .map((s) => s.trim())
         .filter(Boolean),
     );
-    // Level 2 and 3: only tickets they're assigned to OR that match any of their filters
+
     return tickets.filter((t) => {
       if ([t.Assignee1, t.Assignee2, t.Assignee3].includes(currentAdminId))
         return true;
@@ -214,10 +200,9 @@ export default function AdminTickets() {
       return false;
     });
   }, [tickets, adminLevel, currentAdminId, myProfile]);
-  // Realtime: prepend new tickets and apply status updates without a full reload
+
   useEffect(() => {
     if (!isLoggedIn || !isAdmin) return;
-
     const channel = realtimeSupabase
       .channel("admin_tickets_realtime")
       .on(
@@ -245,19 +230,14 @@ export default function AdminTickets() {
         },
       )
       .subscribe();
-
-    return () => {
-      realtimeSupabase.removeChannel(channel);
-    };
+    return () => realtimeSupabase.removeChannel(channel);
   }, [isLoggedIn, isAdmin, setAdminTickets]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const base = visibleTickets.filter((t) => {
-      const closed = isClosed(t);
-      if (filter === "Closed Tickets") return closed;
-      return !closed;
-    });
+    const base = visibleTickets.filter((t) =>
+      filter === "Closed Tickets" ? isClosed(t) : !isClosed(t),
+    );
     if (!q) return base;
     return base.filter((t) => {
       const hay = [
@@ -321,7 +301,9 @@ export default function AdminTickets() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `tickets-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `tickets-export-${new Date()
+      .toISOString()
+      .slice(0, 10)}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -333,10 +315,9 @@ export default function AdminTickets() {
     try {
       showLoading();
       const shouldReopen = isClosed(ticket);
-      const now = new Date().toISOString();
       const payload = shouldReopen
         ? { status: "Open", closed_at: null }
-        : { status: "Closed", closed_at: now };
+        : { status: "Closed", closed_at: new Date().toISOString() };
 
       const { data, error } = await realtimeSupabase
         .from("Tickets")
@@ -348,7 +329,6 @@ export default function AdminTickets() {
         alert(error.message || "Failed to update ticket status");
         return;
       }
-
       const updated = tickets.map((t) =>
         t.id === ticket.id
           ? { ...t, ...payload, ...((Array.isArray(data) && data[0]) || {}) }
@@ -357,15 +337,11 @@ export default function AdminTickets() {
       setTickets(updated);
       setAdminTickets(updated);
     } catch (e) {
-      console.error("Unexpected error updating ticket status (admin)", e);
-      alert("Unexpected error updating ticket status");
+      console.error("Unexpected error", e);
     } finally {
       hideLoading();
     }
   };
-
-  if (!isLoggedIn) return <Navigate to="/" replace />;
-  if (!isAdmin) return <Navigate to="/Tickets" replace />;
 
   const handleAssigneeChange = async (ticket, slotIndex, value) => {
     const field = `Assignee${slotIndex}`;
@@ -381,22 +357,60 @@ export default function AdminTickets() {
         .from("Tickets")
         .update(payload)
         .eq("id", ticket.id);
-
       if (error) {
         alert(error.message || "Failed to update assignees");
         return;
       }
-
       const updated = tickets.map((t) =>
         t.id === ticket.id ? { ...t, ...payload } : t,
       );
       setTickets(updated);
       setAdminTickets(updated);
     } catch (e) {
-      console.error("Unexpected error updating assignees:", e);
-      alert("Unexpected error updating assignees");
+      console.error("Unexpected error:", e);
     }
   };
+
+  const adminColumns = useMemo(
+    () => [
+      { label: "Ticket No.", accessor: "id", variant: "badge" },
+      { label: "Summary", accessor: "Summary", variant: "title" },
+      { label: "Description", accessor: "Description", variant: "subtitle" },
+      {
+        label: "Assignees",
+        accessor: "Assignee1",
+        variant: "select",
+        preventRowClick: true,
+        placeholder: "Assign to…",
+        options: assignableAdmins.map((a) => ({
+          value: a.id,
+          label: a.full_name || a.email,
+        })),
+        onChange: (row, value) => handleAssigneeChange(row, 1, value),
+        fallbackText: (row) =>
+          adminNameMap[row.Assignee1] || row.Assignee1 || "—",
+      },
+      // Now using 'highlight' variant for Type and Category
+      { label: "Type", accessor: "Type", variant: "highlight" },
+      { label: "Department", accessor: "Department", variant: "highlight" },
+      { label: "Category", accessor: "Category", variant: "highlight" },
+      { label: "Created", accessor: "created_at", variant: "date" },
+      // The old "Status" column has been entirely removed!
+      {
+        label: "Actions",
+        variant: "action",
+        align: "right",
+        preventRowClick: true,
+        getLabel: (t) => (isClosed(t) ? "Reopen" : "Close"),
+        isPrimary: (t) => isClosed(t), // Drives the blue vs green color natively
+        onClick: (t) => toggleTicketStatus(t),
+      },
+    ],
+    [adminLevel, assignableAdmins, adminNameMap],
+  );
+
+  if (!isLoggedIn) return <Navigate to="/" replace />;
+  if (!isAdmin) return <Navigate to="/Tickets" replace />;
 
   return (
     <div className="admin-page analytics-page admin-tickets-page">
@@ -409,8 +423,7 @@ export default function AdminTickets() {
               className="analytics-export-btn"
               onClick={onExportCsv}
             >
-              <Download size={16} />
-              Export CSV
+              <Download size={16} /> Export CSV
             </button>
             <div className="admin-menu" ref={menuRef}>
               <button
@@ -418,8 +431,7 @@ export default function AdminTickets() {
                 className="analytics-menu-btn"
                 onClick={() => setMenuOpen((v) => !v)}
               >
-                <span>Admin</span>
-                <ChevronDown size={16} />
+                <span>Admin</span> <ChevronDown size={16} />
               </button>
               {menuOpen && (
                 <div className="admin-menu-pop">
@@ -430,16 +442,13 @@ export default function AdminTickets() {
                       setAccountModalOpen(true);
                     }}
                   >
-                    <User size={16} />
-                    <span>My account</span>
+                    <User size={16} /> <span>My account</span>
                   </button>
                   <button type="button" onClick={onLogout}>
-                    <LogOut size={16} />
-                    <span>Logout</span>
+                    <LogOut size={16} /> <span>Logout</span>
                   </button>
                   <button type="button" onClick={() => setDarkMode((v) => !v)}>
-                    <Moon size={16} />
-                    <span>Dark Mode</span>
+                    <Moon size={16} /> <span>Dark Mode</span>
                   </button>
                 </div>
               )}
@@ -448,146 +457,33 @@ export default function AdminTickets() {
         }
       />
 
-      <section className="admin-content analytics-content-wrap">
-        <div className="admin-toolbar">
-          <div className="admin-search">
-            <Search size={16} />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search Tickets"
-              aria-label="Search Tickets"
-            />
-          </div>
-          <div className="admin-filter">
-            <select value={filter} onChange={(e) => setFilter(e.target.value)}>
-              <option>Open Tickets</option>
-              <option>Closed Tickets</option>
-            </select>
-          </div>
+      <section className="admin-content analytics-content-wrap px-6 py-8">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 mb-8">
+          <FilterSelect
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            options={["Open Tickets", "Closed Tickets"]}
+          />
+          <SearchInput
+            placeholder="Search Tickets..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
 
         {error ? (
-          <div className="admin-error">{error}</div>
+          <div className="bg-red-50 text-lpu-red p-4 rounded-xl font-semibold text-center border border-red-100">
+            {error}
+          </div>
         ) : (
-          <div className="admin-table-wrap">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Ticket No.</th>
-                  <th>Summary</th>
-                  <th>Description</th>
-                  <th>Assignees</th>
-                  <th>Type</th>
-                  <th>Department</th>
-                  <th>Category</th>
-                  <th>Created</th>
-                  <th>Closed</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.length === 0 ? (
-                  <tr>
-                    <td colSpan={11} className="admin-empty">
-                      No tickets found.
-                    </td>
-                  </tr>
-                ) : (
-                  filtered.map((t) => (
-                    <tr
-                      key={t.id}
-                      className="admin-clickable-row"
-                      onClick={() => navigate(`/admin/tickets/${t.id}`)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          navigate(`/admin/tickets/${t.id}`);
-                        }
-                      }}
-                    >
-                      <td>No. {t.id}</td>
-                      <td>
-                        <div className="admin-clamp">{t.Summary || "-"}</div>
-                      </td>
-                      <td>
-                        <div className="admin-clamp">
-                          {t.Description || "-"}
-                        </div>
-                      </td>
-                      <td
-                        onClick={(e) => e.stopPropagation()}
-                        style={{ minWidth: 160 }}
-                      >
-                        {assignableAdmins.length === 0 ? (
-                          <span
-                            style={{
-                              fontSize: 13,
-                              color: "#888",
-                            }}
-                          >
-                            {adminNameMap[t.Assignee1] || t.Assignee1 || "—"}
-                          </span>
-                        ) : (
-                          <select
-                            className="admin-assignee-select"
-                            value={t.Assignee1 || ""}
-                            onChange={(e) =>
-                              handleAssigneeChange(t, 1, e.target.value)
-                            }
-                          >
-                            <option
-                              value=""
-                              disabled={getAdminPrivilegeRank(adminLevel) >= 2}
-                            >
-                              Assign to…
-                            </option>
-                            {assignableAdmins.map((a) => (
-                              <option key={a.id} value={a.id}>
-                                {a.full_name || a.email}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                      </td>
-                      <td>{t.Type || "-"}</td>
-                      <td>{t.Department || "-"}</td>
-                      <td>{t.Category || "-"}</td>
-                      <td>
-                        {t.created_at
-                          ? new Date(t.created_at).toLocaleString()
-                          : "-"}
-                      </td>
-                      <td>
-                        {t.closed_at
-                          ? new Date(t.closed_at).toLocaleString()
-                          : "-"}
-                      </td>
-                      <td>{t.status || t.Status || "Open"}</td>
-                      <td onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          onClick={() => toggleTicketStatus(t)}
-                          style={{
-                            padding: "4px 8px",
-                            border: "1px solid #888",
-                            borderRadius: "4px",
-                            background: isClosed(t) ? "#1976d2" : "#4caf50",
-                            color: "white",
-                            cursor: "pointer",
-                          }}
-                        >
-                          {isClosed(t) ? "Reopen" : "Close"}
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+          <div className="w-full rounded-xl border border-gray-100 shadow-sm bg-white">
+            <DataTable
+              columns={adminColumns}
+              data={filtered}
+              onRowClick={(row) => navigate(`/admin/tickets/${row.id}`)}
+              emptyMessage="No tickets found."
+              emptySubMessage="Adjust your search or filter settings."
+            />
           </div>
         )}
       </section>
