@@ -148,36 +148,17 @@ export default function AdminKnowledge() {
       <AdminNavbar
         isRoot={isRoot}
         actions={
-          <>
-            <button
-              type="button"
-              className="analytics-export-btn"
-              onClick={() => {
-                setShowAddModal(true);
-                setAddError("");
-              }}
-            >
-              <Plus size={16} />
-              Add Entry
-            </button>
-            <div className="admin-menu" ref={menuRef}>
-              <button
-                type="button"
-                className="analytics-menu-btn"
-                onClick={() => setMenuOpen((v) => !v)}
-              >
-                <span>Admin</span>
-                <ChevronDown size={16} />
-              </button>
-              {menuOpen && (
-                <div className="admin-menu-pop">
-                  <button type="button" onClick={onLogout}>
-                    <LogOut size={16} /> Logout
-                  </button>
-                </div>
-              )}
-            </div>
-          </>
+          <button
+            type="button"
+            onClick={() => {
+              setShowAddModal(true);
+              setAddError("");
+            }}
+            className="flex items-center justify-center gap-2 px-4 h-[40px] rounded-lg text-[15px] font-medium text-white/85 hover:bg-[var(--color-lpu-gold)] hover:text-[var(--color-lpu-maroon)] transition-all duration-200"
+          >
+            <Plus size={18} />
+            Add Entry
+          </button>
         }
       />
 

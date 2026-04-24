@@ -191,48 +191,14 @@ export default function AdminManage() {
       <AdminNavbar
         isRoot={isRoot}
         actions={
-          <>
-            <button
-              type="button"
-              className="analytics-export-btn"
-              onClick={() => setShowAddModal(true)}
-            >
-              <UserPlus size={16} />
-              Add Admin
-            </button>
-            <div className="admin-menu" ref={menuRef}>
-              <button
-                type="button"
-                className="analytics-menu-btn"
-                onClick={() => setMenuOpen((v) => !v)}
-              >
-                <span>Admin</span>
-                <ChevronDown size={16} />
-              </button>
-              {menuOpen && (
-                <div className="admin-menu-pop">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      setAccountModalOpen(true);
-                    }}
-                  >
-                    <User size={16} />
-                    <span>My account</span>
-                  </button>
-                  <button type="button" onClick={onLogout}>
-                    <LogOut size={16} />
-                    <span>Logout</span>
-                  </button>
-                  <button type="button" onClick={() => setDarkMode((v) => !v)}>
-                    <Moon size={16} />
-                    <span>Dark Mode</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          </>
+          <button
+            type="button"
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center justify-center gap-2 px-4 h-[40px] rounded-lg text-[15px] font-medium text-white/85 hover:bg-[var(--color-lpu-gold)] hover:text-[var(--color-lpu-maroon)] transition-all duration-200"
+          >
+            <UserPlus size={18} />
+            Add Entry
+          </button>
         }
       />
 

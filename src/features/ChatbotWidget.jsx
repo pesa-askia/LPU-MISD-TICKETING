@@ -62,7 +62,11 @@ function ChatbotWidget() {
     try {
       const raw = localStorage.getItem(limiterKey);
       if (!raw) {
-        return { violationCount: 0, cooldownUntilMs: null, windowStartMs: null };
+        return {
+          violationCount: 0,
+          cooldownUntilMs: null,
+          windowStartMs: null,
+        };
       }
       const parsed = JSON.parse(raw);
       // persisted key "chatCount" = violation count (fast-send attempts)
@@ -73,9 +77,7 @@ function ChatbotWidget() {
           ? parsed.cooldownUntilMs
           : null;
       const windowStartMs =
-        typeof parsed?.windowStartMs === "number"
-          ? parsed.windowStartMs
-          : null;
+        typeof parsed?.windowStartMs === "number" ? parsed.windowStartMs : null;
 
       // Sync with backend: rolling window (default 24h) — then counts reset.
       if (windowStartMs && now - windowStartMs > rateWindowMs) {
@@ -121,8 +123,7 @@ function ChatbotWidget() {
     writeLocalLimiterRaw({
       chatCount: Number(violationCount || 0),
       cooldownUntilMs: typeof until === "number" ? until : null,
-      windowStartMs:
-        typeof windowStartMs === "number" ? windowStartMs : null,
+      windowStartMs: typeof windowStartMs === "number" ? windowStartMs : null,
     });
   };
 
@@ -138,7 +139,9 @@ function ChatbotWidget() {
     const { cooldownUntilMs: until } = readLocalLimiter();
     if (until && Date.now() < until) {
       setCooldownUntilMs(until);
-      setCooldownLabel(`You can continue chatting after ${formatWait(until - Date.now())}.`);
+      setCooldownLabel(
+        `You can continue chatting after ${formatWait(until - Date.now())}.`,
+      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [limiterKey]);
@@ -291,7 +294,7 @@ function ChatbotWidget() {
     <>
       {/* Floating toggle button */}
       <button
-        className="fixed z-1002 w-13 h-13 rounded-full bg-lpu-maroon text-white flex items-center justify-center shadow-lg transition-all hover:bg-lpu-red hover:scale-105 active:scale-95 bottom-7 right-7 max-md:bottom-20.5 max-md:right-4"
+        className="fixed z-1002 w-13 h-13 rounded-full bg-lpu-maroon text-white flex items-center justify-center shadow-lg transition-all hover:bg-lpu-gold hover:text-lpu-maroon hover:scale-105 active:scale-95 bottom-7 right-7 max-md:bottom-20.5 max-md:right-4"
         onClick={() => setIsOpen((o) => !o)}
         aria-label="Toggle support chat"
       >
@@ -389,7 +392,9 @@ function ChatbotWidget() {
               onKeyDown={handleKeyDown}
               placeholder={cooldownLabel || "Type a message..."}
               rows={1}
-              disabled={isTyping || (cooldownUntilMs && Date.now() < cooldownUntilMs)}
+              disabled={
+                isTyping || (cooldownUntilMs && Date.now() < cooldownUntilMs)
+              }
             />
             <button
               className="shrink-0 w-8.5 h-8.5 rounded-full bg-lpu-maroon text-white flex items-center justify-center transition-colors hover:bg-lpu-red disabled:opacity-50 disabled:cursor-not-allowed"

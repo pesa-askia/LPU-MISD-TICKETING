@@ -29,10 +29,10 @@ const SidePanel = ({ collapsed, onToggleCollapse }) => {
     relative flex items-center w-full rounded-lg transition-[background-color,color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] cursor-pointer border-none no-underline
     max-md:flex-col max-md:gap-1 max-md:p-3 max-md:flex-1 max-md:text-[0.7rem]
     md:text-lg md:min-h-14 md:px-3 md:py-4
-    hover:bg-[var(--color-lpu-gold)] hover:text-[var(--color-lpu-maroon)]
+    hover:bg-lpu-gold hover:text-lpu-maroon
   `;
 
-  const activeClass = "bg-[var(--color-lpu-red)] text-white";
+  const activeClass = "bg-lpu-red text-white";
   const inactiveClass = "text-white bg-transparent";
 
   return (
@@ -130,7 +130,7 @@ const SidePanel = ({ collapsed, onToggleCollapse }) => {
               className={`shrink-0 md:absolute md:top-1/2 md:-translate-y-1/2 md:transition-[left,transform] md:duration-500 md:ease-[cubic-bezier(0.22,1,0.36,1)] ${desktopIconAnchor}`}
             />
             <div
-              className={`overflow-hidden transition-[max-width,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${collapsed ? "max-w-0 opacity-0 pl-0" : "max-w-44 opacity-100 pl-11"}`}
+              className={`min-w-0 overflow-hidden transition-[max-width,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${collapsed ? "max-w-0 opacity-0 pl-0" : "max-w-72 opacity-100 pl-11"}`}
             >
               <p className="font-bold text-base">{userEmail.split("@")[0]}</p>
               <p className="text-xs opacity-70">{userEmail}</p>
