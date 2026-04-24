@@ -2,11 +2,18 @@ import { supabase } from "../config/database.js";
 
 // Configuration Constants
 const CONFIG = {
-  SEARCH_THRESHOLD: 0.5, // LOWERED from 0.7 for more flexibility
+  SEARCH_THRESHOLD: 0.5,
   SEARCH_COUNT: 5,
   API_TIMEOUT: 20000,
   EMBEDDING_MODEL: "models/gemini-embedding-001",
-  CHAT_MODEL: "openrouter/free",
+  GROQ_URL: "https://api.groq.com/openai/v1/chat/completions",
+
+  // List models from "Smartest" to "Most Permissive"
+  MODELS: [
+    "llama-3.3-70b-versatile",
+    "meta-llama/llama-4-scout-17b-16e-instruct",
+    "llama-3.1-8b-instant",
+  ],
 };
 
 const SYSTEM_PROMPT = `You are the MISD IT Support Assistant for LPU (Lyceum of the Philippines University).
@@ -136,46 +143,56 @@ async function searchKnowledge(userMessage) {
 }
 
 /**
- * 3. Chat Completion via OpenRouter
- * Improved: Using system role for context injection and safe property access.
+ * 3. Chat Completion via Groq
  */
-async function callLLM(context, userMessage) {
-  const url = "https://openrouter.ai/api/v1/chat/completions";
+async function callLLM(messages) {
+  let lastError;
 
-  const messages = [{ role: "system", content: SYSTEM_PROMPT }];
+  // Loop through your priority list of models
+  for (const modelId of CONFIG.MODELS) {
+    try {
+      console.log(`[Chatbot] Attempting with model: ${modelId}`);
 
-  if (context) {
-    messages.push({
-      role: "system",
-      content: `Knowledge Base Context:\n${context}`,
-    });
+      const response = await fetchWithTimeout(CONFIG.GROQ_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: modelId,
+          messages: messages,
+          temperature: 0.1,
+          max_tokens: 1024,
+        }),
+      });
+
+      const data = await response.json();
+
+      // If we hit a rate limit (429), log it and continue to the next model
+      if (response.status === 429) {
+        console.warn(`[Chatbot] Model ${modelId} rate limited. Trying next...`);
+        lastError = data.error?.message || "Rate limit exceeded";
+        continue;
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          data.error?.message || `Groq failed with status ${response.status}`,
+        );
+      }
+
+      return data.choices[0].message.content;
+    } catch (err) {
+      console.error(`[Chatbot] Error with ${modelId}:`, err.message);
+      lastError = err;
+      // If it's a timeout or network error, you might want to retry the same model
+      // but for rate limits, we definitely want the next model.
+    }
   }
 
-  messages.push({ role: "user", content: userMessage });
-
-  const response = await fetchWithTimeout(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": CONFIG.APP_URL,
-      "X-Title": "LPU MISD Chatbot",
-    },
-    body: JSON.stringify({
-      model: CONFIG.CHAT_MODEL,
-      messages,
-      temperature: 0.1,
-    }),
-  });
-
-  const data = await response.json();
-  const reply = data?.choices?.[0]?.message?.content;
-
-  if (!reply) {
-    throw new Error("LLM returned an empty or invalid response.");
-  }
-
-  return reply;
+  // If we exhaust the entire list, throw the last error encountered
+  throw new Error(`All models exhausted. Last error: ${lastError}`);
 }
 
 /**
@@ -200,9 +217,22 @@ export async function sendChatMessage(userMessage, sessionId, userId = null) {
   const results = await searchKnowledge(userMessage);
   const context = results.map((r) => r.content).join("\n\n");
 
+  // 1. Construct the array that Groq/OpenAI format expects
+  const messages = [
+    {
+      role: "system",
+      content: `${SYSTEM_PROMPT}\n\nRELEVANT CONTEXT FROM KNOWLEDGE BASE:\n${context}`,
+    },
+    {
+      role: "user",
+      content: userMessage,
+    },
+  ];
+
   let botReply;
   try {
-    botReply = await callLLM(context, userMessage);
+    // 2. Pass the array object, not the raw strings
+    botReply = await callLLM(messages);
   } catch (err) {
     console.error("[Chatbot] LLM processing error:", err.message);
     botReply =
@@ -211,14 +241,12 @@ export async function sendChatMessage(userMessage, sessionId, userId = null) {
 
   const shouldHandoff = detectHandoffSignal(botReply);
 
-  // Parallel logging to prevent blocking the UI response
+  // Parallel logging to Supabase
   Promise.all([
-    // Log message history
     supabase.from("chatbot_messages").insert([
       { session_id: sessionId, role: "user", content: userMessage },
       { session_id: sessionId, role: "assistant", content: botReply },
     ]),
-    // Upsert session status
     supabase.from("chatbot_sessions").upsert(
       {
         session_id: sessionId,
