@@ -1,13 +1,16 @@
 import { Outlet } from "react-router-dom";
-import "./AdminLayout.css";
+import { NavbarActionsProvider } from "../context/NavbarActionsContext";
+import AdminNavbar from "../components/AdminNavbar";
 
 const AdminLayout = () => {
   return (
-    <div className="admin-shell">
-      <Outlet />
-    </div>
+    <NavbarActionsProvider>
+      <div className="admin-shell">
+        <AdminNavbar />
+        <Outlet />
+      </div>
+    </NavbarActionsProvider>
   );
 };
 
 export default AdminLayout;
-

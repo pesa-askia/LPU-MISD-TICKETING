@@ -1,21 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
-import { jwtDecode } from "jwt-decode";
-import {
-  Download,
-  ChevronDown,
-  LogOut,
-  Moon,
-  Calendar,
-  User,
-} from "lucide-react";
+import { Download, Calendar } from "lucide-react";
 import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
 import { useLoading } from "../../context/LoadingContext";
 import { useTicketsCache } from "../../context/TicketsCacheContext";
-import AdminNavbar from "./components/AdminNavbar";
+import { useNavbarActions } from "../../context/NavbarActionsContext";
 import "./AdminTickets.css";
 import "./AdminAnalytics.css";
-import AdminAccountSettingsModal from "./components/AdminAccountSettingsModal";
 
 function getStatusValue(ticket) {
   return (
@@ -148,27 +139,10 @@ export default function AdminAnalytics() {
   const { adminTickets } = useTicketsCache();
   const [tickets, setTickets] = useState([]);
   const [error, setError] = useState("");
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [accountModalOpen, setAccountModalOpen] = useState(false);
-  const menuRef = useRef(null);
 
   const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
   const role = localStorage.getItem("userRole");
   const isAdmin = role === "admin";
-
-  const isRoot = (() => {
-    try {
-      return (
-        jwtDecode(localStorage.getItem("authToken") || "")?.admin_level === 0
-      );
-    } catch {
-      return false;
-    }
-  })();
-
-  const [darkMode, setDarkMode] = useState(
-    localStorage.getItem("adminDarkMode") === "true",
-  );
 
   // Date range filter: filters by `created_at` between "fromDate" and "toDate" (inclusive).
   const [fromDate, setFromDate] = useState("");
@@ -201,24 +175,6 @@ export default function AdminAnalytics() {
     if (!y || !m || !d) return "";
     return `${m}/${d}/${y.slice(-2)}`;
   };
-
-  useEffect(() => {
-    const root = document.querySelector(".admin-shell");
-    if (!root) return;
-    root.classList.toggle("admin-dark", darkMode);
-    localStorage.setItem("adminDarkMode", String(darkMode));
-  }, [darkMode]);
-
-  useEffect(() => {
-    const onDocClick = (e) => {
-      if (!menuOpen) return;
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
-  }, [menuOpen]);
 
   useEffect(() => {
     if (!isLoggedIn || !isAdmin) return;
@@ -354,33 +310,22 @@ export default function AdminAnalytics() {
     URL.revokeObjectURL(url);
   };
 
-  const onLogout = () => {
-    localStorage.removeItem("authToken");
-    localStorage.removeItem("userId");
-    localStorage.removeItem("isLoggedIn");
-    localStorage.removeItem("userEmail");
-    localStorage.removeItem("userRole");
-    window.location.href = "/";
-  };
+  useNavbarActions(
+    <button
+      type="button"
+      onClick={onExportCsv}
+      className="flex items-center justify-center gap-2 px-4 h-[40px] rounded-lg text-[15px] font-medium text-white/85 hover:bg-[var(--color-lpu-gold)] hover:text-[var(--color-lpu-maroon)] transition-all duration-200"
+    >
+      <Download size={18} />
+      <span>Export CSV</span>
+    </button>,
+  );
 
   if (!isLoggedIn) return <Navigate to="/" replace />;
   if (!isAdmin) return <Navigate to="/Tickets" replace />;
 
   return (
     <div className="admin-page analytics-page">
-      <AdminNavbar
-        isRoot={isRoot}
-        actions={
-          <button
-            type="button"
-            onClick={onExportCsv}
-            className="flex items-center justify-center gap-2 px-4 h-[40px] rounded-lg text-[15px] font-medium text-white/85 hover:bg-[var(--color-lpu-gold)] hover:text-[var(--color-lpu-maroon)] transition-all duration-200"
-          >
-            <Download size={18} />
-            <span>Export CSV</span>
-          </button>
-        }
-      />
 
       <section className="admin-content analytics-content-wrap">
         <h2 className="analytics-title">Tickets Analysis</h2>
@@ -455,10 +400,6 @@ export default function AdminAnalytics() {
         )}
       </section>
 
-      <AdminAccountSettingsModal
-        open={accountModalOpen}
-        onClose={() => setAccountModalOpen(false)}
-      />
     </div>
   );
 }

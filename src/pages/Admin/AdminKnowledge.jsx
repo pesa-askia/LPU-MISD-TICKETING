@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState } from "react";
-import { jwtDecode } from "jwt-decode";
-import { ChevronDown, LogOut, Plus, Trash2, BookOpen, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Plus, Trash2, BookOpen, X } from "lucide-react";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
-import AdminNavbar from "./components/AdminNavbar";
+import { useNavbarActions } from "../../context/NavbarActionsContext";
 import "./AdminAnalytics.css";
 import "./AdminTickets.css";
 import "./AdminKnowledge.css";
@@ -20,7 +19,6 @@ export default function AdminKnowledge() {
   const [total, setTotal] = useState(0);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [addText, setAddText] = useState("");
   const [addTitle, setAddTitle] = useState("");
@@ -28,26 +26,6 @@ export default function AdminKnowledge() {
   const [addError, setAddError] = useState("");
   const [deletingId, setDeletingId] = useState(null);
   const [search, setSearch] = useState("");
-  const menuRef = useRef(null);
-
-  const decoded = (() => {
-    try {
-      return jwtDecode(localStorage.getItem("authToken") || "");
-    } catch {
-      return null;
-    }
-  })();
-  const isRoot = decoded?.admin_level === 0;
-
-  useEffect(() => {
-    const onDocClick = (e) => {
-      if (!menuOpen) return;
-      if (menuRef.current && !menuRef.current.contains(e.target))
-        setMenuOpen(false);
-    };
-    document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
-  }, [menuOpen]);
 
   const fetchEntries = async () => {
     setLoading(true);
@@ -128,12 +106,19 @@ export default function AdminKnowledge() {
     }
   };
 
-  const onLogout = () => {
-    ["authToken", "userId", "isLoggedIn", "userEmail", "userRole"].forEach(
-      (k) => localStorage.removeItem(k),
-    );
-    window.location.href = "/";
-  };
+  useNavbarActions(
+    <button
+      type="button"
+      onClick={() => {
+        setShowAddModal(true);
+        setAddError("");
+      }}
+      className="flex items-center justify-center gap-2 px-4 h-[40px] rounded-lg text-[15px] font-medium text-white/85 hover:bg-[var(--color-lpu-gold)] hover:text-[var(--color-lpu-maroon)] transition-all duration-200"
+    >
+      <Plus size={18} />
+      Add Entry
+    </button>,
+  );
 
   const filtered = search.trim()
     ? entries.filter(
@@ -145,22 +130,6 @@ export default function AdminKnowledge() {
 
   return (
     <div className="knowledge-page">
-      <AdminNavbar
-        isRoot={isRoot}
-        actions={
-          <button
-            type="button"
-            onClick={() => {
-              setShowAddModal(true);
-              setAddError("");
-            }}
-            className="flex items-center justify-center gap-2 px-4 h-[40px] rounded-lg text-[15px] font-medium text-white/85 hover:bg-[var(--color-lpu-gold)] hover:text-[var(--color-lpu-maroon)] transition-all duration-200"
-          >
-            <Plus size={18} />
-            Add Entry
-          </button>
-        }
-      />
 
       {/* Content */}
       <div className="knowledge-content">

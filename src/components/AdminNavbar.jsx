@@ -12,10 +12,12 @@ import {
   Moon,
   LogOut,
 } from "lucide-react";
-import lpuLogo from "../../../assets/lpul-logo.png";
-import AdminAccountSettingsModal from "./AdminAccountSettingsModal";
+import lpuLogo from "../assets/lpul-logo.png";
+import AdminAccountSettingsModal from "../pages/Admin/components/AdminAccountSettingsModal";
+import { useNavbarActionsContext } from "../context/NavbarActionsContext";
 
-export default function AdminNavbar({ isRoot, actions = null }) {
+export default function AdminNavbar() {
+  const { actions = null, isRoot } = useNavbarActionsContext();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [accountModalOpen, setAccountModalOpen] = useState(false);

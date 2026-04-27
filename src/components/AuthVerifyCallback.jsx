@@ -4,7 +4,6 @@ import supabaseAuth from "../lib/supabaseAuthClient";
 import { realtimeSupabase } from "../lib/realtimeSupabaseClient";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import lpuLogo from "../assets/lpul-logo.png";
-import "./AuthVerifyCallback.css";
 
 export default function AuthVerifyCallback({ mode }) {
   const navigate = useNavigate();
@@ -38,7 +37,9 @@ export default function AuthVerifyCallback({ mode }) {
 
           if (!res.ok || !data.success) {
             setStatus("err");
-            setMessage(data.message || "Verification failed. Please try again.");
+            setMessage(
+              data.message || "Verification failed. Please try again.",
+            );
             return;
           }
 
@@ -84,7 +85,9 @@ export default function AuthVerifyCallback({ mode }) {
         if (!done) {
           done = true;
           setStatus("err");
-          setMessage("Magic link has expired or is invalid. Please request a new one.");
+          setMessage(
+            "Magic link has expired or is invalid. Please request a new one.",
+          );
         }
       }, 10000);
 
@@ -99,28 +102,36 @@ export default function AuthVerifyCallback({ mode }) {
     const token = searchParams.get("token") || hashParams.get("access_token");
     if (!token) {
       setStatus("err");
-      setMessage("This link is missing a token. Use the full URL from your invitation email.");
+      setMessage(
+        "This link is missing a token. Use the full URL from your invitation email.",
+      );
       return;
     }
 
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`${getApiBaseUrl()}/api/auth/verify-admin-email`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token }),
-        });
+        const res = await fetch(
+          `${getApiBaseUrl()}/api/auth/verify-admin-email`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token }),
+          },
+        );
         const json = await res.json();
         if (cancelled) return;
         if (json.success) {
           setStatus("ok");
           setMessage(
-            json.message || "Your email is verified. You can sign in to the admin portal.",
+            json.message ||
+              "Your email is verified. You can sign in to the admin portal.",
           );
         } else {
           setStatus("err");
-          setMessage(json.message || "Verification failed. The link may have expired.");
+          setMessage(
+            json.message || "Verification failed. The link may have expired.",
+          );
         }
       } catch (e) {
         if (!cancelled) {
@@ -136,21 +147,31 @@ export default function AuthVerifyCallback({ mode }) {
   }, [mode, navigate, searchParams]);
 
   const title = mode === "magic" ? "Sign in" : "Admin account verification";
-  const loadingText = mode === "magic" ? "Signing you in…" : "Verifying your email…";
+  const loadingText =
+    mode === "magic" ? "Signing you in…" : "Verifying your email…";
 
   return (
-    <div className="auth-verify-page">
-      <div className="auth-verify-card">
-        <img src={lpuLogo} alt="LPU" />
-        <h1>{title}</h1>
+    <div className="min-h-screen flex items-center justify-center p-6 bg-[#f2f1ef] font-[Poppins,'Segoe_UI',sans-serif]">
+      <div className="bg-white rounded-lg shadow-[0_8px_40px_rgba(0,0,0,0.08)] max-w-105 w-full px-7 py-8 text-center border-t-4 border-t-lpu-red">
+        <img src={lpuLogo} alt="LPU" className="w-18 h-auto mb-4 mx-auto" />
+        <h1 className="text-[20px] font-bold text-[#1a1a1a] mb-3">{title}</h1>
 
-        {status === "loading" && <p>{loadingText}</p>}
+        {status === "loading" && (
+          <p className="text-sm leading-relaxed text-[#555] mb-5">
+            {loadingText}
+          </p>
+        )}
 
         {status === "ok" && (
           <>
-            <div className="auth-verify-ok">{message}</div>
-            <p>
-              <Link to="/" className="auth-verify-back">
+            <div className="text-[#1b5e20] bg-[#e8f5e9] px-3.5 py-2.5 rounded-[10px] text-[13px] mb-4">
+              {message}
+            </div>
+            <p className="text-sm leading-relaxed text-[#555] mb-5">
+              <Link
+                to="/"
+                className="inline-block mt-2 text-lpu-maroon font-semibold text-sm hover:underline"
+              >
                 Go to sign in
               </Link>
             </p>
@@ -159,14 +180,19 @@ export default function AuthVerifyCallback({ mode }) {
 
         {status === "err" && (
           <>
-            <div className="auth-verify-err">{message}</div>
+            <div className="text-[#c62828] bg-[#fce4ec] px-3.5 py-2.5 rounded-[10px] text-[13px] mb-4">
+              {message}
+            </div>
             {mode === "admin" && (
-              <p>
-                If the problem continues, ask a root admin to confirm your account or resend
-                the invitation.
+              <p className="text-sm leading-relaxed text-[#555] mb-5">
+                If the problem continues, ask a root admin to confirm your
+                account or resend the invitation.
               </p>
             )}
-            <Link to="/" className="auth-verify-back">
+            <Link
+              to="/"
+              className="inline-block mt-2 text-lpu-maroon font-semibold text-sm hover:underline"
+            >
               Back to sign in
             </Link>
           </>
