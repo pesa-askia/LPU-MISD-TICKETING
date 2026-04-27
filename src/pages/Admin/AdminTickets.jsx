@@ -1,22 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import {
   canAssignTickets,
   canViewAllTickets,
-  getAdminPrivilegeRank,
-  isRootAdmin,
   needsTicketFilters,
 } from "../../utils/adminLevels";
-import { ChevronDown, LogOut, Moon, Download, User } from "lucide-react";
+import { Download } from "lucide-react";
 import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
 import { useLoading } from "../../context/LoadingContext";
 import { useTicketsCache } from "../../context/TicketsCacheContext";
+import { useNavbarActions } from "../../context/NavbarActionsContext";
 import "./AdminTickets.css";
 import "./AdminAnalytics.css";
-import AdminNavbar from "./components/AdminNavbar";
-import AdminAccountSettingsModal from "./components/AdminAccountSettingsModal";
 import { FilterSelect, SearchInput } from "../../components/DashboardControls";
 import { DataTable } from "../../components/DataTable";
 
@@ -46,9 +43,6 @@ export default function AdminTickets() {
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("Open Tickets");
   const [search, setSearch] = useState("");
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [accountModalOpen, setAccountModalOpen] = useState(false);
-  const menuRef = useRef(null);
 
   const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
   const role = localStorage.getItem("userRole");
@@ -62,32 +56,10 @@ export default function AdminTickets() {
     }
   }, []);
   const adminLevel = decoded?.admin_level ?? 1;
-  const isRoot = isRootAdmin(adminLevel);
 
   const [assignableAdmins, setAssignableAdmins] = useState([]);
   const [adminNameMap, setAdminNameMap] = useState({});
   const [myProfile, setMyProfile] = useState(null);
-
-  const [darkMode, setDarkMode] = useState(
-    localStorage.getItem("adminDarkMode") === "true",
-  );
-
-  useEffect(() => {
-    const root = document.querySelector(".admin-shell");
-    if (!root) return;
-    root.classList.toggle("admin-dark", darkMode);
-    localStorage.setItem("adminDarkMode", String(darkMode));
-  }, [darkMode]);
-
-  useEffect(() => {
-    const onDocClick = (e) => {
-      if (!menuOpen) return;
-      if (menuRef.current && !menuRef.current.contains(e.target))
-        setMenuOpen(false);
-    };
-    document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
-  }, [menuOpen]);
 
   const fetchTickets = async () => {
     try {
@@ -260,15 +232,6 @@ export default function AdminTickets() {
     });
   }, [visibleTickets, filter, search]);
 
-  const onLogout = () => {
-    localStorage.removeItem("authToken");
-    localStorage.removeItem("userId");
-    localStorage.removeItem("isLoggedIn");
-    localStorage.removeItem("userEmail");
-    localStorage.removeItem("userRole");
-    window.location.href = "/";
-  };
-
   const onExportCsv = () => {
     const headers = [
       "id",
@@ -409,24 +372,22 @@ export default function AdminTickets() {
     [adminLevel, assignableAdmins, adminNameMap],
   );
 
+  useNavbarActions(
+    <button
+      type="button"
+      onClick={onExportCsv}
+      className="flex items-center justify-center gap-2 px-4 h-[40px] rounded-lg text-[15px] font-medium text-white/85 hover:bg-[var(--color-lpu-gold)] hover:text-[var(--color-lpu-maroon)] transition-all duration-200"
+    >
+      <Download size={18} />
+      <span>Export CSV</span>
+    </button>,
+  );
+
   if (!isLoggedIn) return <Navigate to="/" replace />;
   if (!isAdmin) return <Navigate to="/Tickets" replace />;
 
   return (
     <div className="admin-page analytics-page admin-tickets-page">
-      <AdminNavbar
-        isRoot={isRoot}
-        actions={
-          <button
-            type="button"
-            onClick={onExportCsv}
-            className="flex items-center justify-center gap-2 px-4 h-[40px] rounded-lg text-[15px] font-medium text-white/85 hover:bg-[var(--color-lpu-gold)] hover:text-[var(--color-lpu-maroon)] transition-all duration-200"
-          >
-            <Download size={18} />
-            <span>Export CSV</span>
-          </button>
-        }
-      />
 
       <section className="admin-content analytics-content-wrap px-6 py-8">
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 mb-8">
@@ -459,10 +420,6 @@ export default function AdminTickets() {
         )}
       </section>
 
-      <AdminAccountSettingsModal
-        open={accountModalOpen}
-        onClose={() => setAccountModalOpen(false)}
-      />
     </div>
   );
 }

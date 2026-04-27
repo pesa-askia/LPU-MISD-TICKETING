@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import "./LoadingScreen.css";
 
 const LoadingScreen = ({ isLoading }) => {
   // Avoid annoying flicker on fast route transitions by delaying the overlay.
@@ -29,10 +28,10 @@ const LoadingScreen = ({ isLoading }) => {
   if (!visible) return null;
 
   return (
-    <div className="loading-overlay">
-      <div className="loading-spinner-container">
-        <div className="loading-spinner"></div>
-        <p className="loading-text">Loading...</p>
+    <div className="fixed inset-0 w-full h-full bg-black/50 flex justify-center items-center z-9999 font-[Poppins,'Segoe_UI',sans-serif]">
+      <div className="flex flex-col items-center gap-5">
+        <div className="border-4 border-lpu-maroon border-t-lpu-gold rounded-full w-12.5 h-12.5 animate-spin"></div>
+        <p className="text-white text-lg font-medium m-0">Loading...</p>
       </div>
     </div>
   );

@@ -1,13 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { jwtDecode } from "jwt-decode";
-import { ChevronDown, LogOut, Moon, UserPlus, X, User } from "lucide-react";
+import { UserPlus, X } from "lucide-react";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import { ADMIN_LEVEL_LABELS } from "../../utils/adminLevels";
-import AdminNavbar from "./components/AdminNavbar";
+import { useNavbarActions } from "../../context/NavbarActionsContext";
 import "./AdminTickets.css";
 import "./AdminAnalytics.css";
 import "./AdminManage.css";
-import AdminAccountSettingsModal from "./components/AdminAccountSettingsModal";
 
 const LEVEL_LABELS = { 0: "Root", 1: "Level 3", 2: "Level 2", 3: "Level 1   " };
 
@@ -24,15 +23,9 @@ function apiUrl(path) {
 export default function AdminManage() {
   const [admins, setAdmins] = useState([]);
   const [error, setError] = useState("");
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(
-    localStorage.getItem("adminDarkMode") === "true",
-  );
   const [showAddModal, setShowAddModal] = useState(false);
-  const [filterTarget, setFilterTarget] = useState(null); // admin being edited for filters
-  const [saving, setSaving] = useState(null); // adminId being patched
-  const [accountModalOpen, setAccountModalOpen] = useState(false);
-  const menuRef = useRef(null);
+  const [filterTarget, setFilterTarget] = useState(null);
+  const [saving, setSaving] = useState(null);
 
   const decoded = (() => {
     try {
@@ -42,24 +35,17 @@ export default function AdminManage() {
     }
   })();
   const currentId = decoded?.id || decoded?.sub;
-  const isRoot = decoded?.admin_level === 0;
 
-  useEffect(() => {
-    const root = document.querySelector(".admin-shell");
-    if (!root) return;
-    root.classList.toggle("admin-dark", darkMode);
-    localStorage.setItem("adminDarkMode", String(darkMode));
-  }, [darkMode]);
-
-  useEffect(() => {
-    const onDocClick = (e) => {
-      if (!menuOpen) return;
-      if (menuRef.current && !menuRef.current.contains(e.target))
-        setMenuOpen(false);
-    };
-    document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
-  }, [menuOpen]);
+  useNavbarActions(
+    <button
+      type="button"
+      onClick={() => setShowAddModal(true)}
+      className="flex items-center justify-center gap-2 px-4 h-[40px] rounded-lg text-[15px] font-medium text-white/85 hover:bg-[var(--color-lpu-gold)] hover:text-[var(--color-lpu-maroon)] transition-all duration-200"
+    >
+      <UserPlus size={18} />
+      Add Admin
+    </button>,
+  );
 
   const fetchAdmins = async () => {
     setError("");
@@ -81,13 +67,6 @@ export default function AdminManage() {
   useEffect(() => {
     fetchAdmins();
   }, []);
-
-  const onLogout = () => {
-    ["authToken", "userId", "isLoggedIn", "userEmail", "userRole"].forEach(
-      (k) => localStorage.removeItem(k),
-    );
-    window.location.href = "/";
-  };
 
   const handleLevelChange = async (admin, newLevel) => {
     setSaving(admin.id);
@@ -188,19 +167,6 @@ export default function AdminManage() {
 
   return (
     <div className="admin-page analytics-page admin-tickets-page">
-      <AdminNavbar
-        isRoot={isRoot}
-        actions={
-          <button
-            type="button"
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center justify-center gap-2 px-4 h-[40px] rounded-lg text-[15px] font-medium text-white/85 hover:bg-[var(--color-lpu-gold)] hover:text-[var(--color-lpu-maroon)] transition-all duration-200"
-          >
-            <UserPlus size={18} />
-            Add Entry
-          </button>
-        }
-      />
 
       <section className="admin-content analytics-content-wrap">
         <h2 className="manage-heading">Admin Accounts</h2>
@@ -393,10 +359,6 @@ export default function AdminManage() {
         />
       )}
 
-      <AdminAccountSettingsModal
-        open={accountModalOpen}
-        onClose={() => setAccountModalOpen(false)}
-      />
     </div>
   );
 }
