@@ -1,10 +1,20 @@
 import { useEffect, useState } from "react";
-import { Plus, Trash2, BookOpen, X } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  BookOpen,
+  X,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import { useNavbarActions } from "../../context/NavbarActionsContext";
+import { SearchInput } from "../../components/DashboardControls";
 import "./AdminAnalytics.css";
 import "./AdminTickets.css";
 import "./AdminKnowledge.css";
+
+const PAGE_SIZE = 10;
 
 function getAuthHeader() {
   return { Authorization: `Bearer ${localStorage.getItem("authToken") || ""}` };
@@ -26,12 +36,19 @@ export default function AdminKnowledge() {
   const [addError, setAddError] = useState("");
   const [deletingId, setDeletingId] = useState(null);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
 
-  const fetchEntries = async () => {
+  const pageCount = Math.ceil(total / PAGE_SIZE);
+
+  const fetchEntries = async (currentPage = page, currentSearch = search) => {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(apiUrl("/api/knowledge?limit=100"), {
+      const offset = currentPage * PAGE_SIZE;
+      const params = new URLSearchParams({ limit: PAGE_SIZE, offset });
+      if (currentSearch.trim()) params.set("q", currentSearch.trim());
+
+      const res = await fetch(apiUrl(`/api/knowledge?${params}`), {
         headers: getAuthHeader(),
       });
       const json = await res.json();
@@ -49,8 +66,13 @@ export default function AdminKnowledge() {
   };
 
   useEffect(() => {
-    fetchEntries();
-  }, []);
+    fetchEntries(page, search);
+  }, [page, search]);
+
+  const handleSearch = (val) => {
+    setSearch(val);
+    setPage(0);
+  };
 
   const handleAdd = async () => {
     if (!addText.trim()) {
@@ -76,7 +98,8 @@ export default function AdminKnowledge() {
       setShowAddModal(false);
       setAddText("");
       setAddTitle("");
-      fetchEntries();
+      fetchEntries(0, search);
+      setPage(0);
     } catch (e) {
       setAddError(e.message);
     } finally {
@@ -97,8 +120,7 @@ export default function AdminKnowledge() {
         alert(json.error || "Failed to delete");
         return;
       }
-      setEntries((prev) => prev.filter((e) => e.id !== id));
-      setTotal((t) => t - 1);
+      fetchEntries(page, search);
     } catch (e) {
       alert(e.message);
     } finally {
@@ -120,18 +142,8 @@ export default function AdminKnowledge() {
     </button>,
   );
 
-  const filtered = search.trim()
-    ? entries.filter(
-        (e) =>
-          e.content.toLowerCase().includes(search.toLowerCase()) ||
-          e.metadata?.title?.toLowerCase().includes(search.toLowerCase()),
-      )
-    : entries;
-
   return (
     <div className="knowledge-page">
-
-      {/* Content */}
       <div className="knowledge-content">
         <div className="knowledge-header">
           <div>
@@ -144,26 +156,20 @@ export default function AdminKnowledge() {
           </div>
         </div>
 
-        <input
-          type="text"
-          className="knowledge-search"
-          placeholder="Search entries..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+        <SearchInput placeholder="Search entries..." onSearch={handleSearch} />
 
         {error && <div className="knowledge-error">{error}</div>}
 
         {loading ? (
           <p style={{ color: "#888", fontSize: 14 }}>Loading...</p>
-        ) : filtered.length === 0 ? (
+        ) : entries.length === 0 ? (
           <div className="knowledge-empty">
             <BookOpen size={40} />
-            <p>No knowledge entries yet. Add your first entry above.</p>
+            <p>No knowledge entries found.</p>
           </div>
         ) : (
           <div className="knowledge-list">
-            {filtered.map((entry) => (
+            {entries.map((entry) => (
               <div key={entry.id} className="knowledge-entry">
                 <div className="knowledge-entry-body">
                   {entry.metadata?.title && (
@@ -190,9 +196,35 @@ export default function AdminKnowledge() {
             ))}
           </div>
         )}
+
+        {pageCount > 1 && (
+          <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
+            <span className="text-sm text-gray-500">
+              Page <strong>{page + 1}</strong> of <strong>{pageCount}</strong>
+              <span className="ml-1 text-gray-400">({total} total)</span>
+            </span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={page === 0}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-semibold border border-gray-200 text-gray-600 hover:bg-lpu-maroon hover:text-white hover:border-lpu-maroon disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronLeft size={15} /> Prev
+              </button>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+                disabled={page >= pageCount - 1}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-semibold border border-gray-200 text-gray-600 hover:bg-lpu-maroon hover:text-white hover:border-lpu-maroon disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Next <ChevronRight size={15} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Add Modal */}
       {showAddModal && (
         <div className="knowledge-modal-overlay">
           <div className="knowledge-modal">

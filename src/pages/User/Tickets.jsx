@@ -1,28 +1,25 @@
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useMemo } from "react";
-import {
-  Search,
-  Loader2,
-  AlertCircle,
-  ChevronDown,
-  CircleDot,
-  CheckCircle,
-} from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { jwtDecode } from "jwt-decode";
 import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
 import { useLoading } from "../../context/LoadingContext";
-import { useTicketsCache } from "../../context/TicketsCacheContext";
 import { FilterSelect, SearchInput } from "../../components/DashboardControls";
 import { DataTable } from "../../components/DataTable";
+
+const PAGE_SIZE = 10;
 
 function Tickets() {
   const navigate = useNavigate();
   const { showLoading, hideLoading } = useLoading();
-  const { userTickets, setUserTickets } = useTicketsCache();
   const [tickets, setTickets] = useState([]);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState("Open Tickets");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const [realtimeTick, setRealtimeTick] = useState(0);
+
   const columns = [
     { label: "Ticket No.", accessor: "id", variant: "badge" },
     { label: "Summary", accessor: "Summary", variant: "title" },
@@ -32,64 +29,68 @@ function Tickets() {
     { label: "Closed", accessor: "closed_at", variant: "status" },
   ];
 
-  const fetchTickets = async () => {
+  const userId = useMemo(() => {
     try {
-      showLoading();
-      setError(null);
-
-      const token = localStorage.getItem("authToken");
-      if (!token) {
-        setError("You must be logged in to view tickets.");
-        return;
-      }
-
-      const decoded = jwtDecode(token);
-      const userId = decoded.id;
-
-      const { data, error } = await realtimeSupabase
-        .from("Tickets")
-        .select("*")
-        .eq("created_by", userId)
-        .order("id", { ascending: false });
-
-      if (error) {
-        setError(error.message || "Failed to load tickets");
-      } else {
-        const next = data || [];
-        setTickets(next);
-        setUserTickets(next);
-      }
-    } catch (err) {
-      console.error("Unexpected error:", err);
-      setError("An unexpected error occurred");
-    } finally {
-      hideLoading();
+      return jwtDecode(localStorage.getItem("authToken") || "").id;
+    } catch {
+      return null;
     }
-  };
-
-  useEffect(() => {
-    if (Array.isArray(userTickets)) {
-      setTickets(userTickets);
-      return;
-    }
-    fetchTickets();
   }, []);
 
-  useEffect(() => {
-    setUserTickets(tickets);
-  }, [tickets]);
+  const pageCount = Math.ceil(totalCount / PAGE_SIZE);
 
   useEffect(() => {
-    const token = localStorage.getItem("authToken");
-    if (!token) return;
+    if (!userId) return;
 
-    let userId;
-    try {
-      const decoded = jwtDecode(token);
-      userId = decoded.id;
-    } catch {
-      return;
-    }
+    const fetchTickets = async () => {
+      try {
+        showLoading();
+        setError(null);
+
+        const isClosed = filter === "Closed Tickets";
+        const start = page * PAGE_SIZE;
+        const end = start + PAGE_SIZE - 1;
+
+        let q = realtimeSupabase
+          .from("Tickets")
+          .select("*", { count: "exact" })
+          .eq("created_by", userId)
+          .order("id", { ascending: false })
+          .range(start, end);
+
+        if (isClosed) {
+          q = q.not("closed_at", "is", null);
+        } else {
+          q = q.is("closed_at", null);
+        }
+
+        const trimmed = search.trim();
+        if (trimmed) {
+          const numId = parseInt(trimmed);
+          const parts = [`Summary.ilike.%${trimmed}%`];
+          if (!isNaN(numId) && String(numId) === trimmed) parts.push(`id.eq.${numId}`);
+          q = q.or(parts.join(","));
+        }
+
+        const { data, error: supaError, count } = await q;
+
+        if (supaError) {
+          setError(supaError.message || "Failed to load tickets");
+        } else {
+          setTickets(data || []);
+          setTotalCount(count ?? 0);
+        }
+      } catch (err) {
+        setError("An unexpected error occurred");
+      } finally {
+        hideLoading();
+      }
+    };
+
+    fetchTickets();
+  }, [userId, page, filter, search, realtimeTick]);
+
+  useEffect(() => {
     if (!userId) return;
 
     const channel = realtimeSupabase
@@ -99,7 +100,7 @@ function Tickets() {
         { event: "INSERT", schema: "public", table: "Tickets" },
         (payload) => {
           if (payload.new?.created_by !== userId) return;
-          setTickets((prev) => [payload.new, ...prev]);
+          setRealtimeTick((n) => n + 1);
         },
       )
       .on(
@@ -107,38 +108,23 @@ function Tickets() {
         { event: "UPDATE", schema: "public", table: "Tickets" },
         (payload) => {
           if (payload.new?.created_by !== userId) return;
-          setTickets((prev) =>
-            prev.map((t) => (t.id === payload.new.id ? payload.new : t)),
-          );
+          setRealtimeTick((n) => n + 1);
         },
       )
       .subscribe();
 
-    return () => {
-      realtimeSupabase.removeChannel(channel);
-    };
-  }, []);
+    return () => realtimeSupabase.removeChannel(channel);
+  }, [userId]);
 
-  // Helper to check if a ticket is closed
-  const isClosed = (t) => {
-    if (!t) return false;
-    if (t.closed_at) return true;
-    const statusValue = t.status || t.Status || t.state || t.State;
-    return String(statusValue || "")
-      .toLowerCase()
-      .includes("closed");
+  const handleSearch = (val) => {
+    setSearch(val);
+    setPage(0);
   };
 
-  // Filter and search logic
-  const filteredTickets = useMemo(() => {
-    return tickets
-      .filter((t) => (filter === "Open Tickets" ? !isClosed(t) : isClosed(t)))
-      .filter(
-        (t) =>
-          String(t.id).toLowerCase().includes(search.toLowerCase()) ||
-          t.Summary?.toLowerCase().includes(search.toLowerCase()),
-      );
-  }, [tickets, filter, search]);
+  const handleFilter = (e) => {
+    setFilter(e.target.value);
+    setPage(0);
+  };
 
   if (error) {
     return (
@@ -150,7 +136,7 @@ function Tickets() {
           </h2>
           <p className="text-gray-600 mb-6">{error}</p>
           <button
-            onClick={fetchTickets}
+            onClick={() => setRealtimeTick((n) => n + 1)}
             className="w-full py-3 bg-lpu-maroon text-white font-bold rounded-lg hover:bg-lpu-red transition-colors flex items-center justify-center gap-2"
           >
             Try Again
@@ -163,34 +149,36 @@ function Tickets() {
   return (
     <div className="h-screen bg-gray-50 font-poppins md:overflow-hidden flex flex-col items-center justify-center">
       <div className="w-full max-w-6xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border-t-[6px] border-lpu-maroon">
-        <div className="p-6 md:p-10">
-          <h1 className="text-2xl md:text-3xl font-black text-lpu-maroon mb-4 md:mb-8 tracking-tight">
+        <div className="p-6 md:p-8">
+          <h1 className="text-2xl md:text-3xl font-black text-lpu-maroon mb-4 tracking-tight">
             Ticket Dashboard
           </h1>
 
-          {/* Header Actions */}
-          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 mb-8">
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 mb-4">
             <FilterSelect
               value={filter}
-              onChange={(e) => setFilter(e.target.value)}
+              onChange={handleFilter}
               options={["Open Tickets", "Closed Tickets"]}
             />
 
             <SearchInput
               placeholder="Search ticket no. or summary..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onSearch={handleSearch}
             />
           </div>
 
-          {/* Table Container */}
           <div className="w-full rounded-xl border border-gray-100">
             <DataTable
               columns={columns}
-              data={filteredTickets}
+              data={tickets}
               onRowClick={(row) => navigate(`/Tickets/${row.id}`)}
               emptyMessage="No tickets found."
               emptySubMessage="Try adjusting your filter or search terms."
+              page={page}
+              pageCount={pageCount}
+              totalCount={totalCount}
+              onPrevPage={() => setPage((p) => Math.max(0, p - 1))}
+              onNextPage={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
             />
           </div>
         </div>

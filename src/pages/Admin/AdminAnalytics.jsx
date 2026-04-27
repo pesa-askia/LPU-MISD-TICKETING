@@ -326,7 +326,6 @@ export default function AdminAnalytics() {
 
   return (
     <div className="admin-page analytics-page">
-
       <section className="admin-content analytics-content-wrap">
         <h2 className="analytics-title">Tickets Analysis</h2>
         {error ? (
@@ -399,7 +398,6 @@ export default function AdminAnalytics() {
           </div>
         )}
       </section>
-
     </div>
   );
 }

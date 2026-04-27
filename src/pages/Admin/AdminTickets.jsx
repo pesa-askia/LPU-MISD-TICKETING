@@ -10,18 +10,11 @@ import {
 import { Download } from "lucide-react";
 import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
 import { useLoading } from "../../context/LoadingContext";
-import { useTicketsCache } from "../../context/TicketsCacheContext";
 import { useNavbarActions } from "../../context/NavbarActionsContext";
-import "./AdminTickets.css";
-import "./AdminAnalytics.css";
 import { FilterSelect, SearchInput } from "../../components/DashboardControls";
 import { DataTable } from "../../components/DataTable";
 
-function getStatusValue(ticket) {
-  return (
-    ticket?.Status ?? ticket?.status ?? ticket?.state ?? ticket?.State ?? ""
-  );
-}
+const PAGE_SIZE = 10;
 
 function isClosed(ticket) {
   return !!ticket?.closed_at;
@@ -35,14 +28,54 @@ function escapeCsv(value) {
   return next;
 }
 
+function buildVisibilityFilter(q, { canViewAll, currentAdminId, myProfile }) {
+  if (canViewAll) return q;
+  const orParts = [
+    `Assignee1.eq.${currentAdminId}`,
+    `Assignee2.eq.${currentAdminId}`,
+    `Assignee3.eq.${currentAdminId}`,
+  ];
+  const split = (str) =>
+    (str || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  split(myProfile?.filter_type).forEach((v) => orParts.push(`Type.eq.${v}`));
+  split(myProfile?.filter_department).forEach((v) =>
+    orParts.push(`Department.eq.${v}`),
+  );
+  split(myProfile?.filter_category).forEach((v) =>
+    orParts.push(`Category.eq.${v}`),
+  );
+  split(myProfile?.filter_site).forEach((v) => orParts.push(`Site.eq.${v}`));
+  return q.or(orParts.join(","));
+}
+
+function buildSearchFilter(q, search) {
+  const trimmed = search.trim();
+  if (!trimmed) return q;
+  const parts = [
+    `Summary.ilike.%${trimmed}%`,
+    `Description.ilike.%${trimmed}%`,
+    `Type.ilike.%${trimmed}%`,
+    `Department.ilike.%${trimmed}%`,
+    `Category.ilike.%${trimmed}%`,
+  ];
+  const numId = parseInt(trimmed);
+  if (!isNaN(numId) && String(numId) === trimmed) parts.push(`id.eq.${numId}`);
+  return q.or(parts.join(","));
+}
+
 export default function AdminTickets() {
   const navigate = useNavigate();
   const { showLoading, hideLoading } = useLoading();
-  const { adminTickets, setAdminTickets } = useTicketsCache();
   const [tickets, setTickets] = useState([]);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("Open Tickets");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const [realtimeTick, setRealtimeTick] = useState(0);
 
   const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
   const role = localStorage.getItem("userRole");
@@ -56,45 +89,17 @@ export default function AdminTickets() {
     }
   }, []);
   const adminLevel = decoded?.admin_level ?? 1;
+  const currentAdminId = decoded?.id || decoded?.sub;
+  const canViewAll = canViewAllTickets(adminLevel);
 
   const [assignableAdmins, setAssignableAdmins] = useState([]);
   const [adminNameMap, setAdminNameMap] = useState({});
   const [myProfile, setMyProfile] = useState(null);
+  const [profileReady, setProfileReady] = useState(canViewAll);
 
-  const fetchTickets = async () => {
-    try {
-      showLoading();
-      setError("");
-      const { data, error: supaError } = await realtimeSupabase
-        .from("Tickets")
-        .select("*")
-        .order("id", { ascending: false });
+  const pageCount = Math.ceil(totalCount / PAGE_SIZE);
 
-      if (supaError) {
-        setError(supaError.message || "Failed to load tickets");
-        setTickets([]);
-        return;
-      }
-
-      const next = data || [];
-      setTickets(next);
-      setAdminTickets(next);
-    } catch (e) {
-      setError(e?.message || "Failed to load tickets");
-    } finally {
-      hideLoading();
-    }
-  };
-
-  useEffect(() => {
-    if (!isLoggedIn || !isAdmin) return;
-    if (Array.isArray(adminTickets)) {
-      setTickets(adminTickets);
-      return;
-    }
-    fetchTickets();
-  }, []);
-
+  // Fetch auxiliary data: staff names, assignees, profile for visibility filter
   useEffect(() => {
     if (!isLoggedIn || !isAdmin) return;
     const token = localStorage.getItem("authToken");
@@ -129,50 +134,58 @@ export default function AdminTickets() {
         .then((json) => {
           if (json.success) setMyProfile(json.data);
         })
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => setProfileReady(true));
     }
   }, [isLoggedIn, isAdmin, adminLevel]);
 
-  const currentAdminId = decoded?.id || decoded?.sub;
+  // Main paginated fetch
+  useEffect(() => {
+    if (!isLoggedIn || !isAdmin || !profileReady) return;
 
-  const visibleTickets = useMemo(() => {
-    if (canViewAllTickets(adminLevel)) return tickets;
-    const fType = new Set(
-      (myProfile?.filter_type || "")
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
-    );
-    const fDept = new Set(
-      (myProfile?.filter_department || "")
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
-    );
-    const fCat = new Set(
-      (myProfile?.filter_category || "")
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
-    );
-    const fSite = new Set(
-      (myProfile?.filter_site || "")
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
-    );
+    const fetchTickets = async () => {
+      try {
+        showLoading();
+        setError("");
 
-    return tickets.filter((t) => {
-      if ([t.Assignee1, t.Assignee2, t.Assignee3].includes(currentAdminId))
-        return true;
-      if (fType.size && fType.has(t.Type)) return true;
-      if (fDept.size && fDept.has(t.Department)) return true;
-      if (fCat.size && fCat.has(t.Category)) return true;
-      if (fSite.size && fSite.has(t.Site)) return true;
-      return false;
-    });
-  }, [tickets, adminLevel, currentAdminId, myProfile]);
+        const start = page * PAGE_SIZE;
+        const end = start + PAGE_SIZE - 1;
 
+        let q = realtimeSupabase
+          .from("Tickets")
+          .select("*", { count: "exact" })
+          .order("id", { ascending: false })
+          .range(start, end);
+
+        if (filter === "Closed Tickets") {
+          q = q.not("closed_at", "is", null);
+        } else {
+          q = q.is("closed_at", null);
+        }
+
+        q = buildVisibilityFilter(q, { canViewAll, currentAdminId, myProfile });
+        q = buildSearchFilter(q, search);
+
+        const { data, error: supaError, count } = await q;
+
+        if (supaError) {
+          setError(supaError.message || "Failed to load tickets");
+          setTickets([]);
+        } else {
+          setTickets(data || []);
+          setTotalCount(count ?? 0);
+        }
+      } catch (e) {
+        setError(e?.message || "Failed to load tickets");
+      } finally {
+        hideLoading();
+      }
+    };
+
+    fetchTickets();
+  }, [isLoggedIn, isAdmin, profileReady, page, filter, search, realtimeTick]);
+
+  // Realtime: refetch on any ticket change
   useEffect(() => {
     if (!isLoggedIn || !isAdmin) return;
     const channel = realtimeSupabase
@@ -180,97 +193,89 @@ export default function AdminTickets() {
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "Tickets" },
-        (payload) => {
-          setTickets((prev) => [payload.new, ...prev]);
-          setAdminTickets((prev) =>
-            Array.isArray(prev) ? [payload.new, ...prev] : [payload.new],
-          );
+        () => {
+          setRealtimeTick((n) => n + 1);
         },
       )
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "Tickets" },
-        (payload) => {
-          setTickets((prev) =>
-            prev.map((t) => (t.id === payload.new.id ? payload.new : t)),
-          );
-          setAdminTickets((prev) =>
-            Array.isArray(prev)
-              ? prev.map((t) => (t.id === payload.new.id ? payload.new : t))
-              : prev,
-          );
+        () => {
+          setRealtimeTick((n) => n + 1);
         },
       )
       .subscribe();
     return () => realtimeSupabase.removeChannel(channel);
-  }, [isLoggedIn, isAdmin, setAdminTickets]);
+  }, [isLoggedIn, isAdmin]);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    const base = visibleTickets.filter((t) =>
-      filter === "Closed Tickets" ? isClosed(t) : !isClosed(t),
-    );
-    if (!q) return base;
-    return base.filter((t) => {
-      const hay = [
-        t?.id,
-        t?.Summary,
-        t?.Description,
-        t?.Assignee,
-        t?.Assignee1,
-        t?.Assignee2,
-        t?.Assignee3,
-        t?.Type,
-        t?.Department,
-        t?.Category,
-      ]
-        .filter(Boolean)
-        .map(String)
-        .join(" ")
-        .toLowerCase();
-      return hay.includes(q);
-    });
-  }, [visibleTickets, filter, search]);
+  const handleSearch = (val) => {
+    setSearch(val);
+    setPage(0);
+  };
+  const handleFilter = (e) => {
+    setFilter(e.target.value);
+    setPage(0);
+  };
 
-  const onExportCsv = () => {
-    const headers = [
-      "id",
-      "summary",
-      "description",
-      "department",
-      "type",
-      "category",
-      "site",
-      "status",
-      "created_at",
-      "closed_at",
-    ];
-    const rows = tickets.map((t) => [
-      t.id,
-      t.Summary,
-      t.Description,
-      t.Department,
-      t.Type,
-      t.Category,
-      t.Site,
-      t.status || t.Status || "Open",
-      t.created_at,
-      t.closed_at,
-    ]);
-    const csv = [headers, ...rows]
-      .map((row) => row.map(escapeCsv).join(","))
-      .join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `tickets-export-${new Date()
-      .toISOString()
-      .slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+  const onExportCsv = async () => {
+    try {
+      showLoading();
+      let q = realtimeSupabase
+        .from("Tickets")
+        .select(
+          "id,Summary,Description,Department,Type,Category,Site,status,created_at,closed_at",
+        )
+        .order("id", { ascending: false });
+
+      if (filter === "Closed Tickets") {
+        q = q.not("closed_at", "is", null);
+      } else {
+        q = q.is("closed_at", null);
+      }
+
+      q = buildVisibilityFilter(q, { canViewAll, currentAdminId, myProfile });
+      q = buildSearchFilter(q, search);
+
+      const { data } = await q;
+      const rows = (data || []).map((t) => [
+        t.id,
+        t.Summary,
+        t.Description,
+        t.Department,
+        t.Type,
+        t.Category,
+        t.Site,
+        t.status || "Open",
+        t.created_at,
+        t.closed_at,
+      ]);
+      const headers = [
+        "id",
+        "summary",
+        "description",
+        "department",
+        "type",
+        "category",
+        "site",
+        "status",
+        "created_at",
+        "closed_at",
+      ];
+      const csv = [headers, ...rows]
+        .map((row) => row.map(escapeCsv).join(","))
+        .join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `tickets-export-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } finally {
+      hideLoading();
+    }
   };
 
   const toggleTicketStatus = async (ticket) => {
@@ -282,23 +287,16 @@ export default function AdminTickets() {
         ? { status: "Open", closed_at: null }
         : { status: "Closed", closed_at: new Date().toISOString() };
 
-      const { data, error } = await realtimeSupabase
+      const { error } = await realtimeSupabase
         .from("Tickets")
         .update(payload)
-        .eq("id", ticket.id)
-        .select();
+        .eq("id", ticket.id);
 
       if (error) {
         alert(error.message || "Failed to update ticket status");
         return;
       }
-      const updated = tickets.map((t) =>
-        t.id === ticket.id
-          ? { ...t, ...payload, ...((Array.isArray(data) && data[0]) || {}) }
-          : t,
-      );
-      setTickets(updated);
-      setAdminTickets(updated);
+      setRealtimeTick((n) => n + 1);
     } catch (e) {
       console.error("Unexpected error", e);
     } finally {
@@ -324,11 +322,9 @@ export default function AdminTickets() {
         alert(error.message || "Failed to update assignees");
         return;
       }
-      const updated = tickets.map((t) =>
-        t.id === ticket.id ? { ...t, ...payload } : t,
+      setTickets((prev) =>
+        prev.map((t) => (t.id === ticket.id ? { ...t, ...payload } : t)),
       );
-      setTickets(updated);
-      setAdminTickets(updated);
     } catch (e) {
       console.error("Unexpected error:", e);
     }
@@ -353,19 +349,17 @@ export default function AdminTickets() {
         fallbackText: (row) =>
           adminNameMap[row.Assignee1] || row.Assignee1 || "—",
       },
-      // Now using 'highlight' variant for Type and Category
       { label: "Type", accessor: "Type", variant: "highlight" },
       { label: "Department", accessor: "Department", variant: "highlight" },
       { label: "Category", accessor: "Category", variant: "highlight" },
       { label: "Created", accessor: "created_at", variant: "date" },
-      // The old "Status" column has been entirely removed!
       {
         label: "Actions",
         variant: "action",
         align: "right",
         preventRowClick: true,
         getLabel: (t) => (isClosed(t) ? "Reopen" : "Close"),
-        isPrimary: (t) => isClosed(t), // Drives the blue vs green color natively
+        isPrimary: (t) => isClosed(t),
         onClick: (t) => toggleTicketStatus(t),
       },
     ],
@@ -387,19 +381,17 @@ export default function AdminTickets() {
   if (!isAdmin) return <Navigate to="/Tickets" replace />;
 
   return (
-    <div className="admin-page analytics-page admin-tickets-page">
-
-      <section className="admin-content analytics-content-wrap px-6 py-8">
-        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 mb-8">
+    <div className="md:flex-1 md:overflow-y-auto">
+      <section className="w-full max-w-330 mx-auto px-6 py-4 md:py-6 font-[Poppins,Segoe_UI,Arial,sans-serif]">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 mb-4">
           <FilterSelect
             value={filter}
-            onChange={(e) => setFilter(e.target.value)}
+            onChange={handleFilter}
             options={["Open Tickets", "Closed Tickets"]}
           />
           <SearchInput
-            placeholder="Search Tickets..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search tickets..."
+            onSearch={handleSearch}
           />
         </div>
 
@@ -411,15 +403,19 @@ export default function AdminTickets() {
           <div className="w-full rounded-xl border border-gray-100 shadow-sm bg-white">
             <DataTable
               columns={adminColumns}
-              data={filtered}
+              data={tickets}
               onRowClick={(row) => navigate(`/admin/tickets/${row.id}`)}
               emptyMessage="No tickets found."
               emptySubMessage="Adjust your search or filter settings."
+              page={page}
+              pageCount={pageCount}
+              totalCount={totalCount}
+              onPrevPage={() => setPage((p) => Math.max(0, p - 1))}
+              onNextPage={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
             />
           </div>
         )}
       </section>
-
     </div>
   );
 }

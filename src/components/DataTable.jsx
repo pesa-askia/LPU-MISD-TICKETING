@@ -1,4 +1,66 @@
 import React from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+
+const BTN_BASE =
+  "px-3 py-1.5 text-xs font-bold rounded-lg border transition-colors whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed";
+
+const BTN_STYLES = {
+  primary: {
+    default:
+      "bg-lpu-maroon border-lpu-maroon text-white hover:bg-lpu-red hover:border-lpu-red",
+    red: "bg-red-600 border-red-600 text-white hover:bg-red-700 hover:border-red-700",
+    green:
+      "bg-green-600 border-green-600 text-white hover:bg-green-700 hover:border-green-700",
+  },
+  secondary: {
+    default: "bg-transparent border-gray-300 text-gray-600 hover:bg-gray-50",
+    maroon:
+      "bg-transparent border-lpu-maroon/40 text-lpu-maroon hover:bg-lpu-maroon/[0.07]",
+    red: "bg-transparent border-red-300 text-red-600 hover:bg-red-50",
+    green: "bg-transparent border-green-300 text-green-600 hover:bg-green-50",
+  },
+};
+
+export function TableButton({
+  onClick,
+  disabled,
+  children,
+  variant = "primary",
+  color = "default",
+  className = "",
+}) {
+  const style =
+    BTN_STYLES[variant]?.[color] ?? BTN_STYLES[variant]?.default ?? "";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`${BTN_BASE} ${style} ${className}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+const BADGE_STYLES = {
+  default: "bg-gray-100 text-gray-700 border border-black/10",
+  success: "bg-green-100 text-green-800",
+  warning: "bg-orange-50 text-orange-700",
+  danger: "bg-red-50 text-red-700",
+  info: "bg-lpu-maroon/10 text-lpu-maroon",
+};
+
+export function TableBadge({ children, variant = "default", title }) {
+  return (
+    <span
+      title={title}
+      className={`inline-block text-[11px] font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap ${BADGE_STYLES[variant] ?? BADGE_STYLES.default}`}
+    >
+      {children}
+    </span>
+  );
+}
 
 export function DataTable({
   columns,
@@ -6,7 +68,13 @@ export function DataTable({
   onRowClick,
   emptyMessage = "No records found.",
   emptySubMessage = "Try adjusting your filters or search terms.",
+  page,
+  pageCount,
+  totalCount,
+  onPrevPage,
+  onNextPage,
 }) {
+  const hasPagination = pageCount !== undefined && pageCount > 0;
   if (data.length === 0) {
     return (
       <div className="w-full rounded-xl border border-gray-100 bg-white">
@@ -14,6 +82,15 @@ export function DataTable({
           <p className="text-xl font-semibold">{emptyMessage}</p>
           {emptySubMessage && <p className="text-sm mt-1">{emptySubMessage}</p>}
         </div>
+        {hasPagination && pageCount > 1 && (
+          <PaginationFooter
+            page={page}
+            pageCount={pageCount}
+            totalCount={totalCount}
+            onPrevPage={onPrevPage}
+            onNextPage={onNextPage}
+          />
+        )}
       </div>
     );
   }
@@ -54,7 +131,7 @@ export function DataTable({
         );
       case "highlight":
         return (
-          <span className="text-sm font-medium text-lpu-maroon/80 tracking-tighter line-clamp-1">
+          <span className="text-sm text-lpu-maroon tracking-tighter line-clamp-1">
             {value || "-"}
           </span>
         );
@@ -66,7 +143,7 @@ export function DataTable({
         );
       case "status":
         return value ? (
-          <span className="text-lpu-red font-semibold whitespace-nowrap">
+          <span className="text-sm text-lpu-maroon whitespace-nowrap">
             {new Date(value).toLocaleDateString()}
           </span>
         ) : (
@@ -109,17 +186,12 @@ export function DataTable({
       case "action":
         const isPrimary = col.isPrimary ? col.isPrimary(row) : true;
         return (
-          <button
-            type="button"
+          <TableButton
             onClick={() => col.onClick && col.onClick(row)}
-            className={`px-4 py-2 rounded-lg text-xs font-bold text-white transition-colors shadow-sm whitespace-nowrap ${
-              isPrimary
-                ? "bg-blue-600 hover:bg-blue-700"
-                : "bg-emerald-600 hover:bg-emerald-700"
-            }`}
+            variant={isPrimary ? "primary" : "secondary"}
           >
             {col.getLabel ? col.getLabel(row) : "Action"}
-          </button>
+          </TableButton>
         );
       default:
         return (
@@ -195,7 +267,7 @@ export function DataTable({
                   onClick={() => onRowClick && onRowClick(row)}
                   tabIndex={onRowClick ? 0 : -1}
                   style={{ animationDelay: `${rowIndex * 30}ms` }}
-                  className={`group transition-colors duration-200 animate-in fade-in slide-in-from-left-4 ${onRowClick ? "cursor-pointer hover:bg-lpu-gold/5" : "hover:bg-gray-50"}`}
+                  className={`group transition-colors duration-200 animate-in fade-in slide-in-from-left-4 hover:bg-lpu-gold/5 ${onRowClick ? "cursor-pointer" : ""}`}
                 >
                   {columns.map((col, colIndex) => (
                     <td
@@ -213,6 +285,54 @@ export function DataTable({
             </tbody>
           </table>
         </div>
+
+        {hasPagination && (
+          <PaginationFooter
+            page={page}
+            pageCount={pageCount}
+            totalCount={totalCount}
+            onPrevPage={onPrevPage}
+            onNextPage={onNextPage}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PaginationFooter({
+  page,
+  pageCount,
+  totalCount,
+  onPrevPage,
+  onNextPage,
+}) {
+  return (
+    <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-white rounded-b-xl">
+      <span className="text-sm text-gray-500">
+        Page <span className="font-semibold text-gray-700">{page + 1}</span> of{" "}
+        <span className="font-semibold text-gray-700">{pageCount}</span>
+        {totalCount !== undefined && (
+          <span className="ml-1 text-gray-400">({totalCount} total)</span>
+        )}
+      </span>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={onPrevPage}
+          disabled={page === 0}
+          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-semibold border bg-lpu-maroon text-white hover:bg-lpu-gold hover:text-lpu-maroon hover:border-lpu-gold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
+          <ChevronLeft size={15} /> Prev
+        </button>
+        <button
+          type="button"
+          onClick={onNextPage}
+          disabled={page >= pageCount - 1}
+          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-semibold border bg-lpu-maroon text-white hover:bg-lpu-gold hover:text-lpu-maroon hover:border-lpu-gold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
+          Next <ChevronRight size={15} />
+        </button>
       </div>
     </div>
   );
