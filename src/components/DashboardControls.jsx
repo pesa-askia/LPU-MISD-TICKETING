@@ -1,18 +1,13 @@
 import { useState } from "react";
-import { Search, ChevronDown, CircleDot, CheckCircle } from "lucide-react";
-
-const ICON_MAP = {
-  "Open Tickets": CircleDot,
-  "Closed Tickets": CheckCircle,
-};
+import { Search, ChevronDown } from "lucide-react";
 
 export const FilterSelect = ({ value, onChange, options }) => {
   return (
-    <div className="relative flex-1 group">
+    <div className="relative w-full md:flex-1 h-10 group">
       <select
         value={value}
         onChange={onChange}
-        className="w-full appearance-none pl-4 pr-10 py-3 bg-white border border-gray-200 rounded-xl text-[0.95rem] font-bold text-gray-700 outline-none transition-all duration-200 focus:ring-2 focus:ring-lpu-gold focus:border-lpu-gold cursor-pointer"
+        className="w-full h-full appearance-none pl-3 pr-8 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-700 outline-none transition-all duration-200 focus:ring-2 focus:ring-lpu-gold focus:border-lpu-gold cursor-pointer"
       >
         {options.map((option) => (
           <option key={option} value={option}>
@@ -20,35 +15,30 @@ export const FilterSelect = ({ value, onChange, options }) => {
           </option>
         ))}
       </select>
-
       <ChevronDown
-        size={18}
-        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none transition-all duration-200 group-focus-within:rotate-180 group-focus-within:text-lpu-gold"
+        size={16}
+        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none transition-all duration-200 group-focus-within:rotate-180 group-focus-within:text-lpu-gold"
       />
     </div>
   );
 };
 
-// Fires onSearch(value) on Enter key press or Search button click.
-// Parent receives only the committed search value, not every keystroke.
 export const SearchInput = ({
   onSearch,
   placeholder = "Search...",
   defaultValue = "",
 }) => {
   const [value, setValue] = useState(defaultValue);
-
   const commit = () => onSearch(value);
-
   const handleKeyDown = (e) => {
     if (e.key === "Enter") commit();
   };
 
   return (
-    <div className="flex-1 min-w-0 w-full flex items-center border border-gray-200 rounded-xl overflow-hidden transition-all duration-200 focus-within:ring-2 focus-within:ring-lpu-gold focus-within:border-lpu-gold bg-white">
+    <div className="w-full md:flex-1 h-10 flex items-center border border-gray-200 rounded-lg overflow-hidden transition-all duration-200 focus-within:ring-2 focus-within:ring-lpu-gold focus-within:border-lpu-gold bg-white">
       <Search
-        size={18}
-        className="shrink-0 ml-3 md:ml-4 text-gray-400 stroke-[2.2px]"
+        size={16}
+        className="shrink-0 ml-3 text-gray-400 stroke-[2.2px]"
       />
       <input
         type="text"
@@ -59,12 +49,12 @@ export const SearchInput = ({
           if (e.target.value === "") onSearch("");
         }}
         onKeyDown={handleKeyDown}
-        className="flex-1 min-w-0 w-full px-2 md:px-3 py-3 bg-transparent text-[0.95rem] font-medium outline-none text-ellipsis"
+        className="flex-1 min-w-0 w-full h-full px-2.5 bg-transparent text-sm font-medium outline-none text-ellipsis"
       />
       <button
         type="button"
         onClick={commit}
-        className="shrink-0 px-4 md:px-5 py-2 mr-1.5 bg-lpu-maroon text-white text-sm font-semibold rounded-lg hover:bg-lpu-red transition-colors cursor-pointer"
+        className="shrink-0 h-8 px-4 mx-1.5 bg-lpu-maroon text-white text-sm font-semibold rounded-md shadow-sm hover:bg-lpu-red hover:shadow-md active:scale-95 transition-all duration-200 ease-in-out cursor-pointer"
       >
         Search
       </button>

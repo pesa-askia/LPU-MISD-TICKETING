@@ -4,7 +4,10 @@ import { Download, Calendar } from "lucide-react";
 import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
 import { useLoading } from "../../context/LoadingContext";
 import { useTicketsCache } from "../../context/TicketsCacheContext";
-import { useNavbarActions } from "../../context/NavbarActionsContext";
+import {
+  useNavbarActions,
+  NavbarActionButton,
+} from "../../context/NavbarActionsContext";
 import "./AdminTickets.css";
 import "./AdminAnalytics.css";
 
@@ -311,14 +314,11 @@ export default function AdminAnalytics() {
   };
 
   useNavbarActions(
-    <button
-      type="button"
+    <NavbarActionButton
+      icon={Download}
+      label="Export CSV"
       onClick={onExportCsv}
-      className="flex items-center justify-center gap-2 px-4 h-[40px] rounded-lg text-[15px] font-medium text-white/85 hover:bg-[var(--color-lpu-gold)] hover:text-[var(--color-lpu-maroon)] transition-all duration-200"
-    >
-      <Download size={18} />
-      <span>Export CSV</span>
-    </button>,
+    />,
   );
 
   if (!isLoggedIn) return <Navigate to="/" replace />;

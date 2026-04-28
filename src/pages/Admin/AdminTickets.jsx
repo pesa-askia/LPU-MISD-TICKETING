@@ -5,7 +5,10 @@ import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import { Download, X, ChevronDown } from "lucide-react";
 import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
 import { useLoading } from "../../context/LoadingContext";
-import { useNavbarActions } from "../../context/NavbarActionsContext";
+import {
+  useNavbarActions,
+  NavbarActionButton,
+} from "../../context/NavbarActionsContext";
 import { FilterSelect, SearchInput } from "../../components/DashboardControls";
 import { DataTable } from "../../components/DataTable";
 
@@ -499,14 +502,11 @@ export default function AdminTickets() {
   );
 
   useNavbarActions(
-    <button
-      type="button"
+    <NavbarActionButton
+      icon={Download}
+      label="Export CSV"
       onClick={onExportCsv}
-      className="flex items-center justify-center gap-2 px-4 h-10 rounded-lg text-[15px] font-medium text-white/85 hover:bg-lpu-gold hover:text-lpu-maroon transition-all duration-200"
-    >
-      <Download size={18} />
-      <span>Export CSV</span>
-    </button>,
+    />,
   );
 
   if (!isLoggedIn) return <Navigate to="/" replace />;
@@ -515,7 +515,7 @@ export default function AdminTickets() {
   return (
     <div className="md:flex-1 md:overflow-y-auto">
       <section className="w-full max-w-330 mx-auto px-6 py-4 md:py-6 font-[Poppins,Segoe_UI,Arial,sans-serif]">
-        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 mb-4">
+        <div className="flex flex-col md:flex-row gap-4 mb-4">
           <FilterSelect
             value={filter}
             onChange={handleFilter}

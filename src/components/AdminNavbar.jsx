@@ -65,39 +65,40 @@ export default function AdminNavbar() {
 
   const toggleMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
 
-  // Added h-[40px] to force identical heights across all buttons
+  // Adjusted alignment and padding: centered & thinner on 'md' (icons only), left-aligned & wider on 'lg' (with text)
   const linkBase =
-    "flex items-center justify-center md:justify-start gap-2 px-4 h-[40px] rounded-lg text-[15px] transition-all duration-200";
+    "flex items-center justify-center lg:justify-start gap-2 px-3 md:px-2 lg:px-3 h-8 rounded-lg text-sm transition-all duration-200";
   const linkInactive =
-    "text-white/85 hover:bg-[var(--color-lpu-gold)] hover:text-[var(--color-lpu-maroon)] font-medium";
-  const linkActive = "bg-[var(--color-lpu-red)] text-white font-bold shadow-sm";
+    "text-white/85 hover:bg-lpu-gold hover:text-lpu-maroon font-medium";
+  const linkActive = "bg-lpu-red text-white font-bold shadow-sm";
 
   const getLinkClass = ({ isActive }) =>
     `${linkBase} ${isActive ? linkActive : linkInactive}`;
 
   // --- Reusable Admin Dropdown Block ---
   const AdminDropdown = ({ innerRef }) => (
-    <div className="relative flex items-center h-[40px]" ref={innerRef}>
+    <div className="relative flex items-center h-8" ref={innerRef}>
       <button
         type="button"
         onClick={() => setMenuOpen((v) => !v)}
-        className={`flex items-center justify-center gap-2 px-4 h-[40px] rounded-lg text-[15px] font-medium transition-all duration-200 ${
+        className={`flex items-center justify-center lg:justify-start gap-2 px-3 md:px-2 lg:px-3 h-8 rounded-lg text-sm font-medium transition-all duration-200 ${
           menuOpen
-            ? "bg-[var(--color-lpu-red)] text-white shadow-sm font-bold"
-            : "text-white/85 hover:bg-[var(--color-lpu-gold)] hover:text-[var(--color-lpu-maroon)]"
+            ? "bg-lpu-red text-white shadow-sm font-bold"
+            : "text-white/85 hover:bg-lpu-gold hover:text-lpu-maroon"
         }`}
       >
-        <User size={18} />
-        <span>Admin</span>
+        <User size={16} />
+        {/* Hide text on iPad (md), show on desktop (lg) */}
+        <span className="hidden lg:inline">Admin</span>
         <ChevronDown
-          size={16}
+          size={14}
           className={`transition-transform duration-200 ${menuOpen ? "rotate-180" : ""}`}
         />
       </button>
 
       {/* Popup Menu */}
       {menuOpen && (
-        <div className="absolute left-1/2 -translate-x-1/2 md:left-auto md:right-0 md:translate-x-0 mt-3 top-full w-48 bg-white rounded-xl shadow-xl py-2 border border-gray-100 flex flex-col z-50 animate-in fade-in zoom-in-95">
+        <div className="absolute left-1/2 -translate-x-1/2 md:left-auto md:right-0 md:translate-x-0 mt-2 top-full w-48 bg-white rounded-xl shadow-xl py-2 border border-gray-100 flex flex-col z-50 animate-in fade-in zoom-in-95">
           <button
             type="button"
             onClick={() => {
@@ -105,7 +106,7 @@ export default function AdminNavbar() {
               setAccountModalOpen(true);
               setIsMobileMenuOpen(false);
             }}
-            className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[var(--color-lpu-maroon)] transition-colors w-full text-left"
+            className="flex items-center gap-3 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-lpu-maroon transition-colors w-full text-left"
           >
             <User size={16} /> <span>My account</span>
           </button>
@@ -116,17 +117,17 @@ export default function AdminNavbar() {
               setDarkMode((v) => !v);
               setMenuOpen(false);
             }}
-            className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[var(--color-lpu-maroon)] transition-colors w-full text-left"
+            className="flex items-center gap-3 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-lpu-maroon transition-colors w-full text-left"
           >
             <Moon size={16} /> <span>Dark Mode</span>
           </button>
 
-          <div className="h-[1px] bg-gray-100 my-1 w-full"></div>
+          <div className="h-px bg-gray-100 my-1 w-full"></div>
 
           <button
             type="button"
             onClick={onLogout}
-            className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors w-full text-left"
+            className="flex items-center gap-3 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors w-full text-left"
           >
             <LogOut size={16} /> <span>Logout</span>
           </button>
@@ -137,44 +138,41 @@ export default function AdminNavbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 w-full bg-[var(--color-lpu-maroon)] shadow-md font-poppins">
-        <div className="max-w-[1320px] mx-auto px-4 md:px-6 h-[78px] flex items-center justify-between">
+      <header className="sticky top-0 z-50 w-full bg-lpu-maroon shadow-md font-poppins">
+        <div className="max-w-330 mx-auto px-4 md:px-6 h-12 flex items-center justify-between">
           {/* --- Brand Logo & Text --- */}
-          <div className="flex items-center gap-3">
-            <img
-              src={lpuLogo}
-              alt="LPU"
-              className="h-[42px] md:h-[52px] w-auto"
-            />
-            <span className="text-white text-xl md:text-2xl lg:text-[34px] font-bold tracking-tight whitespace-nowrap">
+          <div className="flex items-center gap-2 md:gap-3">
+            <img src={lpuLogo} alt="LPU" className="h-8 md:h-9 w-auto" />
+            <span className="text-white text-xl md:text-[22px] font-bold tracking-tight whitespace-nowrap">
               MIS HELP DESK
             </span>
           </div>
 
           {/* --- Desktop Navigation --- */}
-          <nav className="hidden md:flex items-center gap-2 lg:gap-4">
+          <nav className="hidden md:flex items-center gap-1 lg:gap-2">
             <NavLink to="/admin/tickets" className={getLinkClass}>
-              <Home size={18} />
-              <span>Home</span>
+              <Home size={16} />
+              {/* Added hidden lg:inline to text */}
+              <span className="hidden lg:inline">Home</span>
             </NavLink>
             <NavLink to="/admin/analytics" className={getLinkClass}>
-              <BarChart2 size={18} />
-              <span>Analytics</span>
+              <BarChart2 size={16} />
+              <span className="hidden lg:inline">Analytics</span>
             </NavLink>
             <NavLink to="/admin/knowledge" className={getLinkClass}>
-              <BookOpen size={18} />
-              <span>Knowledge</span>
+              <BookOpen size={16} />
+              <span className="hidden lg:inline">Knowledge</span>
             </NavLink>
             {isRoot && (
               <NavLink to="/admin/manage" className={getLinkClass}>
-                <Settings size={18} />
-                <span>Manage</span>
+                <Settings size={16} />
+                <span className="hidden lg:inline">Manage</span>
               </NavLink>
             )}
           </nav>
 
           {/* --- Desktop Actions & Admin Menu --- */}
-          <div className="hidden md:flex items-center gap-4">
+          <div className="hidden md:flex items-center gap-2 md:gap-4">
             {actions}
             <AdminDropdown innerRef={desktopMenuRef} />
           </div>
@@ -182,22 +180,23 @@ export default function AdminNavbar() {
           {/* --- Mobile Menu Toggle Button --- */}
           <button
             onClick={toggleMenu}
-            className="md:hidden text-white p-2 rounded-lg hover:bg-[var(--color-lpu-red)] hover:text-[var(--color-lpu-gold)] transition-colors"
+            className="md:hidden text-white p-1.5 rounded-lg hover:bg-lpu-red hover:text-lpu-gold transition-colors"
           >
-            {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
+            {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
         </div>
 
         {/* --- Mobile Navigation Dropdown --- */}
         {isMobileMenuOpen && (
-          <div className="md:hidden absolute top-[78px] left-0 w-full bg-[var(--color-lpu-maroon)] border-t border-[var(--color-lpu-red)] shadow-xl flex flex-col p-4 gap-4 animate-in slide-in-from-top-2">
+          <div className="md:hidden absolute top-12 left-0 w-full bg-lpu-maroon border-t border-lpu-red shadow-xl flex flex-col p-4 gap-4 animate-in slide-in-from-top-2">
             <nav className="flex flex-col gap-2">
               <NavLink
                 to="/admin/tickets"
                 onClick={toggleMenu}
                 className={getLinkClass}
               >
-                <Home size={18} />
+                <Home size={16} />
+                {/* Text remains visible in mobile dropdown menu */}
                 <span>Home</span>
               </NavLink>
               <NavLink
@@ -205,7 +204,7 @@ export default function AdminNavbar() {
                 onClick={toggleMenu}
                 className={getLinkClass}
               >
-                <BarChart2 size={18} />
+                <BarChart2 size={16} />
                 <span>Analytics</span>
               </NavLink>
               <NavLink
@@ -213,7 +212,7 @@ export default function AdminNavbar() {
                 onClick={toggleMenu}
                 className={getLinkClass}
               >
-                <BookOpen size={18} />
+                <BookOpen size={16} />
                 <span>Knowledge</span>
               </NavLink>
               {isRoot && (
@@ -222,14 +221,14 @@ export default function AdminNavbar() {
                   onClick={toggleMenu}
                   className={getLinkClass}
                 >
-                  <Settings size={18} />
+                  <Settings size={16} />
                   <span>Manage</span>
                 </NavLink>
               )}
             </nav>
 
             {/* Mobile Actions Container */}
-            <div className="pt-4 border-t border-[var(--color-lpu-red)] flex flex-row flex-wrap gap-4 items-center justify-center">
+            <div className="pt-4 border-t border-lpu-red flex flex-row flex-wrap gap-4 items-center justify-center">
               {actions}
               <AdminDropdown innerRef={mobileMenuRef} />
             </div>

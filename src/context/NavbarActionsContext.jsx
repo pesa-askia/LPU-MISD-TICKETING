@@ -26,10 +26,7 @@ export function NavbarActionsProvider({ children }) {
 
   const stableSetActions = useCallback((a) => setActions(a), []);
 
-  const getValue = useMemo(
-    () => ({ actions, isRoot }),
-    [actions, isRoot],
-  );
+  const getValue = useMemo(() => ({ actions, isRoot }), [actions, isRoot]);
 
   return (
     <NavbarActionsSetContext.Provider value={stableSetActions}>
@@ -54,4 +51,17 @@ export function useNavbarActions(actions) {
 
 export function useNavbarActionsContext() {
   return useContext(NavbarActionsGetContext);
+}
+
+export function NavbarActionButton({ icon: Icon, label, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center justify-center gap-2 px-3 md:px-2 lg:px-3 h-8 rounded-lg text-sm font-medium text-white/85 hover:bg-lpu-gold hover:text-lpu-maroon transition-all duration-200"
+    >
+      {Icon && <Icon size={16} />}
+      <span className="hidden lg:inline">{label}</span>
+    </button>
+  );
 }

@@ -3,7 +3,10 @@ import { jwtDecode } from "jwt-decode";
 import { UserPlus, X } from "lucide-react";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import { ADMIN_LEVEL_LABELS } from "../../utils/adminLevels";
-import { useNavbarActions } from "../../context/NavbarActionsContext";
+import {
+  useNavbarActions,
+  NavbarActionButton,
+} from "../../context/NavbarActionsContext";
 import { SearchInput } from "../../components/DashboardControls";
 import {
   DataTable,
@@ -61,14 +64,11 @@ export default function AdminManage() {
   };
 
   useNavbarActions(
-    <button
-      type="button"
+    <NavbarActionButton
+      icon={UserPlus}
+      label="Add Admin"
       onClick={() => setShowAddModal(true)}
-      className="flex items-center justify-center gap-2 px-4 h-10 rounded-lg text-[15px] font-medium text-white/85 hover:bg-lpu-gold hover:text-lpu-maroon transition-all duration-200"
-    >
-      <UserPlus size={18} />
-      Add Admin
-    </button>,
+    />,
   );
 
   const fetchAdmins = async () => {

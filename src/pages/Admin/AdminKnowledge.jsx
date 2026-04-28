@@ -8,7 +8,10 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
-import { useNavbarActions } from "../../context/NavbarActionsContext";
+import {
+  useNavbarActions,
+  NavbarActionButton,
+} from "../../context/NavbarActionsContext";
 import { SearchInput } from "../../components/DashboardControls";
 import "./AdminAnalytics.css";
 import "./AdminTickets.css";
@@ -129,17 +132,14 @@ export default function AdminKnowledge() {
   };
 
   useNavbarActions(
-    <button
-      type="button"
+    <NavbarActionButton
+      icon={Plus}
+      label="Add Entry"
       onClick={() => {
         setShowAddModal(true);
         setAddError("");
       }}
-      className="flex items-center justify-center gap-2 px-4 h-[40px] rounded-lg text-[15px] font-medium text-white/85 hover:bg-[var(--color-lpu-gold)] hover:text-[var(--color-lpu-maroon)] transition-all duration-200"
-    >
-      <Plus size={18} />
-      Add Entry
-    </button>,
+    />,
   );
 
   return (
