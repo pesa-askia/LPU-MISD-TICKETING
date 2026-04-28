@@ -296,9 +296,9 @@ export function DataTable({
                   onClick={() => onRowClick && onRowClick(row)}
                   tabIndex={onRowClick ? 0 : -1}
                   style={{ animationDelay: `${rowIndex * 30}ms` }}
-                  className={`group transition-colors duration-200 animate-in fade-in slide-in-from-left-4 hover:bg-lpu-gold/5 ${
-                    onRowClick ? "cursor-pointer" : ""
-                  }`}
+                  className={`group transition-colors duration-200 animate-in fade-in slide-in-from-left-4 hover:bg-lpu-gold/10 ${
+                    rowIndex % 2 === 0 ? "bg-white" : "bg-gray-50"
+                  } ${onRowClick ? "cursor-pointer" : ""}`}
                 >
                   {columns.map((col, colIndex) => (
                     <td

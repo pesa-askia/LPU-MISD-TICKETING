@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
-import { Download } from "lucide-react";
+import { Download, X, ChevronDown } from "lucide-react";
 import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
 import { useLoading } from "../../context/LoadingContext";
 import { useNavbarActions } from "../../context/NavbarActionsContext";
@@ -38,6 +38,61 @@ function buildSearchFilter(q, search) {
   return q.or(parts.join(","));
 }
 
+function AssigneeCell({ ticket, assignableAdmins, adminNameMap, isGlobalAdmin, onAdd, onRemove }) {
+  const slots = ["Assignee1", "Assignee2", "Assignee3"];
+  const assigned = slots.map((s) => ticket[s]).filter(Boolean);
+  const available = assignableAdmins.filter((a) => !assigned.includes(a.id));
+  const [adding, setAdding] = useState("");
+
+  const handleSelect = (val) => {
+    if (!val) return;
+    setAdding("");
+    onAdd(ticket, val);
+  };
+
+  return (
+    <div className="flex flex-col gap-1 py-0.5" onClick={(e) => e.stopPropagation()}>
+      {assigned.map((id) => (
+        <div
+          key={id}
+          className="flex items-center gap-1 h-7 pl-2.5 pr-1.5 bg-lpu-maroon/10 border border-lpu-maroon/20 rounded-lg text-xs font-bold text-lpu-maroon whitespace-nowrap max-w-full"
+        >
+          <span className="truncate flex-1 min-w-0">{adminNameMap[id] || id}</span>
+          {isGlobalAdmin && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onRemove(ticket, id); }}
+              className="shrink-0 p-0.5 rounded hover:bg-lpu-maroon/20 transition-colors"
+              title="Remove assignee"
+            >
+              <X size={10} />
+            </button>
+          )}
+        </div>
+      ))}
+      {assigned.length < 3 && available.length > 0 && (
+        <div className="relative inline-block w-full">
+          <select
+            value={adding}
+            onChange={(e) => handleSelect(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full h-7 appearance-none pl-2.5 pr-6 bg-white border border-gray-200 rounded-lg text-xs font-bold text-gray-500 outline-none focus:ring-2 focus:ring-lpu-gold focus:border-lpu-gold cursor-pointer"
+          >
+            <option value="" disabled>Add assignee…</option>
+            {available.map((a) => (
+              <option key={a.id} value={a.id}>{a.full_name || a.email}</option>
+            ))}
+          </select>
+          <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+        </div>
+      )}
+      {assigned.length === 0 && available.length === 0 && (
+        <span className="text-sm text-gray-400">—</span>
+      )}
+    </div>
+  );
+}
+
 export default function AdminTickets() {
   const navigate = useNavigate();
   const { showLoading, hideLoading } = useLoading();
@@ -61,6 +116,7 @@ export default function AdminTickets() {
     }
   }, []);
   const currentAdminId = decoded?.id || decoded?.sub;
+  const isGlobalAdmin = decoded?.admin_level === 0;
 
   const [assignableAdmins, setAssignableAdmins] = useState([]);
   const [adminNameMap, setAdminNameMap] = useState({});
@@ -258,24 +314,46 @@ export default function AdminTickets() {
     }
   };
 
-  const handleAssigneeChange = async (ticket, slotIndex, value) => {
-    const field = `Assignee${slotIndex}`;
+  const handleAddAssignee = async (ticket, adminId) => {
+    const slots = ["Assignee1", "Assignee2", "Assignee3"];
+    const emptySlot = slots.find((s) => !ticket[s]);
+    if (!emptySlot) return;
     const payload = {
       Assignee1: ticket.Assignee1 || null,
       Assignee2: ticket.Assignee2 || null,
       Assignee3: ticket.Assignee3 || null,
     };
-    payload[field] = value || null;
-
+    payload[emptySlot] = adminId;
     try {
       const { error } = await realtimeSupabase
         .from("Tickets")
         .update(payload)
         .eq("id", ticket.id);
-      if (error) {
-        alert(error.message || "Failed to update assignees");
-        return;
-      }
+      if (error) { alert(error.message || "Failed to update assignees"); return; }
+      setTickets((prev) =>
+        prev.map((t) => (t.id === ticket.id ? { ...t, ...payload } : t)),
+      );
+    } catch (e) {
+      console.error("Unexpected error:", e);
+    }
+  };
+
+  const handleRemoveAssignee = async (ticket, adminId) => {
+    const slots = ["Assignee1", "Assignee2", "Assignee3"];
+    const slot = slots.find((s) => ticket[s] === adminId);
+    if (!slot) return;
+    const payload = {
+      Assignee1: ticket.Assignee1 || null,
+      Assignee2: ticket.Assignee2 || null,
+      Assignee3: ticket.Assignee3 || null,
+    };
+    payload[slot] = null;
+    try {
+      const { error } = await realtimeSupabase
+        .from("Tickets")
+        .update(payload)
+        .eq("id", ticket.id);
+      if (error) { alert(error.message || "Failed to update assignees"); return; }
       setTickets((prev) =>
         prev.map((t) => (t.id === ticket.id ? { ...t, ...payload } : t)),
       );
@@ -291,17 +369,18 @@ export default function AdminTickets() {
       { label: "Description", accessor: "Description", variant: "subtitle", colWidth: "w-40 md:w-[15%]" },
       {
         label: "Assignees",
-        accessor: "Assignee1",
-        variant: "select",
+        colWidth: "w-45 md:w-55",
         preventRowClick: true,
-        placeholder: "Assign to…",
-        options: assignableAdmins.map((a) => ({
-          value: a.id,
-          label: a.full_name || a.email,
-        })),
-        onChange: (row, value) => handleAssigneeChange(row, 1, value),
-        fallbackText: (row) =>
-          adminNameMap[row.Assignee1] || row.Assignee1 || "—",
+        render: (row) => (
+          <AssigneeCell
+            ticket={row}
+            assignableAdmins={assignableAdmins}
+            adminNameMap={adminNameMap}
+            isGlobalAdmin={isGlobalAdmin}
+            onAdd={handleAddAssignee}
+            onRemove={handleRemoveAssignee}
+          />
+        ),
       },
       { label: "Type", accessor: "Type", variant: "highlight" },
       { label: "Department", accessor: "Department", variant: "highlight" },
