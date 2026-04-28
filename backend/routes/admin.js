@@ -8,6 +8,16 @@ const resendApiConfigured = () => Boolean(String(process.env.RESEND_API_KEY || "
 
 const router = express.Router();
 
+async function getRootAdminId() {
+    const { data } = await supabase
+        .from("admin_users")
+        .select("id")
+        .eq("admin_level", 0)
+        .order("created_at", { ascending: true })
+        .limit(1);
+    return data?.[0]?.id ?? null;
+}
+
 /**
  * GET /api/admin/users
  * Get all users (paginated) — Global Admin only
@@ -168,12 +178,19 @@ router.get("/stats", globalAdminMiddleware, async (req, res) => {
 router.get("/assignees", adminMiddleware, async (req, res) => {
     try {
         const callerId = req.user?.id;
+        const isTicketAdmin = Number(req.user?.admin_level) === 1;
 
-        let selfQuery = supabase
+        const { data: selfData } = await supabase
             .from("admin_users")
             .select("id, full_name, email, admin_level")
             .eq("id", callerId)
             .limit(1);
+
+        const selfRow = selfData?.[0];
+
+        if (isTicketAdmin) {
+            return res.status(200).json({ success: true, data: selfRow ? [selfRow] : [] });
+        }
 
         let othersQuery = supabase
             .from("admin_users")
@@ -185,14 +202,10 @@ router.get("/assignees", adminMiddleware, async (req, res) => {
             othersQuery = othersQuery.not("email_verified_at", "is", null);
         }
 
-        const [{ data: selfData }, { data: others, error }] = await Promise.all([
-            selfQuery,
-            othersQuery,
-        ]);
+        const { data: others, error } = await othersQuery;
 
         if (error) return res.status(400).json({ success: false, message: error.message });
 
-        const selfRow = selfData?.[0];
         const sorted = (others || []).sort((a, b) => a.admin_level - b.admin_level);
         const data = selfRow ? [selfRow, ...sorted] : sorted;
 
@@ -248,14 +261,18 @@ router.get("/me", adminMiddleware, async (req, res) => {
  */
 router.get("/admins", globalAdminMiddleware, async (req, res) => {
     try {
-        const { data, error } = await supabase
-            .from("admin_users")
-            .select("id, email, full_name, is_active, admin_level, email_verified_at, created_at, updated_at")
-            .order("admin_level", { ascending: true });
+        const [{ data, error }, rootAdminId] = await Promise.all([
+            supabase
+                .from("admin_users")
+                .select("id, email, full_name, is_active, admin_level, email_verified_at, created_at, updated_at")
+                .order("admin_level", { ascending: true }),
+            getRootAdminId(),
+        ]);
 
         if (error) return res.status(400).json({ success: false, message: error.message });
 
-        return res.status(200).json({ success: true, data: data || [] });
+        const enriched = (data || []).map((a) => ({ ...a, is_root: a.id === rootAdminId }));
+        return res.status(200).json({ success: true, data: enriched });
     } catch (e) {
         return res.status(500).json({ success: false, message: e.message });
     }
@@ -367,6 +384,11 @@ router.delete("/admins/:adminId", globalAdminMiddleware, async (req, res) => {
             return res.status(400).json({ success: false, message: "Cannot delete your own account" });
         }
 
+        const rootAdminId = await getRootAdminId();
+        if (adminId === rootAdminId) {
+            return res.status(403).json({ success: false, message: "Cannot delete the root admin account" });
+        }
+
         const { data: existing, error: findErr } = await supabase
             .from("admin_users")
             .select("id, email, full_name, admin_level, supabase_auth_id")
@@ -422,6 +444,11 @@ router.patch("/admins/:adminId", globalAdminMiddleware, async (req, res) => {
 
         if (adminId === req.user.id) {
             return res.status(400).json({ success: false, message: "Cannot edit your own account" });
+        }
+
+        const rootAdminId = await getRootAdminId();
+        if (adminId === rootAdminId) {
+            return res.status(403).json({ success: false, message: "Cannot modify the root admin account" });
         }
 
         const updates = { updated_at: new Date().toISOString() };

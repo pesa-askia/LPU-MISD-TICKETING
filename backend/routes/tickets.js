@@ -275,6 +275,18 @@ router.patch("/:id/assignees", adminMiddleware, async (req, res) => {
     }
 
     const { Assignee1, Assignee2, Assignee3 } = req.body;
+    const callerId = req.user?.id;
+    const isTicketAdmin = Number(req.user?.admin_level) === 1;
+
+    if (isTicketAdmin) {
+      const assignees = [Assignee1, Assignee2, Assignee3].filter(Boolean);
+      if (assignees.some((id) => id !== callerId)) {
+        return res.status(403).json({
+          success: false,
+          message: "Ticket admins can only assign tickets to themselves",
+        });
+      }
+    }
 
     const { data, error } = await supabase
       .from("Tickets")

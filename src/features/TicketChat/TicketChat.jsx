@@ -514,6 +514,31 @@ export default function TicketChat({ adminView = false } = {}) {
         return;
       }
 
+      if (adminView && senderId && ticket) {
+        const slots = ["Assignee1", "Assignee2", "Assignee3"];
+        const assigned = slots.map((s) => ticket[s]).filter(Boolean);
+        if (!assigned.includes(senderId)) {
+          const emptySlot = slots.find((s) => !ticket[s]);
+          if (emptySlot) {
+            const assignPayload = {
+              Assignee1: ticket.Assignee1 || null,
+              Assignee2: ticket.Assignee2 || null,
+              Assignee3: ticket.Assignee3 || null,
+            };
+            assignPayload[emptySlot] = senderId;
+            const { data: ticketData, error: assignErr } = await realtimeSupabase
+              .from("Tickets")
+              .update(assignPayload)
+              .eq("id", ticket.id)
+              .select();
+            if (!assignErr && ticketData?.[0]) {
+              setTicket(ticketData[0]);
+              cacheTicket(id, ticketData[0]);
+            }
+          }
+        }
+      }
+
       if (data && data[0]) {
         const row = data[0];
         if (!seenMessageIdsRef.current.has(row.id)) {

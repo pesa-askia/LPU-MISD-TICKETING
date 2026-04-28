@@ -188,6 +188,13 @@ export default function AdminManage() {
             </TableBadge>
           );
         }
+        if (row.is_root) {
+          return (
+            <TableBadge variant="info" className="w-full justify-start">
+              {ADMIN_LEVEL_LABELS[row.admin_level] ?? row.admin_level} (Root)
+            </TableBadge>
+          );
+        }
         return (
           <TableSelect
             value={row.admin_level}
@@ -211,6 +218,7 @@ export default function AdminManage() {
         const isBusy = saving === row.id;
 
         if (isSelf) return null;
+        if (row.is_root) return null;
 
         return (
           <div className="flex flex-col gap-2">
