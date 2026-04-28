@@ -595,6 +595,16 @@
   flex-shrink: 0;
 }
 
+/* Bot avatar in header */
+.avatar-bot {
+  background: #940101;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
 @media (max-width: 600px) {
   .chat-card {
     width: 100%;

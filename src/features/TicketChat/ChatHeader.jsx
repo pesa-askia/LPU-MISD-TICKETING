@@ -1,4 +1,4 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Bot } from "lucide-react";
 
 export default function ChatHeader({
   adminView,
@@ -6,6 +6,7 @@ export default function ChatHeader({
   creatorEmail,
   headerInitial,
   adminParticipants,
+  isBotTicket,
   onBack,
 }) {
   const participants = Array.isArray(adminParticipants)
@@ -30,6 +31,17 @@ export default function ChatHeader({
         </div>
       ) : (
         <div className="assignee-group">
+          {isBotTicket && (
+            <div className="assignee">
+              <div className="avatar avatar-bot">
+                <Bot size={18} />
+              </div>
+              <div>
+                <div className="assignee-name">MISD Support Bot</div>
+                <div className="assignee-email">Automated assistant</div>
+              </div>
+            </div>
+          )}
           {hasAdmins ? (
             participants.map((participant) => {
               const initial = (participant.name || participant.email || "A")
@@ -49,7 +61,7 @@ export default function ChatHeader({
                 </div>
               );
             })
-          ) : (
+          ) : !isBotTicket ? (
             <div
               className="assignee assignee-skeleton"
               aria-label="Awaiting admin reply"
@@ -60,7 +72,7 @@ export default function ChatHeader({
                 <div className="skeleton-line short" />
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       )}
     </div>

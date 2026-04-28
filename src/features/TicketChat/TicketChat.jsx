@@ -468,6 +468,16 @@ export default function TicketChat({ adminView = false } = {}) {
     }
   };
 
+  const isBotTicket = useMemo(
+    () =>
+      messages.some(
+        (m) =>
+          m.text?.startsWith("[You]\n") ||
+          m.text?.startsWith("[MISD Support Bot]\n"),
+      ),
+    [messages],
+  );
+
   const adminParticipants = useMemo(() => {
     if (adminView) return [];
     const unique = new Map();
@@ -547,6 +557,7 @@ export default function TicketChat({ adminView = false } = {}) {
           creatorEmail={creatorEmail}
           headerInitial={headerInitial}
           adminParticipants={adminParticipants}
+          isBotTicket={isBotTicket}
           onBack={() => navigate(-1)}
         />
 
@@ -571,6 +582,7 @@ export default function TicketChat({ adminView = false } = {}) {
           isImageFile={isImageFile}
           onOpenAttachment={setSelectedImage}
           onDownloadAttachment={downloadAttachment}
+          transcriptCreatorName={creatorName}
         />
 
         <ChatInput text={text} onTextChange={setText} onSend={handleSend} />
