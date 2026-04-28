@@ -5,6 +5,7 @@ import AuthVerifyCallback from "./components/AuthVerifyCallback";
 import Tickets from "./pages/User/Tickets";
 import TicketChat from "./features/TicketChat/TicketChat";
 import SubmitTicket from "./pages/User/SubmitTicket";
+import ChatPage from "./pages/User/ChatPage";
 import UserLayout from "./layouts/UserLayout";
 import AdminLayout from "./layouts/AdminLayout";
 import AdminTickets from "./pages/Admin/AdminTickets";
@@ -101,6 +102,7 @@ function App() {
           }
         >
           <Route path="/SubmitTicket" element={<SubmitTicket />} />
+          <Route path="/Chat" element={<ChatPage />} />
           <Route path="/Tickets" element={<Tickets />} />
           <Route path="/Tickets/:id" element={<TicketChat />} />
         </Route>

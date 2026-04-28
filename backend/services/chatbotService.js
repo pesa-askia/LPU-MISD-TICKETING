@@ -1,14 +1,11 @@
 import { supabase } from "../config/database.js";
 
-// Configuration Constants
 const CONFIG = {
   SEARCH_THRESHOLD: 0.5,
   SEARCH_COUNT: 5,
   API_TIMEOUT: 20000,
   EMBEDDING_MODEL: "models/gemini-embedding-001",
   GROQ_URL: "https://api.groq.com/openai/v1/chat/completions",
-
-  // List models from "Smartest" to "Most Permissive"
   MODELS: [
     "llama-3.3-70b-versatile",
     "meta-llama/llama-4-scout-17b-16e-instruct",
@@ -16,28 +13,32 @@ const CONFIG = {
   ],
 };
 
-const SYSTEM_PROMPT = `You are "Stella," the MISD IT Support Assistant for LPU. 
+const SYSTEM_PROMPT = `You are "Stella," the MISD IT Support Assistant for LPU.
 
 CORE DIRECTIVES:
-1. TONE: Professional, helpful, and natural. Avoid being overly formal or robotic.
-2. VARIETY: Do not use repetitive opening phrases (like "I'd be happy to help"). Start your response in a way that feels natural to the specific question asked.
-3. GROUNDING: Answer ONLY using the provided context. If the answer isn't there, say: "I don't have information about that. Please contact support staff directly."
-4. SYNTHESIS: Rephrase the technical information from the context into clear, conversational steps. Never copy-paste "A:" or "Answer:" labels.
-5. ACCURACY: Never speculate. If the steps aren't in the context, refer the user to human support.`;
+1. TONE: Professional, helpful, and natural. Do not start with "I'd be happy to help."
+2. GROUNDING: Answer using the KNOWLEDGE BASE context. For technical questions, stick to the KB. For simple conversational follow-ups (e.g. "what are we talking about?", "can you repeat that?"), reference the conversation history instead.
+3. SYNTHESIS: Rephrase into clear conversational steps. Never copy-paste "A:" or "Answer:" labels.
+4. ACCURACY: If a technical answer is not in the KB, say: "I don't have specific information on that. Please contact MISD support directly."
 
-/**
- * Utility: Fetch with Timeout
- * Prevents the backend from hanging indefinitely if an API is slow.
- */
+OUTPUT FORMAT — respond with valid JSON only, no other text:
+{
+  "answer": "your full response here",
+  "suggestions": ["short follow-up question 1", "short follow-up question 2"]
+}
+
+SUGGESTION RULES:
+- Generate exactly 2 follow-up questions a student would naturally ask next about this topic.
+- They can be different aspects or deeper steps of the SAME topic — not required to be different topics.
+- Do NOT repeat anything from ALREADY DISCUSSED.
+- Max 10 words each. Must be a specific, actionable question.
+- Only use an empty array if the knowledge base has zero relevant content at all.`;
+
 async function fetchWithTimeout(url, options = {}) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), CONFIG.API_TIMEOUT);
-
   try {
-    const response = await fetch(url, {
-      ...options,
-      signal: controller.signal,
-    });
+    const response = await fetch(url, { ...options, signal: controller.signal });
     clearTimeout(timeoutId);
     return response;
   } catch (error) {
@@ -46,44 +47,28 @@ async function fetchWithTimeout(url, options = {}) {
   }
 }
 
-/**
- * 1. Generate Vector Embeddings
- * Corrected: Explicitly requesting 768 dimensions from the model.
- * This preserves semantic meaning better than manual slicing.
- */
 export async function embedText(text) {
-  // Use gemini-embedding-001 - it is the most stable for v1beta
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${process.env.GEMINI_API_KEY}`;
-
   const response = await fetchWithTimeout(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "models/gemini-embedding-001", // Corrected model string
+      model: "models/gemini-embedding-001",
       content: { parts: [{ text }] },
-      outputDimensionality: 768, // This keeps your DB happy
+      outputDimensionality: 768,
     }),
   });
-
   if (!response.ok) {
     const err = await response.text();
     throw new Error(`Embedding API Error: ${response.status} - ${err}`);
   }
-
   const data = await response.json();
   const vector = data?.embedding?.values;
-
-  if (!vector || vector.length !== 768) {
+  if (!vector || vector.length !== 768)
     throw new Error(`Invalid vector dimension: ${vector?.length || 0}`);
-  }
-
   return vector;
 }
 
-/**
- * NEW: Clean and Expand User Query
- * This turns a messy user question into a clear searchable concept.
- */
 async function expandQuery(userMessage) {
   try {
     const url = "https://openrouter.ai/api/v1/chat/completions";
@@ -94,17 +79,14 @@ async function expandQuery(userMessage) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-flash-1.5-8b", // Use a very fast model for this
+        model: "google/gemini-flash-1.5-8b",
         messages: [
           {
             role: "system",
             content:
               "Rewrite this IT support question into a 1-sentence technical search query. Focus on the core intent.",
           },
-          {
-            role: "user",
-            content: userMessage,
-          },
+          { role: "user", content: userMessage },
         ],
         max_tokens: 50,
       }),
@@ -112,34 +94,23 @@ async function expandQuery(userMessage) {
     const data = await response.json();
     return data?.choices?.[0]?.message?.content || userMessage;
   } catch {
-    return userMessage; // Fallback to original if API fails
+    return userMessage;
   }
 }
 
 async function searchKnowledge(userMessage) {
   try {
-    // Optional: Use expanded query for better matching
-    // const expandedQuery = await expandQuery(userMessage);
-
     const queryEmbedding = await embedText(userMessage);
-
     const { data, error } = await supabase.rpc("search_knowledge_base", {
       query_embedding: queryEmbedding,
-      match_threshold: CONFIG.SEARCH_THRESHOLD, // Now 0.5
+      match_threshold: CONFIG.SEARCH_THRESHOLD,
       match_count: CONFIG.SEARCH_COUNT,
     });
-
     if (error) throw error;
-
-    // Debugging: Log what was found to your terminal
-    if (!data || data.length === 0) {
-      console.log(
-        `[Search] No results found for: "${userMessage}" at ${CONFIG.SEARCH_THRESHOLD} threshold.`,
-      );
-    } else {
+    if (!data || data.length === 0)
+      console.log(`[Search] No results for: "${userMessage}" at ${CONFIG.SEARCH_THRESHOLD} threshold.`);
+    else
       console.log(`[Search] Found ${data.length} relevant chunks.`);
-    }
-
     return data || [];
   } catch (err) {
     console.error("[Chatbot] Knowledge Search Failure:", err.message);
@@ -147,17 +118,12 @@ async function searchKnowledge(userMessage) {
   }
 }
 
-/**
- * 3. Chat Completion via Groq
- */
+// Calls Groq with JSON mode enforced — model MUST return valid JSON
 async function callLLM(messages) {
   let lastError;
-
-  // Loop through your priority list of models
   for (const modelId of CONFIG.MODELS) {
     try {
       console.log(`[Chatbot] Attempting with model: ${modelId}`);
-
       const response = await fetchWithTimeout(CONFIG.GROQ_URL, {
         method: "POST",
         headers: {
@@ -166,43 +132,74 @@ async function callLLM(messages) {
         },
         body: JSON.stringify({
           model: modelId,
-          messages: messages,
+          messages,
           temperature: 0.1,
-          max_tokens: 1024,
+          max_tokens: 1200,
+          response_format: { type: "json_object" },
         }),
       });
-
       const data = await response.json();
-
-      // If we hit a rate limit (429), log it and continue to the next model
       if (response.status === 429) {
         console.warn(`[Chatbot] Model ${modelId} rate limited. Trying next...`);
         lastError = data.error?.message || "Rate limit exceeded";
         continue;
       }
-
-      if (!response.ok) {
-        throw new Error(
-          data.error?.message || `Groq failed with status ${response.status}`,
-        );
-      }
-
+      if (!response.ok)
+        throw new Error(data.error?.message || `Groq failed with status ${response.status}`);
       return data.choices[0].message.content;
     } catch (err) {
       console.error(`[Chatbot] Error with ${modelId}:`, err.message);
       lastError = err;
-      // If it's a timeout or network error, you might want to retry the same model
-      // but for rate limits, we definitely want the next model.
     }
   }
-
-  // If we exhaust the entire list, throw the last error encountered
   throw new Error(`All models exhausted. Last error: ${lastError}`);
 }
 
-/**
- * 4. Improved Handoff Detection (Regex based)
- */
+function parseJsonReply(raw) {
+  try {
+    const cleaned = raw.replace(/^```(?:json)?\n?|\n?```$/gm, "").trim();
+    const parsed = JSON.parse(cleaned);
+    const answer = typeof parsed.answer === "string" ? parsed.answer.trim() : "";
+    const suggestions = Array.isArray(parsed.suggestions)
+      ? parsed.suggestions
+          .filter((s) => typeof s === "string" && s.trim().length > 3)
+          .map((s) => s.trim())
+          .slice(0, 2)
+      : [];
+    if (!answer) {
+      console.warn("[Chatbot] JSON parsed but 'answer' field missing. Raw:", cleaned.slice(0, 200));
+    }
+    return { answer, suggestions };
+  } catch (e) {
+    // JSON parse failed — model didn't follow JSON format despite response_format
+    console.warn("[Chatbot] JSON parse failed:", e.message, "| Raw:", raw.slice(0, 200));
+    return { answer: raw.trim(), suggestions: [] };
+  }
+}
+
+// Last-resort: pull question-like sentences from RAG chunk text.
+// Works even if the LLM doesn't cooperate.
+function extractChunkQuestions(chunks, skipText) {
+  const skipLower = (skipText || "").toLowerCase();
+  const seen = new Set();
+  const out = [];
+  for (const chunk of chunks) {
+    const lines = chunk.content.split(/[.\n]+/).map((l) => l.trim()).filter(Boolean);
+    for (const line of lines) {
+      const clean = line.replace(/^(?:Q:|Question:|•|-|\*|\d+\.)\s*/i, "").trim();
+      if (clean.length < 10 || clean.length > 100) continue;
+      const lower = clean.toLowerCase();
+      if (seen.has(lower) || skipLower.includes(lower.slice(0, 20))) continue;
+      seen.add(lower);
+      // Prefer explicit questions; accept short instructional phrases too
+      const asQ = clean.endsWith("?") ? clean : `How do I ${clean.toLowerCase()}?`;
+      out.push(asQ);
+      if (out.length >= 2) return out;
+    }
+  }
+  return out;
+}
+
 function detectHandoffSignal(text) {
   const signals = [
     "contact support",
@@ -215,38 +212,68 @@ function detectHandoffSignal(text) {
   return signals.some((s) => new RegExp(`\\b${s}\\b`, "i").test(text));
 }
 
-/**
- * 5. Primary Service Export
- */
-export async function sendChatMessage(userMessage, sessionId, userId = null) {
+export async function sendChatMessage(userMessage, sessionId, userId = null, history = []) {
   const results = await searchKnowledge(userMessage);
   const context = results.map((r) => r.content).join("\n\n");
 
-  // 1. Construct the array that Groq/OpenAI format expects
-  const messages = [
-    {
-      role: "system",
-      content: `${SYSTEM_PROMPT}\n\nRELEVANT CONTEXT FROM KNOWLEDGE BASE:\n${context}`,
-    },
-    {
-      role: "user",
-      content: userMessage,
-    },
+  const historyMessages = history
+    .slice(-20)
+    .filter((m) => m.role === "user" || m.role === "bot")
+    .map((m) => ({
+      role: m.role === "bot" ? "assistant" : "user",
+      content: m.content,
+    }));
+
+  const discussedTopics = history
+    .filter((m) => m.role === "user")
+    .map((m) => m.content)
+    .concat(userMessage)
+    .join(" | ");
+
+  // Build a plain-text summary of the conversation so the LLM can reference it
+  // for conversational follow-ups even when KB results are noisy/irrelevant.
+  const conversationSummary = historyMessages.length > 0
+    ? historyMessages
+        .map((m) => `${m.role === "assistant" ? "Stella" : "User"}: ${m.content}`)
+        .join("\n")
+    : "No prior conversation.";
+
+  const systemContent =
+    `${SYSTEM_PROMPT}\n\n` +
+    `CONVERSATION SO FAR (use this for any follow-up or meta questions like "what are we talking about"):\n${conversationSummary}\n\n` +
+    `ALREADY DISCUSSED (do not suggest these): ${discussedTopics || "none"}\n\n` +
+    `KNOWLEDGE BASE (use only for technical questions; ignore if the user is asking about the conversation itself):\n${context}`;
+
+  const llmMessages = [
+    { role: "system", content: systemContent },
+    ...historyMessages,
+    { role: "user", content: userMessage },
   ];
 
-  let botReply;
+  let botReply = "I'm having trouble connecting right now. Please contact IT support staff directly.";
+  let suggestions = [];
+
   try {
-    // 2. Pass the array object, not the raw strings
-    botReply = await callLLM(messages);
+    const raw = await callLLM(llmMessages);
+    console.log("[Chatbot] Raw LLM response:", raw.slice(0, 400));
+    const parsed = parseJsonReply(raw);
+    if (parsed.answer) botReply = parsed.answer;
+    suggestions = parsed.suggestions;
+    // If model returned empty suggestions, extract from RAG chunks directly
+    if (suggestions.length === 0 && results.length > 0) {
+      suggestions = extractChunkQuestions(results, discussedTopics);
+      console.log("[Chatbot] Fallback chunk suggestions:", suggestions);
+    }
+    console.log("[Chatbot] Final suggestions:", suggestions);
   } catch (err) {
     console.error("[Chatbot] LLM processing error:", err.message);
-    botReply =
-      "I'm having trouble connecting to my brain right now. Please contact IT support staff directly.";
+    if (results.length > 0) {
+      suggestions = extractChunkQuestions(results, discussedTopics);
+    }
   }
 
   const shouldHandoff = detectHandoffSignal(botReply);
 
-  // Parallel logging to Supabase
   Promise.all([
     supabase.from("chatbot_messages").insert([
       { session_id: sessionId, role: "user", content: userMessage },
@@ -263,10 +290,9 @@ export async function sendChatMessage(userMessage, sessionId, userId = null) {
     ),
   ]).catch((err) => console.error("[Chatbot] Logging failure:", err.message));
 
-  return { reply: botReply, sessionId, shouldHandoff };
+  return { reply: botReply, suggestions, sessionId, shouldHandoff };
 }
 
-// 6. Manual Handoff Export
 export async function markSessionTransferred(sessionId) {
   await supabase
     .from("chatbot_sessions")
@@ -274,14 +300,12 @@ export async function markSessionTransferred(sessionId) {
     .eq("session_id", sessionId);
 }
 
-// 7. Get Session Export
 export async function getSession(sessionId) {
   const { data, error } = await supabase
     .from("chatbot_sessions")
     .select("*")
     .eq("session_id", sessionId)
     .single();
-
   if (error) throw error;
   return data;
 }

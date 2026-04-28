@@ -98,9 +98,7 @@ export default function ChatMessages({
                 <span className="message-name">{displayName}</span>
               )}
               {showName && timeLabel && <span className="message-sep">-</span>}
-              {timeLabel && (
-                <span className="message-time">{timeLabel}</span>
-              )}
+              {timeLabel && <span className="message-time">{timeLabel}</span>}
             </div>
           )}
           <div className="bubble">{m.text}</div>
@@ -154,18 +152,18 @@ export default function ChatMessages({
 
     const timeLabel = formatTimeAgo(m.time);
     return parsedTranscript.map((entry, idx) => {
-      // Admin sees: student on left, bot on right. User sees: self on right, bot on left.
+      // User view: student=right, bot=left. Admin view: student=left, bot=right.
       const alignRight = adminView
         ? entry.role === "bot"
         : entry.role === "user";
       const displayName =
         entry.role === "user"
           ? adminView
-            ? (transcriptCreatorName || "Student")
+            ? transcriptCreatorName || "Student"
             : "You"
           : "MISD Support Bot";
-      // Only show time on last entry to avoid clutter
       const isLast = idx === parsedTranscript.length - 1;
+
       return (
         <div
           key={`${m.id}-t-${idx}`}

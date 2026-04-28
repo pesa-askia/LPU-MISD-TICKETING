@@ -11,7 +11,7 @@ const router = express.Router();
 
 // POST /api/chatbot/message
 router.post("/message", optionalAuthMiddleware, async (req, res) => {
-  const { message, sessionId } = req.body;
+  const { message, sessionId, history } = req.body;
   if (!message || !sessionId) {
     return res
       .status(400)
@@ -42,7 +42,7 @@ router.post("/message", optionalAuthMiddleware, async (req, res) => {
       });
     }
 
-    const result = await sendChatMessage(message, sessionId, userId);
+    const result = await sendChatMessage(message, sessionId, userId, Array.isArray(history) ? history : []);
     res.json({ success: true, ...result });
   } catch (err) {
     console.error("[Chatbot] message error:", err.message);

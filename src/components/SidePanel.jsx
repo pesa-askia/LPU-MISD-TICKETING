@@ -38,11 +38,19 @@ const SidePanel = ({ collapsed, onToggleCollapse }) => {
   return (
     <aside
       className={`
-        flex flex-col bg-lpu-maroon z-1001 font-['Bai_Jamjuree',sans-serif] relative
-        md:transition-[width,padding] md:duration-500 md:ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:md:transition-none
-        md:fixed md:top-0 md:left-0 md:h-full md:p-4
+        flex flex-col bg-lpu-maroon z-[1001] font-['Bai_Jamjuree',sans-serif] relative
+        
+        /* Desktop: Sidebar stays fixed */
+        md:fixed md:top-0 md:left-0 md:h-full
+        md:transition-[width,padding] md:duration-500 md:ease-[cubic-bezier(0.22,1,0.36,1)]
         ${collapsed ? "md:w-25" : "md:w-87.5"}
-        max-md:fixed max-md:bottom-0 max-md:left-0 max-md:right-0 max-md:w-full max-md:h-auto max-md:flex-row max-md:rounded-t-2xl max-md:pb-[env(safe-area-inset-bottom)] max-md:shadow-[0_-4px_20px_rgba(0,0,0,0.2)]
+        md:p-4
+
+        /* Mobile: Bottom Nav sits in the Flex Flow */
+        /* max-md:order-last ensures it is always the bottom child of the layout flex-col */
+        max-md:order-last max-md:shrink-0 max-md:w-full max-md:h-auto max-md:flex-row 
+        max-md:rounded-t-2xl max-md:pb-[env(safe-area-inset-bottom)] 
+        max-md:shadow-[0_-4px_20px_rgba(0,0,0,0.2)]
       `}
     >
       {/* ── Refined Dangling Toggle Handle ── */}

@@ -2,26 +2,29 @@ import { useState } from "react";
 import SidePanel from "../components/SidePanel";
 import { Outlet, useLocation } from "react-router-dom";
 import ChatbotWidget from "../features/ChatbotWidget";
+import { ChatbotProvider } from "../context/ChatbotContext";
 
 const UserLayout = () => {
   const { pathname } = useLocation();
   const [isSidePanelCollapsed, setIsSidePanelCollapsed] = useState(true);
-  const isChat = /\/Tickets\/.+/.test(pathname);
+  const isFullChatPage = pathname === "/Chat";
   const sidePanelOffsetClass = isSidePanelCollapsed ? "md:ml-25" : "md:ml-87.5";
 
   return (
-    <div className="min-h-dvh">
-      <SidePanel
-        collapsed={isSidePanelCollapsed}
-        onToggleCollapse={() => setIsSidePanelCollapsed((prev) => !prev)}
-      />
-      <main
-        className={`min-h-dvh max-md:pb-[calc(6rem+env(safe-area-inset-bottom))] md:transition-[margin-left] md:duration-500 md:ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:md:transition-none ${sidePanelOffsetClass}${isChat ? " p-0 overflow-y-hidden" : ""}`}
-      >
-        <Outlet />
-      </main>
-      <ChatbotWidget />
-    </div>
+    <ChatbotProvider>
+      <div className="h-dvh flex flex-col md:flex-row overflow-hidden bg-slate-50">
+        <SidePanel
+          collapsed={isSidePanelCollapsed}
+          onToggleCollapse={() => setIsSidePanelCollapsed((prev) => !prev)}
+        />
+        <main
+          className={`flex-1 overflow-y-auto min-h-0 md:transition-[margin-left] md:duration-500 md:ease-[cubic-bezier(0.22,1,0.36,1)] ${sidePanelOffsetClass}`}
+        >
+          <Outlet />
+        </main>
+        {!isFullChatPage && <ChatbotWidget />}
+      </div>
+    </ChatbotProvider>
   );
 };
 

@@ -51,8 +51,6 @@ export default function TicketDetails({
             )}
           </div>
         </button>
-
-
       </div>
       <div className={`details-extra ${expandedSummary ? "open" : ""}`}>
         <div className="details-row details-grid-row">

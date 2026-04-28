@@ -1,326 +1,50 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { MessageCircle, X, Send, User, Bot, ArrowRight } from "lucide-react";
-import { getApiBaseUrl } from "../utils/apiBaseUrl";
-import { jwtDecode } from "jwt-decode";
-
-// Local limiter (mirrors backend `chatbotRateLimitService` env names; use VITE_ on client)
-const envGet = (env, k) => env?.[k] ?? env?.[`VITE_${k}`];
-function getRateWindowMs(env) {
-  const v = Number(
-    envGet(env, "CHATBOT_LIMIT_WINDOW_MS") ||
-      envGet(env, "CHATBOT_RATE_WINDOW_MS"),
-  );
-  if (v > 0) return v;
-  return 24 * 60 * 60 * 1000;
-}
-
-// Spam detection config — only applies cooldown when user sends rapidly
-const SPAM_THRESHOLD_COUNT = 3; // messages within SPAM_WINDOW_MS triggers cooldown
-const SPAM_WINDOW_MS = 6_000;
-const SPAM_BASE_COOLDOWN_MS = 5_000;
-const SPAM_MAX_COOLDOWN_MS = 120_000;
-const GREETING =
-  "Hi! I'm the MISD Support Bot. How can I help you today? I can assist with LMS, Microsoft 365, Student Portal, ERP, hardware, and software issues.";
-
-function generateSessionId() {
-  return `sess_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-}
+import { MessageCircle, X, Send, User, Bot, ArrowRight, Maximize2 } from "lucide-react";
+import { useChatbotContext } from "../context/ChatbotContext";
+import { CHATBOT_SUGGESTIONS } from "../hooks/useChatbot";
 
 function ChatbotWidget() {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState([
-    { role: "bot", content: GREETING, id: "greeting" },
-  ]);
-  const [inputText, setInputText] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
-  const [shouldHandoff, setShouldHandoff] = useState(false);
-  const [sessionId] = useState(generateSessionId);
-  const [cooldownUntilMs, setCooldownUntilMs] = useState(null);
-  const [cooldownLabel, setCooldownLabel] = useState("");
-  const messagesEndRef = useRef(null);
-  const inputRef = useRef(null);
-  const sendTimestampsRef = useRef([]);
 
-  const limiterKey = (() => {
-    try {
-      const token = localStorage.getItem("authToken");
-      if (token) {
-        const decoded = jwtDecode(token);
-        const userId = decoded?.id || decoded?.sub;
-        if (userId) return `chatLimiter:user:${userId}`;
-      }
-    } catch {
-      // ignore
-    }
-    return `chatLimiter:session:${sessionId}`;
-  })();
-
-  const rateWindowMs = getRateWindowMs(import.meta.env);
-
-  const readLocalLimiter = () => {
-    const now = Date.now();
-    try {
-      const raw = localStorage.getItem(limiterKey);
-      if (!raw) {
-        return {
-          violationCount: 0,
-          cooldownUntilMs: null,
-          windowStartMs: null,
-        };
-      }
-      const parsed = JSON.parse(raw);
-      // persisted key "chatCount" = violation count (fast-send attempts)
-      const chatCount = Number(parsed?.chatCount || 0);
-      const violationCount = chatCount;
-      const cooldownUntilMs =
-        typeof parsed?.cooldownUntilMs === "number"
-          ? parsed.cooldownUntilMs
-          : null;
-      const windowStartMs =
-        typeof parsed?.windowStartMs === "number" ? parsed.windowStartMs : null;
-
-      // Sync with backend: rolling window (default 24h) — then counts reset.
-      if (windowStartMs && now - windowStartMs > rateWindowMs) {
-        const reset = {
-          chatCount: 0,
-          cooldownUntilMs: null,
-          windowStartMs: now,
-        };
-        writeLocalLimiterRaw(reset);
-        return { violationCount: 0, cooldownUntilMs: null, windowStartMs: now };
-      }
-      if (!windowStartMs && chatCount > 0) {
-        const reset = {
-          chatCount: 0,
-          cooldownUntilMs: null,
-          windowStartMs: now,
-        };
-        writeLocalLimiterRaw(reset);
-        return { violationCount: 0, cooldownUntilMs: null, windowStartMs: now };
-      }
-      return { violationCount, cooldownUntilMs, windowStartMs };
-    } catch {
-      return { violationCount: 0, cooldownUntilMs: null, windowStartMs: null };
-    }
-  };
-
-  const writeLocalLimiterRaw = (payload) => {
-    try {
-      localStorage.setItem(
-        limiterKey,
-        JSON.stringify({ ...payload, updatedAt: Date.now() }),
-      );
-    } catch {
-      // ignore
-    }
-  };
-
-  const writeLocalLimiter = ({
-    violationCount,
-    cooldownUntilMs: until,
-    windowStartMs,
-  }) => {
-    writeLocalLimiterRaw({
-      chatCount: Number(violationCount || 0),
-      cooldownUntilMs: typeof until === "number" ? until : null,
-      windowStartMs: typeof windowStartMs === "number" ? windowStartMs : null,
-    });
-  };
-
-  const formatWait = (ms) => {
-    const s = Math.max(1, Math.ceil(ms / 1000));
-    if (s < 60) return `${s}s`;
-    const m = Math.ceil(s / 60);
-    return `${m}m`;
-  };
-
-  // Bootstrap cooldown from localStorage on mount / key changes
-  useEffect(() => {
-    const { cooldownUntilMs: until } = readLocalLimiter();
-    if (until && Date.now() < until) {
-      setCooldownUntilMs(until);
-      setCooldownLabel(
-        `You can continue chatting after ${formatWait(until - Date.now())}.`,
-      );
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [limiterKey]);
-
-  useEffect(() => {
-    if (!cooldownUntilMs) return;
-    const tick = () => {
-      const left = cooldownUntilMs - Date.now();
-      if (left <= 0) {
-        setCooldownUntilMs(null);
-        setCooldownLabel("");
-        return;
-      }
-      setCooldownLabel(`You can continue chatting after ${formatWait(left)}.`);
-    };
-    tick();
-    const id = setInterval(tick, 250);
-    return () => clearInterval(id);
-  }, [cooldownUntilMs]);
+  const {
+    messages,
+    inputText,
+    setInputText,
+    isTyping,
+    shouldHandoff,
+    sessionId,
+    cooldownUntilMs,
+    cooldownLabel,
+    showSuggestions,
+    messagesEndRef,
+    inputRef,
+    sendMessage,
+    handleKeyDown,
+    handleHandoff: baseHandleHandoff,
+  } = useChatbotContext();
 
   useEffect(() => {
     if (isOpen) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
       inputRef.current?.focus();
     }
-  }, [messages, isOpen]);
+  }, [messages, isOpen, messagesEndRef, inputRef]);
 
-  const sendMessage = useCallback(
-    async (text) => {
-      if (!text.trim() || isTyping) return;
-
-      // Track send time for spam detection (checked after successful response)
-      sendTimestampsRef.current = [
-        ...sendTimestampsRef.current.filter(
-          (t) => Date.now() - t < SPAM_WINDOW_MS,
-        ),
-        Date.now(),
-      ];
-
-      const userMsg = {
-        role: "user",
-        content: text.trim(),
-        id: Date.now().toString(),
-      };
-      setMessages((prev) => [...prev, userMsg]);
-      setInputText("");
-      setIsTyping(true);
-
-      try {
-        const token = localStorage.getItem("authToken");
-        const headers = { "Content-Type": "application/json" };
-        if (token) headers["Authorization"] = `Bearer ${token}`;
-
-        const res = await fetch(`${getApiBaseUrl()}/api/chatbot/message`, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({ message: text.trim(), sessionId }),
-        });
-
-        const data = await res.json();
-        if (!res.ok || !data.success) {
-          const retryAfterMs =
-            typeof data?.retryAfterMs === "number" ? data.retryAfterMs : null;
-          if (res.status === 429 && retryAfterMs) {
-            const until = Date.now() + retryAfterMs;
-            setCooldownUntilMs(until);
-            setCooldownLabel(
-              `You can continue chatting after ${formatWait(retryAfterMs)}.`,
-            );
-            const cur = readLocalLimiter();
-            const v =
-              typeof data?.violationCount === "number"
-                ? data.violationCount
-                : cur.violationCount + 1;
-            writeLocalLimiter({
-              violationCount: v,
-              cooldownUntilMs: until,
-              windowStartMs: cur.windowStartMs ?? Date.now(),
-            });
-            return;
-          }
-          throw new Error(data?.error || "Bot unavailable");
-        }
-
-        const botMsg = {
-          role: "bot",
-          content: data.reply,
-          id: `bot_${Date.now()}`,
-        };
-        setMessages((prev) => [...prev, botMsg]);
-
-        // Spam detection: check accumulated send timestamps, escalate cooldown only on rapid fire
-        const now = Date.now();
-        // Prune stale entries (may have aged out while waiting for response)
-        sendTimestampsRef.current = sendTimestampsRef.current.filter(
-          (t) => now - t < SPAM_WINDOW_MS,
-        );
-        const recentCount = sendTimestampsRef.current.length;
-        if (recentCount >= SPAM_THRESHOLD_COUNT) {
-          const cur = readLocalLimiter();
-          const newViolations = cur.violationCount + 1;
-          const cooldownMs = Math.min(
-            SPAM_BASE_COOLDOWN_MS * Math.pow(2, newViolations - 1),
-            SPAM_MAX_COOLDOWN_MS,
-          );
-          const until = now + cooldownMs;
-          writeLocalLimiter({
-            violationCount: newViolations,
-            cooldownUntilMs: until,
-            windowStartMs: cur.windowStartMs ?? now,
-          });
-          setCooldownUntilMs(until);
-          // Reset timestamps so next burst starts fresh
-          sendTimestampsRef.current = [];
-        } else {
-          const cur = readLocalLimiter();
-          writeLocalLimiter({
-            violationCount: cur.violationCount,
-            cooldownUntilMs: null,
-            windowStartMs: cur.windowStartMs ?? now,
-          });
-        }
-
-        if (data.shouldHandoff) setShouldHandoff(true);
-      } catch {
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "bot",
-            content:
-              "Sorry, I'm having trouble connecting. Please try again or submit a ticket directly.",
-            id: `err_${Date.now()}`,
-            isError: true,
-          },
-        ]);
-      } finally {
-        setIsTyping(false);
-      }
-    },
-    [isTyping, sessionId, limiterKey],
-  );
-
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage(inputText);
-    }
+  const handleHandoff = () => {
+    setIsOpen(false);
+    baseHandleHandoff();
   };
 
-  const handleHandoff = async () => {
-    try {
-      const token = localStorage.getItem("authToken");
-      const headers = { "Content-Type": "application/json" };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-      await fetch(`${getApiBaseUrl()}/api/chatbot/handoff`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ sessionId }),
-      });
-    } catch {
-      // ignore
-    }
+  const lastBotId = useMemo(
+    () => [...messages].reverse().find((m) => m.role === "bot")?.id ?? null,
+    [messages],
+  );
 
-    const userMessages = messages.filter((m) => m.role === "user");
-    const summary = userMessages[0]?.content?.slice(0, 120) || "";
-    const transcript = messages
-      .filter((m) => m.id !== "greeting")
-      .map((m) => {
-        const label = m.role === "user" ? "[You]" : "[MISD Support Bot]";
-        return `${label}\n${m.content}`;
-      })
-      .join("\n\n");
-
+  const handleEnlarge = () => {
     setIsOpen(false);
-    navigate("/SubmitTicket", {
-      state: { chatPrefill: { summary, description: transcript } },
-    });
+    navigate("/Chat");
   };
 
   return (
@@ -338,7 +62,7 @@ function ChatbotWidget() {
       {isOpen && (
         <div
           className="fixed z-999 flex flex-col bg-white rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200
-          bottom-22.5 right-7 w-85 max-h-130 
+          bottom-22.5 right-7 w-85 max-h-130
           max-md:bottom-37 max-md:right-4 max-md:left-4 max-md:w-auto"
         >
           {/* Header */}
@@ -347,42 +71,84 @@ function ChatbotWidget() {
               <Bot size={18} />
               <span>MISD Support Bot</span>
             </div>
-            <button
-              className="text-white opacity-80 hover:opacity-100 transition-opacity"
-              onClick={() => setIsOpen(false)}
-              aria-label="Close chat"
-            >
-              <X size={16} />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                className="text-white opacity-80 hover:opacity-100 transition-opacity p-0.5"
+                onClick={handleEnlarge}
+                aria-label="Open full chat"
+              >
+                <Maximize2 size={15} />
+              </button>
+              <button
+                className="text-white opacity-80 hover:opacity-100 transition-opacity p-0.5"
+                onClick={() => setIsOpen(false)}
+                aria-label="Close chat"
+              >
+                <X size={16} />
+              </button>
+            </div>
           </div>
 
           {/* Messages Area */}
           <div className="flex-1 overflow-y-auto p-3.5 px-3 flex flex-col gap-2.5 bg-slate-50">
             {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex gap-2 items-start max-w-[90%] ${msg.role === "user" ? "flex-row-reverse self-end" : ""}`}
-              >
+              <div key={msg.id} className="flex flex-col gap-1.5">
                 <div
-                  className={`shrink-0 w-6.5 h-6.5 rounded-full flex items-center justify-center text-[10px] 
-                  ${msg.role === "user" ? "bg-lpu-maroon text-white" : "bg-gray-200 text-gray-600"}`}
+                  className={`flex gap-2 items-start max-w-[90%] ${msg.role === "user" ? "flex-row-reverse self-end" : ""}`}
                 >
-                  {msg.role === "user" ? <User size={14} /> : <Bot size={14} />}
+                  <div
+                    className={`shrink-0 w-6.5 h-6.5 rounded-full flex items-center justify-center text-[10px]
+                    ${msg.role === "user" ? "bg-lpu-maroon text-white" : "bg-gray-200 text-gray-600"}`}
+                  >
+                    {msg.role === "user" ? <User size={14} /> : <Bot size={14} />}
+                  </div>
+                  <div
+                    className={`p-2 px-3 rounded-xl text-[13.5px] leading-relaxed whitespace-pre-wrap wrap-break-word border
+                    ${
+                      msg.role === "user"
+                        ? "bg-lpu-maroon text-white border-transparent"
+                        : msg.isError
+                          ? "bg-red-50 border-red-400 text-red-700"
+                          : "bg-white border-gray-100 text-gray-800"
+                    }`}
+                  >
+                    {msg.content}
+                  </div>
                 </div>
-                <div
-                  className={`p-2 px-3 rounded-xl text-[13.5px] leading-relaxed whitespace-pre-wrap wrap-break-word border 
-                  ${
-                    msg.role === "user"
-                      ? "bg-lpu-maroon text-white border-transparent"
-                      : msg.isError
-                        ? "bg-red-50 border-red-400 text-red-700"
-                        : "bg-white border-gray-100 text-gray-800"
-                  }`}
-                >
-                  {msg.content}
-                </div>
+                {/* Dynamic suggestions — only on latest bot message, not while typing */}
+                {msg.role === "bot" &&
+                  msg.id === lastBotId &&
+                  !isTyping &&
+                  msg.suggestions?.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 ml-8">
+                      {msg.suggestions.map((s) => (
+                        <button
+                          key={s}
+                          className="text-[11px] px-2.5 py-1 rounded-full border border-lpu-maroon/60 text-lpu-maroon hover:bg-lpu-maroon hover:text-white hover:border-lpu-maroon transition-colors leading-tight"
+                          onClick={() => sendMessage(s)}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  )}
               </div>
             ))}
+
+            {/* Suggestion Chips */}
+            {showSuggestions && (
+              <div className="flex flex-wrap gap-1.5 mt-0.5 ml-8">
+                {CHATBOT_SUGGESTIONS.map((s) => (
+                  <button
+                    key={s}
+                    className="text-[11.5px] px-2.5 py-1 rounded-full border border-lpu-maroon text-lpu-maroon hover:bg-lpu-maroon hover:text-white transition-colors leading-tight"
+                    onClick={() => sendMessage(s)}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Typing Indicator */}
             {isTyping && (
