@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
-import "./ticketchat.css";
 import { useLoading } from "../../context/LoadingContext";
 import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
 import { useTicketsCache } from "../../context/TicketsCacheContext";
+import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import ChatHeader from "./ChatHeader";
 import TicketDetails from "./TicketDetails";
 import ChatMessages from "./ChatMessages";
@@ -34,6 +34,8 @@ export default function TicketChat({ adminView = false } = {}) {
   const [viewerId, setViewerId] = useState(null);
   const [viewerEmail, setViewerEmail] = useState("");
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [adminDirectory, setAdminDirectory] = useState({});
+  const [creatorProfile, setCreatorProfile] = useState(null);
 
   const normalizeTicketId = (value) => {
     const numeric = Number(value);
@@ -43,11 +45,20 @@ export default function TicketChat({ adminView = false } = {}) {
   const ticketKey = normalizeTicketId(id);
   const cachedMessages = getMessages(ticketKey);
 
-  const getDisplayName = (name, email, role) => {
+  const getDisplayName = (name, email, role, senderId) => {
     const trimmedName = (name || "").trim();
+    const emailValue = (email || "").trim();
+    const emailKey = emailValue.toLowerCase();
+    const adminName =
+      role === "admin"
+        ? (senderId && adminDirectory[senderId]) ||
+          (emailKey && adminDirectory[emailKey]) ||
+          ""
+        : "";
+
+    if (adminName) return adminName;
     if (trimmedName) return trimmedName;
-    const trimmedEmail = (email || "").trim();
-    if (trimmedEmail) return trimmedEmail.split("@")[0];
+    if (emailValue) return emailValue.split("@")[0];
     return role === "admin" ? "Admin" : "Student";
   };
 
@@ -174,6 +185,53 @@ export default function TicketChat({ adminView = false } = {}) {
 
     fetchTicket();
   }, [id, adminView, getTicket, cacheTicket, showLoading, hideLoading]);
+
+  useEffect(() => {
+    if (!ticket?.created_by) return;
+
+    const existingName = (
+      ticket.full_name ||
+      ticket.created_by_name ||
+      ""
+    ).trim();
+    if (existingName) {
+      setCreatorProfile(null);
+      return;
+    }
+
+    let isCancelled = false;
+
+    const fetchCreatorProfile = async () => {
+      const creatorId = ticket.created_by;
+      const selectFields = "id, full_name, email";
+
+      const getFromTable = async (table) => {
+        const { data, error } = await realtimeSupabase
+          .from(table)
+          .select(selectFields)
+          .eq("id", creatorId)
+          .limit(1);
+        if (error) return null;
+        return data?.[0] || null;
+      };
+
+      const adminRow = await getFromTable("admin_users");
+      const row = adminRow || (await getFromTable("auth_users"));
+      if (!row || isCancelled) return;
+
+      const fullName = (row.full_name || "").trim();
+      const email = (row.email || "").trim();
+      if (!fullName && !email) return;
+
+      setCreatorProfile({ fullName, email });
+    };
+
+    fetchCreatorProfile();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [ticket?.created_by, ticket?.created_by_name, ticket?.full_name]);
 
   useEffect(() => {
     if (!ticketKey) return;
@@ -320,6 +378,72 @@ export default function TicketChat({ adminView = false } = {}) {
 
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    const adminIds = new Set();
+
+    for (const msg of messages) {
+      if (msg.senderRole !== "admin") continue;
+      if (msg.senderId) adminIds.add(msg.senderId);
+    }
+
+    if (!adminIds.size) return;
+
+    const missingIds = Array.from(adminIds).filter((id) => !adminDirectory[id]);
+
+    if (!missingIds.length) return;
+
+    let isCancelled = false;
+
+    const fetchAdminDirectory = async () => {
+      const token = localStorage.getItem("authToken");
+      if (!token) return;
+
+      const baseUrl = getApiBaseUrl();
+      const next = { ...adminDirectory };
+      let didUpdate = false;
+
+      const setEntry = (key, value) => {
+        if (!key || !value) return;
+        if (next[key] === value) return;
+        next[key] = value;
+        didUpdate = true;
+      };
+
+      const res = await fetch(`${baseUrl}/api/tickets/${id}/admin-names`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) return;
+
+      let payload = null;
+      try {
+        payload = await res.json();
+      } catch {
+        return;
+      }
+
+      if (!payload?.success || !Array.isArray(payload.data)) return;
+
+      payload.data.forEach((row) => {
+        if (!row) return;
+        const fullName = (row.full_name || "").trim();
+        if (!fullName) return;
+        if (row.id) setEntry(row.id, fullName);
+        const emailKey = (row.email || "").trim().toLowerCase();
+        if (emailKey) setEntry(emailKey, fullName);
+      });
+
+      if (isCancelled || !didUpdate) return;
+      setAdminDirectory(next);
+    };
+
+    fetchAdminDirectory();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [messages, adminDirectory, id, adminView]);
 
   async function handleSend() {
     const trimmed = text.trim();
@@ -483,10 +607,15 @@ export default function TicketChat({ adminView = false } = {}) {
     const unique = new Map();
     for (const msg of messages) {
       if (msg.senderRole !== "admin") continue;
-      const name = (msg.senderName || "").trim();
       const email = (msg.senderEmail || "").trim();
+      const emailKey = email.toLowerCase();
+      const resolvedName =
+        (msg.senderId && adminDirectory[msg.senderId]) ||
+        (emailKey && adminDirectory[emailKey]) ||
+        "";
+      const name = (resolvedName || msg.senderName || "").trim();
       if (!name && !email) continue;
-      const key = msg.senderId || email || name;
+      const key = msg.senderId || emailKey || name;
       if (unique.has(key)) continue;
       unique.set(key, {
         id: key,
@@ -495,7 +624,7 @@ export default function TicketChat({ adminView = false } = {}) {
       });
     }
     return Array.from(unique.values());
-  }, [messages, adminView]);
+  }, [messages, adminView, adminDirectory]);
 
   if (error) {
     return (
@@ -539,18 +668,31 @@ export default function TicketChat({ adminView = false } = {}) {
   }
 
   const creatorName = (() => {
-    const name = (ticket.created_by_name || "").trim();
+    const name = (
+      ticket.full_name ||
+      ticket.created_by_name ||
+      creatorProfile?.fullName ||
+      ""
+    ).trim();
     if (name) return name;
-    const email = (ticket.created_by_email || "").trim();
+    const email = (
+      ticket.created_by_email ||
+      creatorProfile?.email ||
+      ""
+    ).trim();
     if (email) return email.split("@")[0];
     return ticket.Department || "Student";
   })();
-  const creatorEmail = (ticket.created_by_email || "").trim();
+  const creatorEmail = (
+    ticket.created_by_email ||
+    creatorProfile?.email ||
+    ""
+  ).trim();
   const headerInitial = creatorName.trim().charAt(0).toUpperCase();
 
   return (
-    <div className={`chat-wrapper${adminView ? " chat-wrapper-admin" : ""}`}>
-      <div className="chat-card">
+    <div className="flex flex-col w-full h-full max-h-full overflow-hidden bg-gray-50">
+      <div className="flex flex-col flex-1 min-h-0 w-full max-w-5xl mx-auto bg-white sm:my-2 sm:rounded-2xl border-x border-gray-100 overflow-hidden shadow-sm">
         <ChatHeader
           adminView={adminView}
           creatorName={creatorName}
@@ -560,7 +702,6 @@ export default function TicketChat({ adminView = false } = {}) {
           isBotTicket={isBotTicket}
           onBack={() => navigate(-1)}
         />
-
         <TicketDetails
           ticket={ticket}
           adminView={adminView}
@@ -570,7 +711,6 @@ export default function TicketChat({ adminView = false } = {}) {
           isTicketClosed={isTicketClosed}
           formatDateTime={formatDateTime}
         />
-
         <ChatMessages
           messages={messages}
           viewerId={viewerId}
@@ -584,7 +724,6 @@ export default function TicketChat({ adminView = false } = {}) {
           onDownloadAttachment={downloadAttachment}
           transcriptCreatorName={creatorName}
         />
-
         <ChatInput text={text} onTextChange={setText} onSend={handleSend} />
       </div>
 

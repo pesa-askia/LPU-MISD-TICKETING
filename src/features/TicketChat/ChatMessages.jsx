@@ -1,9 +1,13 @@
+import React from "react";
+
+/**
+ * parses chatbot transcripts to display multi-turn conversations.
+ */
 function parseChatbotTranscript(text) {
-  if (
-    !text ||
-    (!text.startsWith("[You]\n") && !text.startsWith("[MISD Support Bot]\n"))
-  )
+  if (!text) return null;
+  if (!text.includes("[You]") && !text.includes("[MISD Support Bot]"))
     return null;
+
   const lines = text.split("\n");
   let i = 0;
   const entries = [];
@@ -12,6 +16,7 @@ function parseChatbotTranscript(text) {
     let role = null;
     if (line === "[You]") role = "user";
     else if (line === "[MISD Support Bot]") role = "bot";
+
     if (role) {
       i++;
       const contentLines = [];
@@ -56,89 +61,102 @@ export default function ChatMessages({
     if (minutes < 60) return `${minutes}m ago`;
     const hours = Math.floor(minutes / 60);
     if (hours < 24) return `${hours}h ago`;
-    const days = Math.floor(hours / 24);
-    if (days < 7) return `${days}d ago`;
-    const weeks = Math.floor(days / 7);
-    if (weeks < 4) return `${weeks}w ago`;
-    const months = Math.floor(days / 30);
-    if (months < 12) return `${months}mo ago`;
-    const years = Math.floor(days / 365);
-    return `${years}y ago`;
+    return new Date(value).toLocaleDateString([], {
+      month: "short",
+      day: "numeric",
+    });
   };
 
-  const getMessageAttachments = (message) =>
-    Array.isArray(message.attachments) ? message.attachments : [];
+  const renderBubble = (
+    m,
+    content,
+    role,
+    alignRight,
+    isTranscript = false,
+    itemKey,
+  ) => {
+    const isBot = role === "bot" || m.senderRole === "bot";
+    const isAdmin = role === "admin" || m.senderRole === "admin";
 
-  const renderNormalMessage = (m) => {
-    const isOwn = viewerId && m.senderId === viewerId;
-    const isAdminMessage = adminView && m.senderRole === "admin";
-    const alignRight = adminView ? isAdminMessage : isOwn;
-    const isOtherAdmin = adminView && isAdminMessage && !isOwn;
-    const hasIdentity = Boolean(m.senderName || m.senderEmail);
-    const displayName = isOwn
-      ? "You"
-      : hasIdentity
-        ? getDisplayName(m.senderName, m.senderEmail, m.senderRole)
-        : "";
-    const timeLabel = formatTimeAgo(m.time);
-    const showName = isOwn || hasIdentity;
-    const showMeta = showName || Boolean(timeLabel);
-    const attachments = getMessageAttachments(m);
-    const hasAttachments = attachments.length > 0;
+    /**
+     * identity logic:
+     * 1. 'isOwn' (maroon) is ONLY the current human viewer.
+     * 2. on admin side, transcripts are never 'own' (bot is red, student is white).
+     */
+    const isOwn = isTranscript
+      ? !adminView && role === "user"
+      : m.senderId === viewerId;
+
+    const isOtherAdmin = adminView && isAdmin && !isOwn;
+
+    // branding color logic
+    let bubbleClass = "bg-white text-gray-800 border-gray-100";
+    let labelColor = "text-gray-500";
+
+    if (isOwn) {
+      labelColor = "text-lpu-maroon";
+      bubbleClass = "bg-lpu-maroon text-white border-lpu-maroon";
+    } else if (adminView && (isBot || isOtherAdmin)) {
+      // admin side: bot and colleagues are lpu-red
+      labelColor = "text-lpu-red";
+      bubbleClass = "bg-lpu-red text-white border-lpu-red";
+    } else {
+      // user side: bot/admins are standard white/gray (same as everyone else)
+      labelColor = "text-gray-500";
+      bubbleClass = "bg-white text-gray-800 border-gray-100";
+    }
+
+    const displayName = isTranscript
+      ? role === "user"
+        ? adminView
+          ? transcriptCreatorName || "Student"
+          : "You"
+        : "Stella"
+      : isOwn
+        ? "You"
+        : getDisplayName(m.senderName, m.senderEmail, m.senderRole, m.senderId);
 
     return (
       <div
-        key={m.id}
-        className={`msg ${alignRight ? "msg-right" : "msg-left"} ${isOtherAdmin ? "msg-other-admin" : ""}`}
+        key={itemKey}
+        className={`flex w-full mb-6 animate-in fade-in slide-in-from-bottom-1 duration-300 ${alignRight ? "justify-end" : "justify-start"}`}
       >
-        <div className="msg-content">
-          {showMeta && (
-            <div className="message-meta">
-              {showName && (
-                <span className="message-name">{displayName}</span>
-              )}
-              {showName && timeLabel && <span className="message-sep">-</span>}
-              {timeLabel && <span className="message-time">{timeLabel}</span>}
-            </div>
-          )}
-          <div className="bubble">{m.text}</div>
-          {hasAttachments && (
-            <div className="message-attachments">
-              {attachments.map((attachment, index) => {
-                const name = attachment?.name || "Attachment";
-                const src = getAttachmentSrc(attachment);
-                const isImage = isImageFile(name);
+        <div
+          className={`flex flex-col max-w-[85%] sm:max-w-[70%] ${alignRight ? "items-end" : "items-start"}`}
+        >
+          <div className="flex items-center gap-2 mb-1 px-1">
+            <span
+              className={`text-[11px] font-black tracking-tight ${labelColor}`}
+            >
+              {displayName}
+            </span>
+            <span className="text-[10px] text-gray-400 font-medium">
+              {formatTimeAgo(m.time)}
+            </span>
+          </div>
 
-                if (isImage && src) {
-                  return (
-                    <button
-                      key={`${m.id}-attachment-${index}`}
-                      type="button"
-                      className="message-attachment-thumb"
-                      onClick={() => onOpenAttachment(attachment)}
-                      title="Click to view full size"
-                    >
-                      <img src={src} alt={name} />
-                    </button>
-                  );
-                }
+          {/* high-intensity bottom-right shadow on both sides */}
+          <div
+            className={`px-4 py-3 rounded-2xl text-sm leading-relaxed border shadow-[12px_12px_24px_rgba(0,0,0,0.18)] ${bubbleClass} ${alignRight ? "rounded-tr-none" : "rounded-tl-none"}`}
+          >
+            <p className="whitespace-pre-wrap break-words">{content}</p>
+          </div>
 
-                return (
-                  <div
-                    key={`${m.id}-attachment-${index}`}
-                    className="message-attachment-file"
-                  >
-                    <span className="message-attachment-name">{name}</span>
-                    <button
-                      type="button"
-                      className="message-attachment-action"
-                      onClick={() => onDownloadAttachment(attachment)}
-                    >
-                      Get
-                    </button>
-                  </div>
-                );
-              })}
+          {!isTranscript && m.attachments?.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-3">
+              {m.attachments.map((file, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => onOpenAttachment(file)}
+                  className="h-20 w-32 rounded-lg overflow-hidden border border-gray-200 shadow-[8px_8px_16px_rgba(0,0,0,0.12)] hover:border-lpu-maroon transition-all"
+                >
+                  <img
+                    src={getAttachmentSrc(file)}
+                    className="h-full w-full object-cover"
+                    alt="attachment"
+                  />
+                </button>
+              ))}
             </div>
           )}
         </div>
@@ -146,48 +164,39 @@ export default function ChatMessages({
     );
   };
 
-  const renderedMessages = messages.flatMap((m) => {
-    const parsedTranscript = parseChatbotTranscript(m.text);
-    if (!parsedTranscript) return [renderNormalMessage(m)];
+  const renderedMessages = messages.flatMap((m, messageIndex) => {
+    const transcript = parseChatbotTranscript(m.text);
+    if (!transcript) {
+      const isOwn = m.senderId === viewerId;
+      const isAdmin = m.senderRole === "admin";
+      const alignRight = adminView ? isOwn || isAdmin : isOwn;
+      const itemKey = m.id || `message-${messageIndex}`;
+      return [
+        renderBubble(m, m.text, m.senderRole, alignRight, false, itemKey),
+      ];
+    }
 
-    const timeLabel = formatTimeAgo(m.time);
-    return parsedTranscript.map((entry, idx) => {
-      // User view: student=right, bot=left. Admin view: student=left, bot=right.
+    return transcript.map((entry, entryIndex) => {
       const alignRight = adminView
         ? entry.role === "bot"
         : entry.role === "user";
-      const displayName =
-        entry.role === "user"
-          ? adminView
-            ? transcriptCreatorName || "Student"
-            : "You"
-          : "MISD Support Bot";
-      const isLast = idx === parsedTranscript.length - 1;
-
-      return (
-        <div
-          key={`${m.id}-t-${idx}`}
-          className={`msg ${alignRight ? "msg-right" : "msg-left"}`}
-        >
-          <div className="msg-content">
-            <div className="message-meta">
-              <span className="message-name">{displayName}</span>
-              {isLast && timeLabel && (
-                <>
-                  <span className="message-sep">-</span>
-                  <span className="message-time">{timeLabel}</span>
-                </>
-              )}
-            </div>
-            <div className="bubble">{entry.content}</div>
-          </div>
-        </div>
+      const itemKey = `transcript-${m.id || messageIndex}-${entryIndex}`;
+      return renderBubble(
+        m,
+        entry.content,
+        entry.role,
+        alignRight,
+        true,
+        itemKey,
       );
     });
   });
 
   return (
-    <div className="chat-messages" ref={scrollRef} aria-live="polite">
+    <div
+      className="flex-1 overflow-y-auto px-4 py-6 space-y-2 scroll-smooth no-scrollbar"
+      ref={scrollRef}
+    >
       {renderedMessages}
     </div>
   );

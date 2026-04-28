@@ -5,9 +5,11 @@ import AdminNavbar from "../components/AdminNavbar";
 const AdminLayout = () => {
   return (
     <NavbarActionsProvider>
-      <div className="admin-shell md:h-screen md:overflow-hidden md:flex md:flex-col">
+      <div className="admin-shell h-dvh flex flex-col overflow-hidden bg-slate-50 md:h-screen">
         <AdminNavbar />
-        <Outlet />
+        <main className="flex-1 min-h-0 overflow-y-auto">
+          <Outlet />
+        </main>
       </div>
     </NavbarActionsProvider>
   );

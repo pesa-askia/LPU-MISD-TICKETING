@@ -68,7 +68,8 @@ function Tickets() {
         if (trimmed) {
           const numId = parseInt(trimmed);
           const parts = [`Summary.ilike.%${trimmed}%`];
-          if (!isNaN(numId) && String(numId) === trimmed) parts.push(`id.eq.${numId}`);
+          if (!isNaN(numId) && String(numId) === trimmed)
+            parts.push(`id.eq.${numId}`);
           q = q.or(parts.join(","));
         }
 
@@ -147,7 +148,7 @@ function Tickets() {
   }
 
   return (
-    <div className="h-screen bg-gray-50 font-poppins md:overflow-hidden flex flex-col items-center justify-center">
+    <div className="flex-1 min-h-0 bg-gray-50 font-poppins md:h-screen md:overflow-hidden flex flex-col items-center md:justify-center p-4 md:p-0">
       <div className="w-full max-w-6xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border-t-[6px] border-lpu-maroon">
         <div className="p-6 md:p-8">
           <h1 className="text-2xl md:text-3xl font-black text-lpu-maroon mb-4 tracking-tight">

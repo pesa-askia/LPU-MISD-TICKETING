@@ -205,7 +205,7 @@ function SubmitTicket() {
   };
 
   return (
-    <div className="w-full min-h-screen flex flex-col items-center bg-gray-50 px-3 py-8 font-poppins overflow-y-auto md:h-screen md:justify-center md:py-4 md:overflow-hidden">
+    <div className="flex-1 w-full flex flex-col items-center bg-gray-50 p-4 font-poppins overflow-y-auto md:h-screen md:justify-center md:py-4 md:overflow-hidden">
       <div className="w-full max-w-200 h-auto mx-auto px-4 py-6 flex flex-col box-border bg-white rounded-2xl shadow-xl border-t-[6px] border-lpu-maroon md:px-10 md:py-[clamp(1.25rem,3vh,2rem)]">
         <div className="text-center">
           <h1 className="m-0 text-2xl md:text-3xl font-black text-lpu-maroon tracking-tight">
