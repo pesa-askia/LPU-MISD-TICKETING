@@ -1,12 +1,8 @@
 import express from "express";
 import bcrypt from "bcryptjs";
 import { getAllUsers, getUserById, deleteUser, updateUser } from "../services/authService.js";
-import { adminMiddleware, rootMiddleware } from "../middleware/auth.js";
+import { adminMiddleware, globalAdminMiddleware } from "../middleware/auth.js";
 import { supabase } from "../config/database.js";
-import {
-    canAssignToAdminLevel,
-    compareAdminsByPrivilege,
-} from "../utils/adminLevels.js";
 
 const resendApiConfigured = () => Boolean(String(process.env.RESEND_API_KEY || "").trim());
 
@@ -14,10 +10,9 @@ const router = express.Router();
 
 /**
  * GET /api/admin/users
- * Get all users (paginated)
- * Query params: limit=100, offset=0
+ * Get all users (paginated) — Global Admin only
  */
-router.get("/users", adminMiddleware, async (req, res) => {
+router.get("/users", globalAdminMiddleware, async (req, res) => {
     try {
         const limit = parseInt(req.query.limit) || 100;
         const offset = parseInt(req.query.offset) || 0;
@@ -48,9 +43,9 @@ router.get("/users", adminMiddleware, async (req, res) => {
 
 /**
  * GET /api/admin/users/:userId
- * Get specific user details
+ * Get specific user details — Global Admin only
  */
-router.get("/users/:userId", adminMiddleware, async (req, res) => {
+router.get("/users/:userId", globalAdminMiddleware, async (req, res) => {
     try {
         const result = await getUserById(req.params.userId);
 
@@ -70,9 +65,9 @@ router.get("/users/:userId", adminMiddleware, async (req, res) => {
 
 /**
  * PUT /api/admin/users/:userId
- * Update user (deactivate, change name, etc.)
+ * Update user — Global Admin only
  */
-router.put("/users/:userId", adminMiddleware, async (req, res) => {
+router.put("/users/:userId", globalAdminMiddleware, async (req, res) => {
     try {
         const { fullName, isActive } = req.body;
 
@@ -102,11 +97,10 @@ router.put("/users/:userId", adminMiddleware, async (req, res) => {
 
 /**
  * DELETE /api/admin/users/:userId
- * Delete user
+ * Delete user — Global Admin only
  */
-router.delete("/users/:userId", adminMiddleware, async (req, res) => {
+router.delete("/users/:userId", globalAdminMiddleware, async (req, res) => {
     try {
-        // Prevent user from deleting themselves
         if (req.params.userId === req.user.id) {
             return res.status(400).json({
                 success: false,
@@ -132,9 +126,9 @@ router.delete("/users/:userId", adminMiddleware, async (req, res) => {
 
 /**
  * GET /api/admin/stats
- * Get authentication statistics
+ * Get authentication statistics — Global Admin only
  */
-router.get("/stats", adminMiddleware, async (req, res) => {
+router.get("/stats", globalAdminMiddleware, async (req, res) => {
     try {
         const result = await getAllUsers(1000, 0);
 
@@ -169,38 +163,38 @@ router.get("/stats", adminMiddleware, async (req, res) => {
 
 /**
  * GET /api/admin/assignees
- * Returns admin users that the caller is allowed to assign tickets to.
- * Rule: you can assign to admins with lower privilege than yours.
- * Root (0) → everyone; Level 1 (3) → levels 2 & 3; Level 2 (2) → level 3; Level 3 (1) → nobody.
+ * Any admin — returns all active admins that can be assigned tickets (excludes self).
  */
 router.get("/assignees", adminMiddleware, async (req, res) => {
     try {
-        const callerLevel = req.user?.admin_level ?? 1;
         const callerId = req.user?.id;
 
-        let assigneeQuery = supabase
-            .from("admin_users")
-            .select("id, full_name, email, admin_level")
-            .eq("is_active", true)
-            .neq("id", callerId);
-        if (resendApiConfigured()) {
-            assigneeQuery = assigneeQuery.not("email_verified_at", "is", null);
-        }
-        const { data: admins, error } = await assigneeQuery;
-
-        if (error) return res.status(400).json({ success: false, message: error.message });
-
-        const { data: self } = await supabase
+        let selfQuery = supabase
             .from("admin_users")
             .select("id, full_name, email, admin_level")
             .eq("id", callerId)
             .limit(1);
 
-        const selfRow = self?.[0];
-        const assignableAdmins = (admins || [])
-            .filter((admin) => canAssignToAdminLevel(callerLevel, admin.admin_level))
-            .sort(compareAdminsByPrivilege);
-        const data = selfRow ? [selfRow, ...assignableAdmins] : assignableAdmins;
+        let othersQuery = supabase
+            .from("admin_users")
+            .select("id, full_name, email, admin_level")
+            .eq("is_active", true)
+            .neq("id", callerId);
+
+        if (resendApiConfigured()) {
+            othersQuery = othersQuery.not("email_verified_at", "is", null);
+        }
+
+        const [{ data: selfData }, { data: others, error }] = await Promise.all([
+            selfQuery,
+            othersQuery,
+        ]);
+
+        if (error) return res.status(400).json({ success: false, message: error.message });
+
+        const selfRow = selfData?.[0];
+        const sorted = (others || []).sort((a, b) => a.admin_level - b.admin_level);
+        const data = selfRow ? [selfRow, ...sorted] : sorted;
 
         return res.status(200).json({ success: true, data });
     } catch (e) {
@@ -217,14 +211,12 @@ router.get("/staff", adminMiddleware, async (req, res) => {
         const { data, error } = await supabase
             .from("admin_users")
             .select("id, full_name, email, admin_level")
-            .eq("is_active", true);
+            .eq("is_active", true)
+            .order("admin_level", { ascending: true });
 
         if (error) return res.status(400).json({ success: false, message: error.message });
 
-        return res.status(200).json({
-            success: true,
-            data: (data || []).sort(compareAdminsByPrivilege),
-        });
+        return res.status(200).json({ success: true, data: data || [] });
     } catch (e) {
         return res.status(500).json({ success: false, message: e.message });
     }
@@ -232,13 +224,13 @@ router.get("/staff", adminMiddleware, async (req, res) => {
 
 /**
  * GET /api/admin/me
- * Any admin — returns their own profile including filter fields.
+ * Any admin — returns their own profile.
  */
 router.get("/me", adminMiddleware, async (req, res) => {
     try {
         const { data, error } = await supabase
             .from("admin_users")
-            .select("id, email, full_name, admin_level, email_verified_at, filter_type, filter_department, filter_category, filter_site")
+            .select("id, email, full_name, admin_level, email_verified_at")
             .eq("id", req.user.id)
             .single();
 
@@ -252,20 +244,18 @@ router.get("/me", adminMiddleware, async (req, res) => {
 
 /**
  * GET /api/admin/admins
- * Root only — list all admin accounts including filter fields.
+ * Global Admin only — list all admin accounts.
  */
-router.get("/admins", rootMiddleware, async (req, res) => {
+router.get("/admins", globalAdminMiddleware, async (req, res) => {
     try {
         const { data, error } = await supabase
             .from("admin_users")
-            .select("id, email, full_name, is_active, admin_level, email_verified_at, filter_type, filter_department, filter_category, filter_site, created_at, updated_at");
+            .select("id, email, full_name, is_active, admin_level, email_verified_at, created_at, updated_at")
+            .order("admin_level", { ascending: true });
 
         if (error) return res.status(400).json({ success: false, message: error.message });
 
-        return res.status(200).json({
-            success: true,
-            data: (data || []).sort(compareAdminsByPrivilege),
-        });
+        return res.status(200).json({ success: true, data: data || [] });
     } catch (e) {
         return res.status(500).json({ success: false, message: e.message });
     }
@@ -273,10 +263,10 @@ router.get("/admins", rootMiddleware, async (req, res) => {
 
 /**
  * POST /api/admin/admins
- * Root only — create a new admin account.
+ * Global Admin only — create a new admin account.
  * Body: { email, password, fullName, adminLevel }
  */
-router.post("/admins", rootMiddleware, async (req, res) => {
+router.post("/admins", globalAdminMiddleware, async (req, res) => {
     try {
         const { email, password, fullName, adminLevel } = req.body;
 
@@ -285,8 +275,8 @@ router.post("/admins", rootMiddleware, async (req, res) => {
         }
 
         const level = Number(adminLevel);
-        if (![0, 1, 2, 3].includes(level)) {
-            return res.status(400).json({ success: false, message: "adminLevel must be 0, 1, 2, or 3" });
+        if (![0, 1].includes(level)) {
+            return res.status(400).json({ success: false, message: "adminLevel must be 0 (Global Admin) or 1 (Ticket Admin)" });
         }
 
         const { data: existing } = await supabase
@@ -319,9 +309,6 @@ router.post("/admins", rootMiddleware, async (req, res) => {
         let invitationEmailSent = false;
         let invitationEmailError = null;
 
-        // Use supabase.auth.admin.inviteUserByEmail — creates admin in Supabase Auth AND
-        // sends the invite email via the project's configured email provider (Resend).
-        // No RESEND_API_KEY or nodemailer needed in our .env.
         try {
             const rawBase =
                 process.env.PUBLIC_BASE_URL ||
@@ -342,7 +329,6 @@ router.post("/admins", rootMiddleware, async (req, res) => {
                     .update({ supabase_auth_id: inviteData.user.id })
                     .eq("id", created.id);
                 invitationEmailSent = true;
-                console.log("[admin create] Supabase invite sent, auth_id:", inviteData.user.id);
             } else if (inviteErr) {
                 invitationEmailError = inviteErr.message;
                 console.error("[admin create] Supabase invite error:", inviteErr.message);
@@ -366,9 +352,9 @@ router.post("/admins", rootMiddleware, async (req, res) => {
 
 /**
  * DELETE /api/admin/admins/:adminId
- * Root only — delete an admin account.
+ * Global Admin only — delete an admin account.
  */
-router.delete("/admins/:adminId", rootMiddleware, async (req, res) => {
+router.delete("/admins/:adminId", globalAdminMiddleware, async (req, res) => {
     try {
         const { adminId } = req.params;
         const callerId = req.user?.id || req.user?.sub;
@@ -392,16 +378,15 @@ router.delete("/admins/:adminId", rootMiddleware, async (req, res) => {
             return res.status(404).json({ success: false, message: "Admin not found" });
         }
 
-        // Safety: avoid deleting the last remaining root admin
         const target = existing[0];
         if (Number(target.admin_level) === 0) {
-            const { data: roots, error: rootsErr } = await supabase
+            const { data: globalAdmins, error: gaErr } = await supabase
                 .from("admin_users")
                 .select("id")
                 .eq("admin_level", 0);
-            if (rootsErr) return res.status(400).json({ success: false, message: rootsErr.message });
-            if ((roots || []).length <= 1) {
-                return res.status(400).json({ success: false, message: "Cannot delete the last root admin" });
+            if (gaErr) return res.status(400).json({ success: false, message: gaErr.message });
+            if ((globalAdmins || []).length <= 1) {
+                return res.status(400).json({ success: false, message: "Cannot delete the last global admin" });
             }
         }
 
@@ -428,10 +413,10 @@ router.delete("/admins/:adminId", rootMiddleware, async (req, res) => {
 
 /**
  * PATCH /api/admin/admins/:adminId
- * Root only — update an admin's level, active status, and/or ticket filters.
- * Body: { adminLevel?, isActive?, filterType?, filterDepartment?, filterCategory?, filterSite? }
+ * Global Admin only — update an admin's level or active status.
+ * Body: { adminLevel?, isActive? }
  */
-router.patch("/admins/:adminId", rootMiddleware, async (req, res) => {
+router.patch("/admins/:adminId", globalAdminMiddleware, async (req, res) => {
     try {
         const { adminId } = req.params;
 
@@ -443,25 +428,19 @@ router.patch("/admins/:adminId", rootMiddleware, async (req, res) => {
 
         if (req.body.adminLevel !== undefined) {
             const level = Number(req.body.adminLevel);
-            if (![0, 1, 2, 3].includes(level)) {
-                return res.status(400).json({ success: false, message: "adminLevel must be 0, 1, 2, or 3" });
+            if (![0, 1].includes(level)) {
+                return res.status(400).json({ success: false, message: "adminLevel must be 0 (Global Admin) or 1 (Ticket Admin)" });
             }
             updates.admin_level = level;
         }
 
         if (req.body.isActive !== undefined) updates.is_active = Boolean(req.body.isActive);
 
-        // Ticket visibility filters (null clears the filter)
-        if ("filterType"       in req.body) updates.filter_type       = req.body.filterType       || null;
-        if ("filterDepartment" in req.body) updates.filter_department = req.body.filterDepartment || null;
-        if ("filterCategory"   in req.body) updates.filter_category   = req.body.filterCategory   || null;
-        if ("filterSite"       in req.body) updates.filter_site       = req.body.filterSite       || null;
-
         const { data, error } = await supabase
             .from("admin_users")
             .update(updates)
             .eq("id", adminId)
-            .select("id, email, full_name, is_active, admin_level, email_verified_at, filter_type, filter_department, filter_category, filter_site, updated_at");
+            .select("id, email, full_name, is_active, admin_level, email_verified_at, updated_at");
 
         if (error) return res.status(400).json({ success: false, message: error.message });
         if (!data || data.length === 0) return res.status(404).json({ success: false, message: "Admin not found" });

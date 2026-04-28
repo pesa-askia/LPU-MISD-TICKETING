@@ -7,12 +7,9 @@ import {
   useState,
 } from "react";
 import { jwtDecode } from "jwt-decode";
-import { isRootAdmin } from "../utils/adminLevels";
+import { isGlobalAdmin } from "../utils/adminLevels";
 
-// Pages write to this — value is stable (useState setter), so pages never re-render from context changes
 const NavbarActionsSetContext = createContext(null);
-
-// AdminNavbar reads from this — updates when actions/isRoot change
 const NavbarActionsGetContext = createContext(null);
 
 export function NavbarActionsProvider({ children }) {
@@ -21,13 +18,12 @@ export function NavbarActionsProvider({ children }) {
   const isRoot = useMemo(() => {
     try {
       const decoded = jwtDecode(localStorage.getItem("authToken") || "");
-      return isRootAdmin(decoded?.admin_level ?? 1);
+      return isGlobalAdmin(decoded?.admin_level ?? 1);
     } catch {
       return false;
     }
   }, []);
 
-  // useState setters are already stable, but wrap to be explicit
   const stableSetActions = useCallback((a) => setActions(a), []);
 
   const getValue = useMemo(
@@ -44,7 +40,6 @@ export function NavbarActionsProvider({ children }) {
   );
 }
 
-// Pages call this — subscribes only to the stable setter context, never re-renders from actions changes
 export function useNavbarActions(actions) {
   const setActions = useContext(NavbarActionsSetContext);
 
@@ -57,7 +52,6 @@ export function useNavbarActions(actions) {
   }, []);
 }
 
-// AdminNavbar calls this — subscribes to the state context
 export function useNavbarActionsContext() {
   return useContext(NavbarActionsGetContext);
 }

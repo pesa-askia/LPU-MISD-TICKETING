@@ -1,5 +1,4 @@
 import { verifyToken } from "../services/authService.js";
-import { getAdminPrivilegeRank } from "../utils/adminLevels.js";
 
 /**
  * Middleware to verify JWT token
@@ -16,7 +15,7 @@ export const authMiddleware = (req, res, next) => {
             });
         }
 
-        const token = authHeader.substring(7); // Remove "Bearer " prefix
+        const token = authHeader.substring(7);
         const decoded = verifyToken(token);
 
         if (!decoded) {
@@ -26,7 +25,6 @@ export const authMiddleware = (req, res, next) => {
             });
         }
 
-        // Attach user info to request
         req.user = decoded;
         next();
     } catch (error) {
@@ -54,31 +52,14 @@ export const adminMiddleware = (req, res, next) => {
 };
 
 /**
- * Middleware to verify JWT AND require root (admin_level === 0).
+ * Middleware to verify JWT AND require global admin (admin_level === 0).
  */
-export const rootMiddleware = (req, res, next) => {
+export const globalAdminMiddleware = (req, res, next) => {
     adminMiddleware(req, res, () => {
         if (req.user?.admin_level !== 0) {
             return res.status(403).json({
                 success: false,
-                message: "Root access required",
-            });
-        }
-        next();
-    });
-};
-
-/**
- * Middleware factory — requires admin role AND a privilege rank at or above
- * the requested level.
- * e.g. requireLevel(3) allows root (0) and level-1 admins but not level-2/3.
- */
-export const requireLevel = (maxLevel) => (req, res, next) => {
-    adminMiddleware(req, res, () => {
-        if (getAdminPrivilegeRank(req.user?.admin_level) > getAdminPrivilegeRank(maxLevel)) {
-            return res.status(403).json({
-                success: false,
-                message: "Insufficient admin level",
+                message: "Global admin access required",
             });
         }
         next();
@@ -102,7 +83,6 @@ export const optionalAuthMiddleware = (req, _res, next) => {
 
         next();
     } catch {
-        // Continue without auth
         next();
     }
 };

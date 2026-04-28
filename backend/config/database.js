@@ -419,7 +419,7 @@ export const initializeAdminUsers = async () => {
             password_hash VARCHAR(255) NOT NULL,
             full_name VARCHAR(255),
             is_active BOOLEAN DEFAULT true,
-            admin_level INTEGER NOT NULL DEFAULT 1 CHECK (admin_level IN (0, 1, 2, 3)),
+            admin_level INTEGER NOT NULL DEFAULT 1 CHECK (admin_level IN (0, 1)),
             email_verified_at TIMESTAMPTZ,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -453,7 +453,7 @@ export const initializeAdminUsers = async () => {
             ) THEN
               ALTER TABLE admin_users
                 ADD COLUMN admin_level INTEGER NOT NULL DEFAULT 1
-                CHECK (admin_level IN (0, 1, 2, 3));
+                CHECK (admin_level IN (0, 1));
             END IF;
 
             ALTER TABLE admin_users
@@ -464,6 +464,27 @@ export const initializeAdminUsers = async () => {
       });
     } catch (migrateErr) {
       console.warn("admin_level migration skipped:", migrateErr.message);
+    }
+
+    // Migrate: simplify admin levels — convert old levels 2 and 3 to Ticket Admin (1)
+    try {
+      await supabase.rpc("execute_sql", {
+        sql: `
+          DO $$
+          BEGIN
+            UPDATE admin_users SET admin_level = 1 WHERE admin_level IN (2, 3);
+            BEGIN
+              ALTER TABLE admin_users DROP CONSTRAINT IF EXISTS admin_users_admin_level_check;
+              ALTER TABLE admin_users ADD CONSTRAINT admin_users_admin_level_check CHECK (admin_level IN (0, 1));
+            EXCEPTION WHEN OTHERS THEN
+              NULL;
+            END;
+          END
+          $$;
+        `,
+      });
+    } catch (migrateErr) {
+      console.warn("admin_level simplification migration skipped:", migrateErr.message);
     }
 
     // Migrate: add supabase_auth_id to track the corresponding Supabase Auth user

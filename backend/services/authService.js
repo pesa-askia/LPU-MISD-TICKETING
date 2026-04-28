@@ -34,7 +34,7 @@ export const generateToken = (userId, email, role = "user", adminLevel = null) =
     // app_role is used instead of role because Supabase reserves the role claim
     // to set the PostgreSQL execution role — passing role:"admin" would cause
     // "role admin does not exist" errors since it's not a database role.
-    // admin_level: 0=root, 1=senior, 2=mid, 3=junior — only present for admin accounts.
+    // admin_level: 0=Global Admin, 1=Ticket Admin — only present for admin accounts.
     // role: "authenticated" sets the PostgreSQL execution role for PostgREST
     // and Supabase Realtime. "authenticated" is a built-in Supabase role that
     // is safe to use for all logged-in users. We intentionally avoid role: "admin"

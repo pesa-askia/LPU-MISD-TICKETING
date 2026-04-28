@@ -2,11 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
-import {
-  canAssignTickets,
-  canViewAllTickets,
-  needsTicketFilters,
-} from "../../utils/adminLevels";
 import { Download } from "lucide-react";
 import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
 import { useLoading } from "../../context/LoadingContext";
@@ -26,29 +21,6 @@ function escapeCsv(value) {
     return `"${next.replaceAll('"', '""')}"`;
   }
   return next;
-}
-
-function buildVisibilityFilter(q, { canViewAll, currentAdminId, myProfile }) {
-  if (canViewAll) return q;
-  const orParts = [
-    `Assignee1.eq.${currentAdminId}`,
-    `Assignee2.eq.${currentAdminId}`,
-    `Assignee3.eq.${currentAdminId}`,
-  ];
-  const split = (str) =>
-    (str || "")
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-  split(myProfile?.filter_type).forEach((v) => orParts.push(`Type.eq.${v}`));
-  split(myProfile?.filter_department).forEach((v) =>
-    orParts.push(`Department.eq.${v}`),
-  );
-  split(myProfile?.filter_category).forEach((v) =>
-    orParts.push(`Category.eq.${v}`),
-  );
-  split(myProfile?.filter_site).forEach((v) => orParts.push(`Site.eq.${v}`));
-  return q.or(orParts.join(","));
 }
 
 function buildSearchFilter(q, search) {
@@ -88,18 +60,14 @@ export default function AdminTickets() {
       return null;
     }
   }, []);
-  const adminLevel = decoded?.admin_level ?? 1;
   const currentAdminId = decoded?.id || decoded?.sub;
-  const canViewAll = canViewAllTickets(adminLevel);
 
   const [assignableAdmins, setAssignableAdmins] = useState([]);
   const [adminNameMap, setAdminNameMap] = useState({});
-  const [myProfile, setMyProfile] = useState(null);
-  const [profileReady, setProfileReady] = useState(canViewAll);
 
   const pageCount = Math.ceil(totalCount / PAGE_SIZE);
 
-  // Fetch auxiliary data: staff names, assignees, profile for visibility filter
+  // Fetch auxiliary data: staff names, assignees
   useEffect(() => {
     if (!isLoggedIn || !isAdmin) return;
     const token = localStorage.getItem("authToken");
@@ -119,29 +87,17 @@ export default function AdminTickets() {
       })
       .catch(() => {});
 
-    if (canAssignTickets(adminLevel)) {
-      fetch(`${base}/api/admin/assignees`, { headers })
-        .then((r) => r.json())
-        .then((json) => {
-          if (json.success) setAssignableAdmins(json.data);
-        })
-        .catch(() => {});
-    }
-
-    if (needsTicketFilters(adminLevel)) {
-      fetch(`${base}/api/admin/me`, { headers })
-        .then((r) => r.json())
-        .then((json) => {
-          if (json.success) setMyProfile(json.data);
-        })
-        .catch(() => {})
-        .finally(() => setProfileReady(true));
-    }
-  }, [isLoggedIn, isAdmin, adminLevel]);
+    fetch(`${base}/api/admin/assignees`, { headers })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success) setAssignableAdmins(json.data);
+      })
+      .catch(() => {});
+  }, [isLoggedIn, isAdmin]);
 
   // Main paginated fetch
   useEffect(() => {
-    if (!isLoggedIn || !isAdmin || !profileReady) return;
+    if (!isLoggedIn || !isAdmin) return;
 
     const fetchTickets = async () => {
       try {
@@ -163,7 +119,6 @@ export default function AdminTickets() {
           q = q.is("closed_at", null);
         }
 
-        q = buildVisibilityFilter(q, { canViewAll, currentAdminId, myProfile });
         q = buildSearchFilter(q, search);
 
         const { data, error: supaError, count } = await q;
@@ -183,7 +138,7 @@ export default function AdminTickets() {
     };
 
     fetchTickets();
-  }, [isLoggedIn, isAdmin, profileReady, page, filter, search, realtimeTick]);
+  }, [isLoggedIn, isAdmin, page, filter, search, realtimeTick]);
 
   // Realtime: refetch on any ticket change
   useEffect(() => {
@@ -233,7 +188,6 @@ export default function AdminTickets() {
         q = q.is("closed_at", null);
       }
 
-      q = buildVisibilityFilter(q, { canViewAll, currentAdminId, myProfile });
       q = buildSearchFilter(q, search);
 
       const { data } = await q;
@@ -363,7 +317,7 @@ export default function AdminTickets() {
         onClick: (t) => toggleTicketStatus(t),
       },
     ],
-    [adminLevel, assignableAdmins, adminNameMap],
+    [assignableAdmins, adminNameMap],
   );
 
   useNavbarActions(

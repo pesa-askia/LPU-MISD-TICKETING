@@ -9,26 +9,6 @@ import { DataTable, TableButton, TableBadge } from "../../components/DataTable";
 
 const PAGE_SIZE = 10;
 
-const TICKET_TYPES = ["STUDENT", "FACULTY", "ADMIN"];
-const TICKET_DEPARTMENTS = [
-  "CAS",
-  "CBA",
-  "CITHM",
-  "COECS",
-  "LPU-SC",
-  "HIGHSCHOOL",
-];
-const TICKET_CATEGORIES = [
-  "LMS",
-  "Microsoft 365",
-  "STUDENT PORTAL",
-  "ERP",
-  "HARDWARE",
-  "SOFTWARE",
-  "OTHERS",
-];
-const TICKET_SITES = ["Onsite", "Online"];
-
 function getAuthHeader() {
   return { Authorization: `Bearer ${localStorage.getItem("authToken") || ""}` };
 }
@@ -37,24 +17,10 @@ function apiUrl(path) {
   return `${getApiBaseUrl()}${path}`;
 }
 
-function parseFilter(str) {
-  return new Set(
-    (str || "")
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean),
-  );
-}
-
-function serializeFilter(set) {
-  return [...set].join(",");
-}
-
 export default function AdminManage() {
   const [admins, setAdmins] = useState([]);
   const [error, setError] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
-  const [filterTarget, setFilterTarget] = useState(null);
   const [saving, setSaving] = useState(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
@@ -163,28 +129,6 @@ export default function AdminManage() {
     }
   };
 
-  const handleSaveFilters = async (admin, filters) => {
-    setSaving(admin.id);
-    try {
-      const res = await fetch(apiUrl(`/api/admin/admins/${admin.id}`), {
-        method: "PATCH",
-        headers: { ...getAuthHeader(), "Content-Type": "application/json" },
-        body: JSON.stringify(filters),
-      });
-      const json = await res.json();
-      if (!json.success) {
-        alert(json.message || "Failed to save filters");
-        return;
-      }
-      setAdmins((prev) => prev.map((a) => (a.id === admin.id ? json.data : a)));
-      setFilterTarget(null);
-    } catch (e) {
-      alert(e.message || "Failed to save filters");
-    } finally {
-      setSaving(null);
-    }
-  };
-
   const handleDeleteAdmin = async (admin) => {
     const label = admin.full_name || admin.email || "this admin";
     if (!window.confirm(`Delete ${label}? This cannot be undone.`)) return;
@@ -225,7 +169,7 @@ export default function AdminManage() {
         ),
     },
     {
-      label: "Level",
+      label: "Role",
       preventRowClick: true,
       render: (row) => {
         const isSelf = row.id === currentId;
@@ -250,41 +194,6 @@ export default function AdminManage() {
               </option>
             ))}
           </select>
-        );
-      },
-    },
-    {
-      label: "Ticket Filters",
-      preventRowClick: true,
-      render: (row) => {
-        const isSelf = row.id === currentId;
-        const tags = [
-          row.filter_type,
-          row.filter_department,
-          row.filter_category,
-          row.filter_site,
-        ].flatMap((f) =>
-          (f || "")
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean),
-        );
-        return (
-          <div className="flex flex-wrap gap-1 items-center">
-            {tags.map((tag) => (
-              <TableBadge key={tag}>{tag}</TableBadge>
-            ))}
-            {!isSelf && (
-              <TableButton
-                variant="secondary"
-                color="maroon"
-                onClick={() => setFilterTarget(row)}
-                className="mt-0.5"
-              >
-                Edit Filters
-              </TableButton>
-            )}
-          </div>
         );
       },
     },
@@ -376,20 +285,11 @@ export default function AdminManage() {
           }}
         />
       )}
-
-      {filterTarget && (
-        <EditFiltersModal
-          admin={filterTarget}
-          onClose={() => setFilterTarget(null)}
-          onSave={(filters) => handleSaveFilters(filterTarget, filters)}
-          saving={saving === filterTarget.id}
-        />
-      )}
     </div>
   );
 }
 
-function ModalShell({ onClose, title, wide, children }) {
+function ModalShell({ onClose, title, children }) {
   return (
     <div
       className="fixed inset-0 bg-black/45 flex items-center justify-center z-1000"
@@ -397,7 +297,7 @@ function ModalShell({ onClose, title, wide, children }) {
       role="dialog"
     >
       <div
-        className={`bg-white rounded-[18px] w-full shadow-[0_18px_48px_rgba(15,23,42,0.18)] overflow-hidden font-poppins ${wide ? "max-w-135" : "max-w-105"}`}
+        className="bg-white rounded-[18px] w-full max-w-105 shadow-[0_18px_48px_rgba(15,23,42,0.18)] overflow-hidden font-poppins"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-4 font-bold text-sm bg-[#980001] text-white">
@@ -497,7 +397,7 @@ function AddAdminModal({ onClose, onCreated }) {
           />
         </label>
         <label className={labelCls}>
-          Level
+          Role
           <select
             value={form.adminLevel}
             onChange={onChange("adminLevel")}
@@ -530,133 +430,6 @@ function AddAdminModal({ onClose, onCreated }) {
             className="px-5 py-2.5 rounded-full text-sm font-semibold border border-lpu-maroon bg-lpu-maroon text-white hover:bg-lpu-red hover:border-lpu-red disabled:opacity-55 disabled:cursor-not-allowed transition-colors"
           >
             {submitting ? "Creating…" : "Create"}
-          </button>
-        </div>
-      </form>
-    </ModalShell>
-  );
-}
-
-function CheckboxGroup({ options, selected, onChange, twoColumns }) {
-  const toggle = (val) => {
-    const next = new Set(selected);
-    next.has(val) ? next.delete(val) : next.add(val);
-    onChange(next);
-  };
-  return (
-    <div
-      className={
-        twoColumns
-          ? "grid grid-rows-3 grid-flow-col gap-x-6 gap-y-2 justify-start"
-          : "flex flex-col items-start gap-2"
-      }
-    >
-      {options.map((v) => (
-        <label
-          key={v}
-          className="flex flex-row items-center gap-2 text-xs font-medium cursor-pointer py-1 select-none whitespace-nowrap hover:opacity-70 transition-opacity"
-        >
-          <input
-            type="checkbox"
-            checked={selected.has(v)}
-            onChange={() => toggle(v)}
-            className="w-3.5 h-3.5 m-0 cursor-pointer accent-lpu-maroon shrink-0"
-          />
-          <span>{v}</span>
-        </label>
-      ))}
-    </div>
-  );
-}
-
-function EditFiltersModal({ admin, onClose, onSave, saving }) {
-  const [form, setForm] = useState({
-    filterType: parseFilter(admin.filter_type),
-    filterDepartment: parseFilter(admin.filter_department),
-    filterCategory: parseFilter(admin.filter_category),
-    filterSite: parseFilter(admin.filter_site),
-  });
-
-  const set = (field) => (val) => setForm((f) => ({ ...f, [field]: val }));
-
-  const onSubmit = (e) => {
-    e.preventDefault();
-    onSave({
-      filterType: serializeFilter(form.filterType),
-      filterDepartment: serializeFilter(form.filterDepartment),
-      filterCategory: serializeFilter(form.filterCategory),
-      filterSite: serializeFilter(form.filterSite),
-    });
-  };
-
-  return (
-    <ModalShell
-      onClose={onClose}
-      title={`Ticket Filters: ${admin.full_name || admin.email}`}
-      wide
-    >
-      <p className="mx-4.5 mt-2.5 text-[13px] text-gray-500">
-        This admin sees all tickets matching any checked value, plus ones
-        directly assigned to them.
-      </p>
-      <form className="flex flex-col gap-4 p-5" onSubmit={onSubmit}>
-        <div className="flex flex-col gap-2">
-          <span className="text-xs font-bold text-gray-700 uppercase tracking-[0.04em]">
-            Type
-          </span>
-          <CheckboxGroup
-            options={TICKET_TYPES}
-            selected={form.filterType}
-            onChange={set("filterType")}
-          />
-        </div>
-        <div className="flex flex-col gap-2">
-          <span className="text-xs font-bold text-gray-700 uppercase tracking-[0.04em]">
-            Department
-          </span>
-          <CheckboxGroup
-            options={TICKET_DEPARTMENTS}
-            selected={form.filterDepartment}
-            onChange={set("filterDepartment")}
-            twoColumns
-          />
-        </div>
-        <div className="flex flex-col gap-2">
-          <span className="text-xs font-bold text-gray-700 uppercase tracking-[0.04em]">
-            Category
-          </span>
-          <CheckboxGroup
-            options={TICKET_CATEGORIES}
-            selected={form.filterCategory}
-            onChange={set("filterCategory")}
-            twoColumns
-          />
-        </div>
-        <div className="flex flex-col gap-2">
-          <span className="text-xs font-bold text-gray-700 uppercase tracking-[0.04em]">
-            Site
-          </span>
-          <CheckboxGroup
-            options={TICKET_SITES}
-            selected={form.filterSite}
-            onChange={set("filterSite")}
-          />
-        </div>
-        <div className="flex justify-end gap-2.5 pt-1">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={saving}
-            className="px-5 py-2.5 rounded-full text-sm font-semibold border border-gray-200 bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-55 disabled:cursor-not-allowed transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="px-5 py-2.5 rounded-full text-sm font-semibold border border-lpu-maroon bg-lpu-maroon text-white hover:bg-lpu-red hover:border-lpu-red disabled:opacity-55 disabled:cursor-not-allowed transition-colors"
-          >
-            {saving ? "Saving…" : "Save"}
           </button>
         </div>
       </form>
