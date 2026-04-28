@@ -287,8 +287,8 @@ export default function AdminTickets() {
   const adminColumns = useMemo(
     () => [
       { label: "Ticket No.", accessor: "id", variant: "badge" },
-      { label: "Summary", accessor: "Summary", variant: "title" },
-      { label: "Description", accessor: "Description", variant: "subtitle" },
+      { label: "Summary", accessor: "Summary", variant: "title", colWidth: "w-36 md:w-[12%]" },
+      { label: "Description", accessor: "Description", variant: "subtitle", colWidth: "w-40 md:w-[15%]" },
       {
         label: "Assignees",
         accessor: "Assignee1",
@@ -323,7 +323,7 @@ export default function AdminTickets() {
     <button
       type="button"
       onClick={onExportCsv}
-      className="flex items-center justify-center gap-2 px-4 h-[40px] rounded-lg text-[15px] font-medium text-white/85 hover:bg-[var(--color-lpu-gold)] hover:text-[var(--color-lpu-maroon)] transition-all duration-200"
+      className="flex items-center justify-center gap-2 px-4 h-10 rounded-lg text-[15px] font-medium text-white/85 hover:bg-lpu-gold hover:text-lpu-maroon transition-all duration-200"
     >
       <Download size={18} />
       <span>Export CSV</span>

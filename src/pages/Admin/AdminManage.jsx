@@ -64,7 +64,7 @@ export default function AdminManage() {
     <button
       type="button"
       onClick={() => setShowAddModal(true)}
-      className="flex items-center justify-center gap-2 px-4 h-[40px] rounded-lg text-[15px] font-medium text-white/85 hover:bg-[var(--color-lpu-gold)] hover:text-[var(--color-lpu-maroon)] transition-all duration-200"
+      className="flex items-center justify-center gap-2 px-4 h-10 rounded-lg text-[15px] font-medium text-white/85 hover:bg-lpu-gold hover:text-lpu-maroon transition-all duration-200"
     >
       <UserPlus size={18} />
       Add Admin
@@ -161,7 +161,7 @@ export default function AdminManage() {
     { label: "Email", accessor: "email", variant: "subtitle" },
     {
       label: "Status",
-      variant: "badge",
+      colWidth: "w-32 md:w-[15%]",
       render: (row) =>
         !row.email_verified_at ? (
           <TableBadge
@@ -176,17 +176,14 @@ export default function AdminManage() {
     },
     {
       label: "Role",
-      variant: "select",
+      colWidth: "w-36 md:w-[25%]",
       render: (row) => {
         const isSelf = row.id === currentId;
         const isBusy = saving === row.id;
 
         if (isSelf) {
           return (
-            <TableBadge
-              variant="info"
-              className="w-full min-w-[130px] justify-start"
-            >
+            <TableBadge variant="info" className="w-full justify-start">
               {ADMIN_LEVEL_LABELS[row.admin_level] ?? row.admin_level} (You)
             </TableBadge>
           );
@@ -195,7 +192,7 @@ export default function AdminManage() {
           <TableSelect
             value={row.admin_level}
             disabled={isBusy}
-            className="w-full min-w-[130px]"
+            className="w-full"
             options={Object.entries(ADMIN_LEVEL_LABELS).map(([val, label]) => ({
               value: val,
               label,
@@ -207,7 +204,7 @@ export default function AdminManage() {
     },
     {
       label: "Actions",
-      variant: "action",
+      colWidth: "w-28 md:w-[15%]",
       preventRowClick: true,
       render: (row) => {
         const isSelf = row.id === currentId;

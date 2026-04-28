@@ -76,7 +76,7 @@ export function TableSelect({
 }) {
   return (
     <div
-      className={`relative h-9 group inline-block w-full min-w-[130px] ${className}`}
+      className={`relative h-9 group inline-block w-full min-w-32.5 ${className}`}
       onClick={(e) => e.stopPropagation()} // PREVENTS ROW CLICK BUG
     >
       <select
@@ -247,8 +247,6 @@ export function DataTable({
       case "select":
         return "w-45 md:w-55";
       case "date":
-      case "status":
-      case "statusText":
       case "highlight":
       default:
         return "w-24";
@@ -271,7 +269,7 @@ export function DataTable({
                 {columns.map((col, index) => (
                   <th
                     key={index}
-                    className={`px-3 py-4 md:px-4 font-bold uppercase text-[11px] tracking-widest truncate ${
+                    className={`px-3 py-4 md:px-4 font-bold uppercase text-[11px] tracking-widest ${
                       col.align === "right" ? "text-right" : "text-left"
                     }`}
                   >
