@@ -133,14 +133,12 @@ export default function TicketDetails({
           >
             {statusText}
           </span>
-          {adminView && (
-            <button
-              onClick={onCloseTicket}
-              className="text-[10px] font-bold uppercase text-lpu-maroon hover:underline decoration-lpu-gold underline-offset-2 ml-1"
-            >
-              {isTicketClosed(ticket) ? "Reopen" : "Close"}
-            </button>
-          )}
+          <button
+            onClick={onCloseTicket}
+            className="text-[10px] font-bold uppercase text-lpu-maroon hover:underline decoration-lpu-gold underline-offset-2 ml-1"
+          >
+            {isTicketClosed(ticket) ? "Reopen" : "Close"}
+          </button>
         </div>
 
         {/* Right Side: Created Info + Summary Toggle */}

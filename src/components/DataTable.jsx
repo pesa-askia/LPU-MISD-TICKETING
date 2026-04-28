@@ -35,7 +35,7 @@ export function TableButton({
         if (onClick) onClick(e);
       }}
       disabled={disabled}
-      className={`${UI_SHARED_BASE} focus:outline-none focus:ring-2 focus:ring-lpu-gold focus:ring-offset-1 ${style} disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+      className={`${UI_SHARED_BASE} focus:outline-none focus:ring-2 focus:ring-lpu-gold focus:ring-offset-1 ${style} cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
     >
       {children}
     </button>

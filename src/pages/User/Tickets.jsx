@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from "react";
 import { AlertCircle } from "lucide-react";
 import { jwtDecode } from "jwt-decode";
 import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
+import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import { useLoading } from "../../context/LoadingContext";
 import { FilterSelect, SearchInput } from "../../components/DashboardControls";
 import { DataTable, TableBadge } from "../../components/DataTable";
@@ -15,7 +16,8 @@ function getTicketStatus(ticket) {
     ticket?.sla_met === false ||
     (ticket?.sla_due_at && Date.parse(ticket.sla_due_at) < Date.now());
   if (slaBreached) return "overdue";
-  const hasAssignee = ticket?.Assignee1 || ticket?.Assignee2 || ticket?.Assignee3;
+  const hasAssignee =
+    ticket?.Assignee1 || ticket?.Assignee2 || ticket?.Assignee3;
   if (!hasAssignee) return "unassigned";
   return "ongoing";
 }
@@ -82,16 +84,26 @@ function Tickets() {
         ? { status: "Open", closed_at: null }
         : { status: "Closed", closed_at: new Date().toISOString() };
 
-      const { error: updErr } = await realtimeSupabase
-        .from("Tickets")
-        .update(payload)
-        .eq("id", ticket.id);
-
-      if (updErr) {
-        alert(updErr.message || "Failed to update ticket status");
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(
+        `${getApiBaseUrl()}/api/tickets/${ticket.id}/status`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        },
+      );
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        alert(json.message || "Failed to update ticket status");
         return;
       }
       setRealtimeTick((n) => n + 1);
+    } catch (e) {
+      alert(e?.message || "Unexpected error updating ticket status");
     } finally {
       hideLoading();
     }
@@ -217,7 +229,7 @@ function Tickets() {
 
   return (
     <div className="h-full overflow-hidden bg-gray-50 font-poppins flex flex-col p-4 md:p-6">
-      <div className="w-full max-w-6xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border-t-[6px] border-lpu-maroon flex-1 min-h-0 flex flex-col">
+      <div className="w-full max-w-330 mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border-t-[6px] border-lpu-maroon flex-1 min-h-0 flex flex-col">
         <div className="p-6 md:p-8 flex-1 min-h-0 flex flex-col">
           <h1 className="text-2xl md:text-3xl font-black text-lpu-maroon mb-4 tracking-tight">
             Ticket Dashboard

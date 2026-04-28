@@ -96,10 +96,6 @@ export default function TicketChat({ adminView = false } = {}) {
   };
 
   const handleCloseTicket = async () => {
-    if (!adminView) {
-      alert("Only admins can update ticket status.");
-      return;
-    }
     if (!ticket) return;
 
     try {
@@ -110,21 +106,25 @@ export default function TicketChat({ adminView = false } = {}) {
         ? { status: "Closed", closed_at: now }
         : { status: "Open", closed_at: null };
 
-      const { data, error } = await realtimeSupabase
-        .from("Tickets")
-        .update(payload)
-        .eq("id", ticket.id)
-        .select();
-
-      if (error) {
-        alert(error.message || "Failed to update ticket status");
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(
+        `${getApiBaseUrl()}/api/tickets/${ticket.id}/status`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        },
+      );
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        alert(json.message || "Failed to update ticket status");
         return;
       }
 
-      const updated = (Array.isArray(data) && data[0]) || {
-        ...ticket,
-        ...payload,
-      };
+      const updated = json.data || { ...ticket, ...payload };
       setTicket(updated);
       cacheTicket(id, updated);
     } catch (err) {

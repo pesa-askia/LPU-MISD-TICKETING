@@ -8,6 +8,8 @@ const UserLayout = () => {
   const { pathname } = useLocation();
   const [isSidePanelCollapsed, setIsSidePanelCollapsed] = useState(true);
   const isFullChatPage = pathname === "/Chat";
+  const isTicketChat = /^\/Tickets\/[^/]+$/i.test(pathname);
+  const hideChatbot = isFullChatPage || isTicketChat;
   const sidePanelOffsetClass = isSidePanelCollapsed ? "md:ml-25" : "md:ml-87.5";
 
   return (
@@ -22,7 +24,7 @@ const UserLayout = () => {
         >
           <Outlet />
         </main>
-        {!isFullChatPage && <ChatbotWidget />}
+        {!hideChatbot && <ChatbotWidget />}
       </div>
     </ChatbotProvider>
   );

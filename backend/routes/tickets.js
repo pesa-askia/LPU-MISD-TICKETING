@@ -229,8 +229,8 @@ router.post("/", authMiddleware, async (req, res) => {
   }
 });
 
-// PATCH /api/tickets/:id/status — open or close ticket (admin only)
-router.patch("/:id/status", adminMiddleware, async (req, res) => {
+// PATCH /api/tickets/:id/status — open or close ticket (admin or ticket owner)
+router.patch("/:id/status", authMiddleware, async (req, res) => {
   try {
     const ticketId = parseInt(req.params.id, 10);
     if (isNaN(ticketId)) {
@@ -245,18 +245,23 @@ router.patch("/:id/status", adminMiddleware, async (req, res) => {
         .status(400)
         .json({ success: false, message: "status is required" });
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("Tickets")
       .update({ status, closed_at: closed_at ?? null })
-      .eq("id", ticketId)
-      .select();
+      .eq("id", ticketId);
+
+    if (req.user.app_role !== "admin") {
+      query = query.eq("created_by", req.user.id);
+    }
+
+    const { data, error } = await query.select();
 
     if (error)
       return res.status(400).json({ success: false, message: error.message });
     if (!data || data.length === 0) {
       return res
         .status(404)
-        .json({ success: false, message: "Ticket not found" });
+        .json({ success: false, message: "Ticket not found or access denied" });
     }
     return res.json({ success: true, data: data[0] });
   } catch (e) {
