@@ -139,7 +139,7 @@ export default function ChatMessages({
           <div
             className={`px-4 py-3 rounded-2xl text-sm leading-relaxed border shadow-[12px_12px_24px_rgba(0,0,0,0.18)] ${bubbleClass} ${alignRight ? "rounded-tr-none" : "rounded-tl-none"}`}
           >
-            <p className="whitespace-pre-wrap break-words">{content}</p>
+            <p className="whitespace-pre-wrap wrap-break-word">{content}</p>
           </div>
 
           {!isTranscript && m.attachments?.length > 0 && (
