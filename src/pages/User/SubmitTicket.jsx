@@ -33,6 +33,18 @@ function SubmitTicket() {
   const [successMessage, setSuccessMessage] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
 
+  // When navigating to this page from the chatbot while already on it,
+  // the component doesn't remount so useState initializer won't re-run.
+  useEffect(() => {
+    if (chatPrefill) {
+      setFormData((prev) => ({
+        ...prev,
+        summary: chatPrefill.summary || prev.summary,
+        description: chatPrefill.description || prev.description,
+      }));
+    }
+  }, [chatPrefill]);
+
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 768) {

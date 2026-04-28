@@ -14,11 +14,12 @@ function getRateWindowMs(env) {
   if (v > 0) return v;
   return 24 * 60 * 60 * 1000;
 }
-function getMinMessageGapMs(env) {
-  const v = Number(envGet(env, "CHATBOT_MIN_MESSAGE_GAP_MS"));
-  if (v >= 0) return v;
-  return 2_000;
-}
+
+// Spam detection config — only applies cooldown when user sends rapidly
+const SPAM_THRESHOLD_COUNT = 3; // messages within SPAM_WINDOW_MS triggers cooldown
+const SPAM_WINDOW_MS = 6_000;
+const SPAM_BASE_COOLDOWN_MS = 5_000;
+const SPAM_MAX_COOLDOWN_MS = 120_000;
 const GREETING =
   "Hi! I'm the MISD Support Bot. How can I help you today? I can assist with LMS, Microsoft 365, Student Portal, ERP, hardware, and software issues.";
 
@@ -40,6 +41,7 @@ function ChatbotWidget() {
   const [cooldownLabel, setCooldownLabel] = useState("");
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const sendTimestampsRef = useRef([]);
 
   const limiterKey = (() => {
     try {
@@ -173,6 +175,14 @@ function ChatbotWidget() {
     async (text) => {
       if (!text.trim() || isTyping) return;
 
+      // Track send time for spam detection (checked after successful response)
+      sendTimestampsRef.current = [
+        ...sendTimestampsRef.current.filter(
+          (t) => Date.now() - t < SPAM_WINDOW_MS,
+        ),
+        Date.now(),
+      ];
+
       const userMsg = {
         role: "user",
         content: text.trim(),
@@ -225,17 +235,37 @@ function ChatbotWidget() {
         };
         setMessages((prev) => [...prev, botMsg]);
 
-        // Local: after a successful message, only min gap (no bump to violation count)
-        const cur = readLocalLimiter();
-        const windowStartMs = cur.windowStartMs ?? Date.now();
-        const gap = getMinMessageGapMs(import.meta.env);
-        const until = gap > 0 ? Date.now() + gap : null;
-        writeLocalLimiter({
-          violationCount: cur.violationCount,
-          cooldownUntilMs: until,
-          windowStartMs,
-        });
-        if (until) setCooldownUntilMs(until);
+        // Spam detection: check accumulated send timestamps, escalate cooldown only on rapid fire
+        const now = Date.now();
+        // Prune stale entries (may have aged out while waiting for response)
+        sendTimestampsRef.current = sendTimestampsRef.current.filter(
+          (t) => now - t < SPAM_WINDOW_MS,
+        );
+        const recentCount = sendTimestampsRef.current.length;
+        if (recentCount >= SPAM_THRESHOLD_COUNT) {
+          const cur = readLocalLimiter();
+          const newViolations = cur.violationCount + 1;
+          const cooldownMs = Math.min(
+            SPAM_BASE_COOLDOWN_MS * Math.pow(2, newViolations - 1),
+            SPAM_MAX_COOLDOWN_MS,
+          );
+          const until = now + cooldownMs;
+          writeLocalLimiter({
+            violationCount: newViolations,
+            cooldownUntilMs: until,
+            windowStartMs: cur.windowStartMs ?? now,
+          });
+          setCooldownUntilMs(until);
+          // Reset timestamps so next burst starts fresh
+          sendTimestampsRef.current = [];
+        } else {
+          const cur = readLocalLimiter();
+          writeLocalLimiter({
+            violationCount: cur.violationCount,
+            cooldownUntilMs: null,
+            windowStartMs: cur.windowStartMs ?? now,
+          });
+        }
 
         if (data.shouldHandoff) setShouldHandoff(true);
       } catch {
@@ -281,8 +311,11 @@ function ChatbotWidget() {
     const summary = userMessages[0]?.content?.slice(0, 120) || "";
     const transcript = messages
       .filter((m) => m.id !== "greeting")
-      .map((m) => `[${m.role === "user" ? "User" : "Bot"}]: ${m.content}`)
-      .join("\n");
+      .map((m) => {
+        const label = m.role === "user" ? "[You]" : "[MISD Support Bot]";
+        return `${label}\n${m.content}`;
+      })
+      .join("\n\n");
 
     setIsOpen(false);
     navigate("/SubmitTicket", {
