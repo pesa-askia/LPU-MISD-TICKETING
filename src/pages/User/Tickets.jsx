@@ -5,9 +5,21 @@ import { jwtDecode } from "jwt-decode";
 import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
 import { useLoading } from "../../context/LoadingContext";
 import { FilterSelect, SearchInput } from "../../components/DashboardControls";
-import { DataTable } from "../../components/DataTable";
+import { DataTable, TableBadge } from "../../components/DataTable";
 
 const PAGE_SIZE = 10;
+
+function getTicketPriority(ticket) {
+  return ticket?.Priority ?? ticket?.priority ?? "";
+}
+
+function getPriorityBadgeVariant(priority) {
+  const val = String(priority || "").trim().toLowerCase();
+  if (val === "high" || val === "urgent" || val === "critical") return "danger";
+  if (val === "medium" || val === "normal") return "warning";
+  if (val === "low") return "info";
+  return "default";
+}
 
 function Tickets() {
   const navigate = useNavigate();
@@ -22,6 +34,18 @@ function Tickets() {
 
   const columns = [
     { label: "Ticket No.", accessor: "id", variant: "badge" },
+    {
+      label: "Priority",
+      accessor: (row) => getTicketPriority(row),
+      render: (row) => {
+        const priority = getTicketPriority(row);
+        return (
+          <TableBadge variant={getPriorityBadgeVariant(priority)}>
+            {priority ? String(priority) : "—"}
+          </TableBadge>
+        );
+      },
+    },
     { label: "Summary", accessor: "Summary", variant: "title" },
     { label: "Description", accessor: "Description", variant: "subtitle" },
     { label: "Department", accessor: "Department", variant: "highlight" },
