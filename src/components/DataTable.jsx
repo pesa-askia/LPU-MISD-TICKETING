@@ -1,24 +1,20 @@
 import React from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 
-const BTN_BASE =
-  "px-3 py-1.5 text-xs font-bold rounded-lg border transition-colors whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed";
+/**
+ * STRICT UNIFORM SIZING SYSTEM
+ * Height: h-9 (36px)
+ * Text: text-sm font-bold
+ * Rounding: rounded-lg
+ */
+const UI_SHARED_BASE =
+  "h-9 inline-flex items-center justify-center px-3 text-sm font-bold rounded-lg border transition-all whitespace-nowrap";
 
 const BTN_STYLES = {
-  primary: {
-    default:
-      "bg-lpu-maroon border-lpu-maroon text-white hover:bg-lpu-red hover:border-lpu-red",
-    red: "bg-red-600 border-red-600 text-white hover:bg-red-700 hover:border-red-700",
-    green:
-      "bg-green-600 border-green-600 text-white hover:bg-green-700 hover:border-green-700",
-  },
-  secondary: {
-    default: "bg-transparent border-gray-300 text-gray-600 hover:bg-gray-50",
-    maroon:
-      "bg-transparent border-lpu-maroon/40 text-lpu-maroon hover:bg-lpu-maroon/[0.07]",
-    red: "bg-transparent border-red-300 text-red-600 hover:bg-red-50",
-    green: "bg-transparent border-green-300 text-green-600 hover:bg-green-50",
-  },
+  primary:
+    "bg-lpu-maroon border-lpu-maroon text-white hover:bg-lpu-gold hover:text-lpu-maroon hover:border-lpu-gold",
+  secondary:
+    "border-lpu-maroon text-lpu-maroon hover:bg-lpu-gold hover:text-lpu-maroon hover:border-lpu-gold",
 };
 
 export function TableButton({
@@ -26,17 +22,20 @@ export function TableButton({
   disabled,
   children,
   variant = "primary",
-  color = "default",
   className = "",
 }) {
-  const style =
-    BTN_STYLES[variant]?.[color] ?? BTN_STYLES[variant]?.default ?? "";
+  // Directly maps to either "primary" or "secondary" (defaults to primary if misspelled)
+  const style = BTN_STYLES[variant] || BTN_STYLES.primary;
+
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (onClick) onClick(e);
+      }}
       disabled={disabled}
-      className={`${BTN_BASE} ${style} ${className}`}
+      className={`${UI_SHARED_BASE} focus:outline-none focus:ring-2 focus:ring-lpu-gold focus:ring-offset-1 ${style} disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
     >
       {children}
     </button>
@@ -44,21 +43,65 @@ export function TableButton({
 }
 
 const BADGE_STYLES = {
-  default: "bg-gray-100 text-gray-700 border border-black/10",
-  success: "bg-green-100 text-green-800",
-  warning: "bg-orange-50 text-orange-700",
-  danger: "bg-red-50 text-red-700",
-  info: "bg-lpu-maroon/10 text-lpu-maroon",
+  default: "bg-gray-100 text-gray-700 border-gray-200",
+  success: "bg-green-100 text-green-800 border-green-200",
+  warning: "bg-orange-100 text-orange-700 border-orange-200",
+  danger: "bg-red-50 text-red-700 border-red-200",
+  info: "bg-lpu-maroon/10 text-lpu-maroon border-lpu-maroon/20",
 };
 
-export function TableBadge({ children, variant = "default", title }) {
+export function TableBadge({
+  children,
+  variant = "default",
+  title,
+  className = "",
+}) {
   return (
     <span
       title={title}
-      className={`inline-block text-[11px] font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap ${BADGE_STYLES[variant] ?? BADGE_STYLES.default}`}
+      className={`${UI_SHARED_BASE} ${BADGE_STYLES[variant] ?? BADGE_STYLES.default} ${className}`}
     >
       {children}
     </span>
+  );
+}
+
+export function TableSelect({
+  value,
+  options = [],
+  onChange,
+  placeholder,
+  disabled,
+  className = "",
+}) {
+  return (
+    <div
+      className={`relative h-9 group inline-block w-full min-w-[130px] ${className}`}
+      onClick={(e) => e.stopPropagation()} // PREVENTS ROW CLICK BUG
+    >
+      <select
+        className="w-full h-full appearance-none pl-3 pr-8 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-700 outline-none transition-all duration-200 focus:ring-2 focus:ring-lpu-gold focus:border-lpu-gold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+        value={value || ""}
+        disabled={disabled}
+        onChange={onChange}
+        onClick={(e) => e.stopPropagation()} // Double protection for Safari/Firefox
+      >
+        {placeholder && (
+          <option value="" disabled>
+            {placeholder}
+          </option>
+        )}
+        {options.map((opt, i) => (
+          <option key={i} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown
+        size={16}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none transition-all duration-200 group-focus-within:rotate-180 group-focus-within:text-lpu-gold"
+      />
+    </div>
   );
 }
 
@@ -75,9 +118,10 @@ export function DataTable({
   onNextPage,
 }) {
   const hasPagination = pageCount !== undefined && pageCount > 0;
+
   if (data.length === 0) {
     return (
-      <div className="w-full rounded-xl border border-gray-100 bg-white">
+      <div className="w-full rounded-xl border border-gray-100 bg-white shadow-sm">
         <div className="flex flex-col items-center justify-center py-20 text-gray-400 bg-gray-50/50 rounded-xl">
           <p className="text-xl font-semibold">{emptyMessage}</p>
           {emptySubMessage && <p className="text-sm mt-1">{emptySubMessage}</p>}
@@ -95,19 +139,18 @@ export function DataTable({
     );
   }
 
-  // 1. The Design System
   const renderCell = (col, row, rowIndex) => {
     const value =
       typeof col.accessor === "function"
         ? col.accessor(row)
         : row[col.accessor];
 
-    if (col.render && !col.variant) return col.render(row, rowIndex);
+    if (col.render) return col.render(row, rowIndex);
 
     switch (col.variant) {
       case "badge":
         return (
-          <span className="bg-gray-100 group-hover:bg-lpu-maroon group-hover:text-white px-3 py-1 rounded-full text-xs font-bold transition-colors whitespace-nowrap">
+          <span className="h-9 inline-flex items-center justify-center px-3 bg-gray-100 group-hover:bg-lpu-maroon group-hover:text-white rounded-lg text-sm font-bold transition-colors whitespace-nowrap border border-transparent group-hover:border-lpu-maroon">
             #{value}
           </span>
         );
@@ -131,7 +174,7 @@ export function DataTable({
         );
       case "highlight":
         return (
-          <span className="text-sm text-lpu-maroon tracking-tighter line-clamp-1">
+          <span className="text-sm font-bold text-lpu-maroon tracking-tighter line-clamp-1">
             {value || "-"}
           </span>
         );
@@ -143,17 +186,15 @@ export function DataTable({
         );
       case "status":
         return value ? (
-          <span className="text-sm text-lpu-maroon whitespace-nowrap">
+          <span className="text-sm text-lpu-maroon font-bold whitespace-nowrap">
             {new Date(value).toLocaleDateString()}
           </span>
         ) : (
-          <span className="bg-green-100 text-emerald-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase whitespace-nowrap">
-            Active
-          </span>
+          <TableBadge variant="success">Active</TableBadge>
         );
       case "statusText":
         return (
-          <span className="font-semibold text-gray-700 whitespace-nowrap">
+          <span className="text-sm font-bold text-gray-700 whitespace-nowrap">
             {value || "Open"}
           </span>
         );
@@ -166,22 +207,12 @@ export function DataTable({
           );
         }
         return (
-          <select
-            className="w-full border border-gray-200 rounded-lg p-2 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-lpu-maroon focus:border-lpu-maroon transition-all cursor-pointer"
-            value={value || ""}
+          <TableSelect
+            value={value}
+            options={col.options}
+            placeholder={col.placeholder}
             onChange={(e) => col.onChange && col.onChange(row, e.target.value)}
-          >
-            {col.placeholder && (
-              <option value="" disabled>
-                {col.placeholder}
-              </option>
-            )}
-            {col.options.map((opt, i) => (
-              <option key={i} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+          />
         );
       case "action":
         const isPrimary = col.isPrimary ? col.isPrimary(row) : true;
@@ -202,39 +233,37 @@ export function DataTable({
     }
   };
 
-  // 2. Auto-Layout
-  const getColumnWidthClass = (variant) => {
-    switch (variant) {
+  const getColumnWidthClass = (col) => {
+    if (col.colWidth) return col.colWidth;
+    switch (col.variant) {
       case "badge":
         return "w-20 md:w-28";
+      case "title":
+        return "w-1/4 md:w-1/6";
+      case "subtitle":
+        return "w-1/3 md:w-1/3";
+      case "action":
+        return "w-24 md:w-25";
+      case "select":
+        return "w-45 md:w-55";
       case "date":
       case "status":
       case "statusText":
       case "highlight":
-      case "action":
-        return "w-24 md:w-32";
-      case "select":
-        return "w-32 md:w-48";
-      case "title":
-        return "w-1/4 md:w-1/5";
-      case "subtitle":
-        return "w-1/3 md:w-1/4";
       default:
         return "w-24";
     }
   };
 
   return (
-    // Outer Container: Enables horizontal scrolling on mobile, hides it on desktop
     <div className="w-full rounded-xl border border-gray-100 bg-white shadow-sm overflow-x-auto md:overflow-x-hidden">
-      {/* Inner flex container to enforce a minimum width so mobile doesn't crush the table */}
       <div className="min-w-200 md:min-w-full flex flex-col">
-        {/* HEADER TABLE (No Scrollbar) */}
+        {/* HEADER TABLE */}
         <div className="w-full bg-lpu-maroon text-white rounded-t-xl pr-1 md:pr-2">
           <table className="w-full text-left border-collapse table-fixed">
             <colgroup>
               {columns.map((col, index) => (
-                <col key={index} className={getColumnWidthClass(col.variant)} />
+                <col key={index} className={getColumnWidthClass(col)} />
               ))}
             </colgroup>
             <thead>
@@ -242,7 +271,9 @@ export function DataTable({
                 {columns.map((col, index) => (
                   <th
                     key={index}
-                    className={`px-3 py-4 md:px-4 font-bold uppercase text-[11px] tracking-widest truncate ${col.align === "right" ? "text-right" : "text-left"}`}
+                    className={`px-3 py-4 md:px-4 font-bold uppercase text-[11px] tracking-widest truncate ${
+                      col.align === "right" ? "text-right" : "text-left"
+                    }`}
                   >
                     {col.label}
                   </th>
@@ -252,12 +283,12 @@ export function DataTable({
           </table>
         </div>
 
-        {/* BODY TABLE (Vertical Scrollbar ONLY applies here) */}
+        {/* BODY TABLE */}
         <div className="w-full max-h-150 overflow-y-auto overflow-x-hidden rounded-b-xl pb-2">
           <table className="w-full text-left border-collapse table-fixed">
             <colgroup>
               {columns.map((col, index) => (
-                <col key={index} className={getColumnWidthClass(col.variant)} />
+                <col key={index} className={getColumnWidthClass(col)} />
               ))}
             </colgroup>
             <tbody className="divide-y divide-gray-100">
@@ -267,12 +298,16 @@ export function DataTable({
                   onClick={() => onRowClick && onRowClick(row)}
                   tabIndex={onRowClick ? 0 : -1}
                   style={{ animationDelay: `${rowIndex * 30}ms` }}
-                  className={`group transition-colors duration-200 animate-in fade-in slide-in-from-left-4 hover:bg-lpu-gold/5 ${onRowClick ? "cursor-pointer" : ""}`}
+                  className={`group transition-colors duration-200 animate-in fade-in slide-in-from-left-4 hover:bg-lpu-gold/5 ${
+                    onRowClick ? "cursor-pointer" : ""
+                  }`}
                 >
                   {columns.map((col, colIndex) => (
                     <td
                       key={colIndex}
-                      className={`px-3 py-4 md:px-4 align-middle overflow-hidden ${col.align === "right" ? "text-right" : "text-left"}`}
+                      className={`px-3 py-3 md:px-4 align-middle overflow-hidden ${
+                        col.align === "right" ? "text-right" : "text-left"
+                      }`}
                       onClick={(e) => {
                         if (col.preventRowClick) e.stopPropagation();
                       }}
@@ -309,30 +344,28 @@ function PaginationFooter({
 }) {
   return (
     <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-white rounded-b-xl">
-      <span className="text-sm text-gray-500">
-        Page <span className="font-semibold text-gray-700">{page + 1}</span> of{" "}
-        <span className="font-semibold text-gray-700">{pageCount}</span>
+      <span className="text-sm text-gray-500 font-medium">
+        Page <span className="font-bold text-gray-800">{page + 1}</span> of{" "}
+        <span className="font-bold text-gray-800">{pageCount}</span>
         {totalCount !== undefined && (
           <span className="ml-1 text-gray-400">({totalCount} total)</span>
         )}
       </span>
       <div className="flex gap-2">
-        <button
-          type="button"
+        <TableButton
           onClick={onPrevPage}
           disabled={page === 0}
-          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-semibold border bg-lpu-maroon text-white hover:bg-lpu-gold hover:text-lpu-maroon hover:border-lpu-gold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          variant="secondary"
         >
-          <ChevronLeft size={15} /> Prev
-        </button>
-        <button
-          type="button"
+          <ChevronLeft size={16} className="mr-1" /> Prev
+        </TableButton>
+        <TableButton
           onClick={onNextPage}
           disabled={page >= pageCount - 1}
-          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-semibold border bg-lpu-maroon text-white hover:bg-lpu-gold hover:text-lpu-maroon hover:border-lpu-gold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          variant="secondary"
         >
-          Next <ChevronRight size={15} />
-        </button>
+          Next <ChevronRight size={16} className="ml-1" />
+        </TableButton>
       </div>
     </div>
   );

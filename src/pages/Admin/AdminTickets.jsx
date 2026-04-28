@@ -310,7 +310,6 @@ export default function AdminTickets() {
       {
         label: "Actions",
         variant: "action",
-        align: "right",
         preventRowClick: true,
         getLabel: (t) => (isClosed(t) ? "Reopen" : "Close"),
         isPrimary: (t) => isClosed(t),
