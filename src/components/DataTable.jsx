@@ -165,9 +165,55 @@ export function DataTable({
             </span>
           );
         }
+        const selectExtraClass =
+          typeof col.selectClassName === "function"
+            ? col.selectClassName(row, value)
+            : col.selectClassName || "";
+        const pillClassName =
+          typeof col.pillClassName === "function"
+            ? col.pillClassName(row, value)
+            : col.pillClassName || "";
+        const displayValue =
+          col.getDisplayValue?.(row, value) ||
+          value ||
+          col.fallbackText?.(row) ||
+          "";
+
+        if (pillClassName) {
+          return (
+            <div className="relative w-full">
+              <div
+                className={`h-8 flex items-center justify-between rounded-md px-2 text-xs font-semibold select-none ${pillClassName}`}
+              >
+                <span className="truncate">
+                  {displayValue || col.placeholder || "Select…"}
+                </span>
+                <span className="ml-2 text-[10px] opacity-80">▾</span>
+              </div>
+              <select
+                className={`absolute inset-0 w-full h-8 opacity-0 cursor-pointer ${selectExtraClass}`}
+                value={value || ""}
+                onChange={(e) =>
+                  col.onChange && col.onChange(row, e.target.value)
+                }
+              >
+                {col.placeholder && (
+                  <option value="" disabled>
+                    {col.placeholder}
+                  </option>
+                )}
+                {col.options.map((opt, i) => (
+                  <option key={i} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          );
+        }
         return (
           <select
-            className="w-full border border-gray-200 rounded-lg p-2 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-lpu-maroon focus:border-lpu-maroon transition-all cursor-pointer"
+            className={`w-full h-8 border border-gray-200 rounded-md px-2 py-1 text-xs bg-gray-50 outline-none focus:ring-1 focus:ring-lpu-maroon focus:border-lpu-maroon transition-all cursor-pointer ${selectExtraClass}`}
             value={value || ""}
             onChange={(e) => col.onChange && col.onChange(row, e.target.value)}
           >
@@ -214,7 +260,7 @@ export function DataTable({
       case "action":
         return "w-24 md:w-32";
       case "select":
-        return "w-32 md:w-48";
+        return "w-24 md:w-32";
       case "title":
         return "w-1/4 md:w-1/5";
       case "subtitle":
