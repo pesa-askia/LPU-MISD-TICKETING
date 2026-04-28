@@ -27,6 +27,8 @@ export default function TicketChat({ adminView = false } = {}) {
   const [error, setError] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
   const [expandedSummary, setExpandedSummary] = useState(false);
+  const [expandedTimeline, setExpandedTimeline] = useState(false);
+  const [timelineHistory, setTimelineHistory] = useState([]);
   const scrollRef = useRef(null);
   const isAtBottomRef = useRef(true);
   const userIdRef = useRef(null);
@@ -185,6 +187,67 @@ export default function TicketChat({ adminView = false } = {}) {
 
     fetchTicket();
   }, [id, adminView, getTicket, cacheTicket, showLoading, hideLoading]);
+
+  // Fetch timeline history snapshots (admin-only visibility depends on RLS)
+  useEffect(() => {
+    if (!id) return;
+    let isCancelled = false;
+    const ticketId = normalizeTicketId(id);
+
+    const isMissingTable = (err) => {
+      if (!err) return false;
+      const msg = String(err.message || "").toLowerCase();
+      return msg.includes("ticket_sla_history") && msg.includes("could not find");
+    };
+
+    const loadHistory = async () => {
+      try {
+        const res = await realtimeSupabase
+          .from("ticket_sla_history")
+          .select("*")
+          .eq("ticket_id", ticketId)
+          .order("closed_at", { ascending: false })
+          .limit(25);
+
+        if (res.error) {
+          if (isMissingTable(res.error)) return;
+          console.error("[Timeline] Failed to load history:", res.error);
+          return;
+        }
+        if (isCancelled) return;
+        setTimelineHistory(res.data || []);
+      } catch (e) {
+        console.error("[Timeline] Unexpected error:", e);
+      }
+    };
+
+    loadHistory();
+
+    // Realtime updates: when a new snapshot is inserted, refetch
+    const channel = realtimeSupabase
+      .channel(`ticket_sla_history_${ticketId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "ticket_sla_history",
+          filter: `ticket_id=eq.${ticketId}`,
+        },
+        () => {
+          loadHistory();
+        },
+      )
+      .subscribe((status) => {
+        if (status === "CHANNEL_ERROR")
+          console.error("Realtime channel error for ticket_sla_history");
+      });
+
+    return () => {
+      isCancelled = true;
+      realtimeSupabase.removeChannel(channel);
+    };
+  }, [id, ticket?.closed_at]);
 
   useEffect(() => {
     if (!ticket?.created_by) return;
@@ -732,6 +795,9 @@ export default function TicketChat({ adminView = false } = {}) {
           adminView={adminView}
           expandedSummary={expandedSummary}
           onToggleSummary={() => setExpandedSummary((prev) => !prev)}
+          expandedTimeline={expandedTimeline}
+          onToggleTimeline={() => setExpandedTimeline((prev) => !prev)}
+          timelineHistory={timelineHistory}
           onCloseTicket={handleCloseTicket}
           isTicketClosed={isTicketClosed}
           formatDateTime={formatDateTime}

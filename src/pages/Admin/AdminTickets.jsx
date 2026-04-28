@@ -23,6 +23,35 @@ function escapeCsv(value) {
   return next;
 }
 
+function getTicketPriority(ticket) {
+  return ticket?.Priority ?? ticket?.priority ?? "";
+}
+
+function getPrioritySelectClass(priority) {
+  const val = String(priority || "").trim().toLowerCase();
+  if (val === "high") return "border-red-700";
+  if (val === "medium") return "border-yellow-500";
+  if (val === "low") return "border-green-700";
+  return "";
+}
+
+function getPriorityPillClass(priority) {
+  const val = String(priority || "").trim().toLowerCase();
+  if (val === "high")
+    return "bg-red-600 text-white border border-red-700";
+  if (val === "medium")
+    return "bg-yellow-400 text-black border border-yellow-500";
+  if (val === "low")
+    return "bg-green-600 text-white border border-green-700";
+  return "bg-gray-100 text-gray-700 border border-gray-200";
+}
+
+const PRIORITY_OPTIONS = [
+  { value: "High", label: "High" },
+  { value: "Medium", label: "Medium" },
+  { value: "Low", label: "Low" },
+];
+
 function buildSearchFilter(q, search) {
   const trimmed = search.trim();
   if (!trimmed) return q;
@@ -234,7 +263,7 @@ export default function AdminTickets() {
       let q = realtimeSupabase
         .from("Tickets")
         .select(
-          "id,Summary,Description,Department,Type,Category,Site,status,created_at,closed_at",
+          "id,Priority,Summary,Description,Department,Type,Category,Site,status,created_at,closed_at",
         )
         .order("id", { ascending: false });
 
@@ -249,6 +278,7 @@ export default function AdminTickets() {
       const { data } = await q;
       const rows = (data || []).map((t) => [
         t.id,
+        getTicketPriority(t),
         t.Summary,
         t.Description,
         t.Department,
@@ -261,6 +291,7 @@ export default function AdminTickets() {
       ]);
       const headers = [
         "id",
+        "priority",
         "summary",
         "description",
         "department",
@@ -362,11 +393,46 @@ export default function AdminTickets() {
     }
   };
 
+  const handlePriorityChange = async (ticket, value) => {
+    if (!isAdmin || !ticket) return;
+    const nextPriority = value || null;
+    try {
+      const { error } = await realtimeSupabase
+        .from("Tickets")
+        .update({ Priority: nextPriority })
+        .eq("id", ticket.id);
+      if (error) {
+        alert(error.message || "Failed to update priority");
+        return;
+      }
+      setTickets((prev) =>
+        prev.map((t) =>
+          t.id === ticket.id ? { ...t, Priority: nextPriority } : t,
+        ),
+      );
+    } catch (e) {
+      console.error("Unexpected error:", e);
+    }
+  };
+
   const adminColumns = useMemo(
     () => [
       { label: "Ticket No.", accessor: "id", variant: "badge" },
-      { label: "Summary", accessor: "Summary", variant: "title", colWidth: "w-36 md:w-[12%]" },
-      { label: "Description", accessor: "Description", variant: "subtitle", colWidth: "w-40 md:w-[15%]" },
+      {
+        label: "Priority",
+        accessor: (row) => getTicketPriority(row),
+        variant: "select",
+        preventRowClick: true,
+        placeholder: "Set priority…",
+        options: PRIORITY_OPTIONS,
+        onChange: (row, value) => handlePriorityChange(row, value),
+        fallbackText: (row) => getTicketPriority(row) || "—",
+        selectClassName: (row) => getPrioritySelectClass(getTicketPriority(row)),
+        pillClassName: (row) => getPriorityPillClass(getTicketPriority(row)),
+        getDisplayValue: (_row, value) => value || "Set priority…",
+      },
+      { label: "Summary", accessor: "Summary", variant: "title" },
+      { label: "Description", accessor: "Description", variant: "subtitle" },
       {
         label: "Assignees",
         colWidth: "w-45 md:w-55",

@@ -206,6 +206,52 @@ export function DataTable({
             </span>
           );
         }
+        const selectExtraClass =
+          typeof col.selectClassName === "function"
+            ? col.selectClassName(row, value)
+            : col.selectClassName || "";
+        const pillClassName =
+          typeof col.pillClassName === "function"
+            ? col.pillClassName(row, value)
+            : col.pillClassName || "";
+        const displayValue =
+          col.getDisplayValue?.(row, value) ||
+          value ||
+          col.fallbackText?.(row) ||
+          "";
+
+        if (pillClassName) {
+          return (
+            <div className="relative w-full">
+              <div
+                className={`h-8 flex items-center justify-between rounded-md px-2 text-xs font-semibold select-none ${pillClassName}`}
+              >
+                <span className="truncate">
+                  {displayValue || col.placeholder || "Select…"}
+                </span>
+                <span className="ml-2 text-[10px] opacity-80">▾</span>
+              </div>
+              <select
+                className={`absolute inset-0 w-full h-8 opacity-0 cursor-pointer ${selectExtraClass}`}
+                value={value || ""}
+                onChange={(e) =>
+                  col.onChange && col.onChange(row, e.target.value)
+                }
+              >
+                {col.placeholder && (
+                  <option value="" disabled>
+                    {col.placeholder}
+                  </option>
+                )}
+                {col.options.map((opt, i) => (
+                  <option key={i} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          );
+        }
         return (
           <TableSelect
             value={value}
