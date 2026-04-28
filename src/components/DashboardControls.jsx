@@ -7,18 +7,12 @@ const ICON_MAP = {
 };
 
 export const FilterSelect = ({ value, onChange, options }) => {
-  const LeftIcon = ICON_MAP[value] || CircleDot;
-
   return (
     <div className="relative flex-1 group">
-      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none transition-colors duration-200 group-focus-within:text-lpu-gold">
-        <LeftIcon size={18} className="stroke-[2.2px]" />
-      </div>
-
       <select
         value={value}
         onChange={onChange}
-        className="w-full appearance-none pl-11 pr-10 py-3 bg-white border border-gray-200 rounded-xl text-[0.95rem] font-bold text-gray-700 outline-none transition-all duration-200 focus:ring-2 focus:ring-lpu-gold focus:border-lpu-gold cursor-pointer"
+        className="w-full appearance-none pl-4 pr-10 py-3 bg-white border border-gray-200 rounded-xl text-[0.95rem] font-bold text-gray-700 outline-none transition-all duration-200 focus:ring-2 focus:ring-lpu-gold focus:border-lpu-gold cursor-pointer"
       >
         {options.map((option) => (
           <option key={option} value={option}>
@@ -70,7 +64,7 @@ export const SearchInput = ({
       <button
         type="button"
         onClick={commit}
-        className="shrink-0 px-4 md:px-5 py-2 mr-1.5 bg-lpu-maroon text-white text-sm font-semibold rounded-lg hover:bg-lpu-red transition-colors"
+        className="shrink-0 px-4 md:px-5 py-2 mr-1.5 bg-lpu-maroon text-white text-sm font-semibold rounded-lg hover:bg-lpu-red transition-colors cursor-pointer"
       >
         Search
       </button>

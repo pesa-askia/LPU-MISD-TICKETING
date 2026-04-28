@@ -5,7 +5,12 @@ import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import { ADMIN_LEVEL_LABELS } from "../../utils/adminLevels";
 import { useNavbarActions } from "../../context/NavbarActionsContext";
 import { SearchInput } from "../../components/DashboardControls";
-import { DataTable, TableButton, TableBadge } from "../../components/DataTable";
+import {
+  DataTable,
+  TableButton,
+  TableBadge,
+  TableSelect,
+} from "../../components/DataTable";
 
 const PAGE_SIZE = 10;
 
@@ -59,7 +64,7 @@ export default function AdminManage() {
     <button
       type="button"
       onClick={() => setShowAddModal(true)}
-      className="flex items-center justify-center gap-2 px-4 h-[40px] rounded-lg text-[15px] font-medium text-white/85 hover:bg-[var(--color-lpu-gold)] hover:text-[var(--color-lpu-maroon)] transition-all duration-200"
+      className="flex items-center justify-center gap-2 px-4 h-10 rounded-lg text-[15px] font-medium text-white/85 hover:bg-lpu-gold hover:text-lpu-maroon transition-all duration-200"
     >
       <UserPlus size={18} />
       Add Admin
@@ -156,6 +161,7 @@ export default function AdminManage() {
     { label: "Email", accessor: "email", variant: "subtitle" },
     {
       label: "Status",
+      colWidth: "w-32 md:w-[15%]",
       render: (row) =>
         !row.email_verified_at ? (
           <TableBadge
@@ -170,56 +176,65 @@ export default function AdminManage() {
     },
     {
       label: "Role",
-      preventRowClick: true,
+      colWidth: "w-36 md:w-[25%]",
       render: (row) => {
         const isSelf = row.id === currentId;
         const isBusy = saving === row.id;
+
         if (isSelf) {
           return (
-            <TableBadge variant="info">
+            <TableBadge variant="info" className="w-full justify-start">
               {ADMIN_LEVEL_LABELS[row.admin_level] ?? row.admin_level} (You)
             </TableBadge>
           );
         }
+        if (row.is_root) {
+          return (
+            <TableBadge variant="info" className="w-full justify-start">
+              {ADMIN_LEVEL_LABELS[row.admin_level] ?? row.admin_level} (Root)
+            </TableBadge>
+          );
+        }
         return (
-          <select
-            className="w-full border border-gray-200 rounded-lg p-2 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-lpu-maroon focus:border-lpu-maroon transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          <TableSelect
             value={row.admin_level}
             disabled={isBusy}
+            className="w-full"
+            options={Object.entries(ADMIN_LEVEL_LABELS).map(([val, label]) => ({
+              value: val,
+              label,
+            }))}
             onChange={(e) => handleLevelChange(row, e.target.value)}
-          >
-            {Object.entries(ADMIN_LEVEL_LABELS).map(([val, label]) => (
-              <option key={val} value={val}>
-                {label}
-              </option>
-            ))}
-          </select>
+          />
         );
       },
     },
     {
       label: "Actions",
-      align: "right",
+      colWidth: "w-28 md:w-[15%]",
       preventRowClick: true,
       render: (row) => {
         const isSelf = row.id === currentId;
         const isBusy = saving === row.id;
+
         if (isSelf) return null;
+        if (row.is_root) return null;
+
         return (
-          <div className="flex gap-2 justify-end">
+          <div className="flex flex-col gap-2">
             <TableButton
               disabled={isBusy}
               onClick={() => handleToggleActive(row)}
-              variant="primary"
-              color={row.is_active ? "red" : "green"}
+              variant="secondary"
+              color="maroon"
             >
-              {row.is_active ? "Deactivate" : "Activate"}
+              {row.is_active ? "Disable" : "Enable"}
             </TableButton>
+
             <TableButton
               disabled={isBusy}
               onClick={() => handleDeleteAdmin(row)}
-              variant="secondary"
-              color="red"
+              variant="primary"
             >
               Delete
             </TableButton>
