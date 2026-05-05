@@ -9,7 +9,7 @@ import {
   useNavbarActions,
   NavbarActionButton,
 } from "../../context/NavbarActionsContext";
-import { FilterSelect, SearchInput } from "../../components/DashboardControls";
+import { FilterSelect, SearchInput } from "../../components/Controls";
 import { DataTable } from "../../components/DataTable";
 
 const PAGE_SIZE = 10;

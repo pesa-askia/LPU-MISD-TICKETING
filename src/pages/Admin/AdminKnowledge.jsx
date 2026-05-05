@@ -12,7 +12,7 @@ import {
   useNavbarActions,
   NavbarActionButton,
 } from "../../context/NavbarActionsContext";
-import { SearchInput } from "../../components/DashboardControls";
+import { SearchInput } from "../../components/Controls";
 import "./AdminAnalytics.css";
 import "./AdminTickets.css";
 import "./AdminKnowledge.css";

@@ -1,12 +1,13 @@
 import { useNavigate } from "react-router-dom";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { AlertCircle } from "lucide-react";
 import { jwtDecode } from "jwt-decode";
 import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import { useLoading } from "../../context/LoadingContext";
-import { FilterSelect, SearchInput } from "../../components/DashboardControls";
+import { FilterSelect, SearchInput } from "../../components/Controls";
 import { DataTable, TableBadge } from "../../components/DataTable";
+import { Modal } from "../../components/Modal";
 
 const PAGE_SIZE = 10;
 
@@ -40,6 +41,14 @@ function Tickets() {
   const [totalCount, setTotalCount] = useState(0);
   const [realtimeTick, setRealtimeTick] = useState(0);
 
+  // FIFO feedback queue — each closed ticket gets a modal in order
+  const [feedbackQueue, setFeedbackQueue] = useState([]);
+
+  // IDs we know were open on the current page — used to detect admin-closes via realtime
+  const prevOpenIdsRef = useRef(new Set());
+  // IDs already queued for feedback — prevents duplicates
+  const queuedIdsRef = useRef(new Set());
+
   const isClosedFilter = filter === "Closed Tickets";
 
   const columns = [
@@ -71,18 +80,41 @@ function Tickets() {
       preventRowClick: true,
       getLabel: (t) => (t?.closed_at ? "Reopen" : "Close"),
       isPrimary: (t) => !!t?.closed_at,
-      onClick: (t) => toggleTicketStatus(t),
+      onClick: (t) => handleActionClick(t),
     },
   ];
 
-  const toggleTicketStatus = async (ticket) => {
+  const enqueueForFeedback = (ticket) => {
+    if (queuedIdsRef.current.has(ticket.id)) return;
+    queuedIdsRef.current.add(ticket.id);
+    prevOpenIdsRef.current.delete(ticket.id);
+    setFeedbackQueue((q) => [...q, ticket]);
+  };
+
+  const handleActionClick = async (ticket) => {
     if (!ticket) return;
+    const isCurrentlyClosed = !!ticket.closed_at;
+    if (isCurrentlyClosed) {
+      // Reopening — no feedback
+      await toggleTicketStatus(ticket, false);
+    } else {
+      // Close ticket first, then queue feedback modal
+      const ok = await toggleTicketStatus(ticket, true);
+      if (ok) {
+        navigate("/Tickets");
+        enqueueForFeedback(ticket);
+      }
+    }
+  };
+
+  // Returns true on success, false on failure
+  const toggleTicketStatus = async (ticket, isClosing) => {
+    if (!ticket) return false;
     try {
       showLoading();
-      const shouldReopen = !!ticket.closed_at;
-      const payload = shouldReopen
-        ? { status: "Open", closed_at: null }
-        : { status: "Closed", closed_at: new Date().toISOString() };
+      const payload = isClosing
+        ? { status: "Closed", closed_at: new Date().toISOString() }
+        : { status: "Open", closed_at: null };
 
       const token = localStorage.getItem("authToken");
       const res = await fetch(
@@ -99,14 +131,21 @@ function Tickets() {
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) {
         alert(json.message || "Failed to update ticket status");
-        return;
+        return false;
       }
       setRealtimeTick((n) => n + 1);
+      return true;
     } catch (e) {
       alert(e?.message || "Unexpected error updating ticket status");
+      return false;
     } finally {
       hideLoading();
     }
+  };
+
+  // Pop the front of the queue — next ticket's modal auto-shows if queue non-empty
+  const handleFeedbackClose = () => {
+    setFeedbackQueue((q) => q.slice(1));
   };
 
   const userId = useMemo(() => {
@@ -158,8 +197,15 @@ function Tickets() {
         if (supaError) {
           setError(supaError.message || "Failed to load tickets");
         } else {
-          setTickets(data || []);
+          const fetched = data || [];
+          setTickets(fetched);
           setTotalCount(count ?? 0);
+          // Track open ticket IDs on current page for admin-close detection
+          if (!isClosed) {
+            fetched.forEach((t) => {
+              if (!t.closed_at) prevOpenIdsRef.current.add(t.id);
+            });
+          }
         }
       } catch (err) {
         setError("An unexpected error occurred");
@@ -189,6 +235,15 @@ function Tickets() {
         { event: "UPDATE", schema: "public", table: "Tickets" },
         (payload) => {
           if (payload.new?.created_by !== userId) return;
+          const updated = payload.new;
+          // Admin-closed: ticket was known-open and now has closed_at, not already queued
+          if (
+            updated.closed_at &&
+            prevOpenIdsRef.current.has(updated.id) &&
+            !queuedIdsRef.current.has(updated.id)
+          ) {
+            enqueueForFeedback(updated);
+          }
           setRealtimeTick((n) => n + 1);
         },
       )
@@ -264,6 +319,15 @@ function Tickets() {
           </div>
         </div>
       </div>
+
+      {feedbackQueue.length > 0 && (
+        <Modal
+          key={feedbackQueue[0].id}
+          ticket={feedbackQueue[0]}
+          onSubmit={() => {}}
+          onClose={handleFeedbackClose}
+        />
+      )}
     </div>
   );
 }
