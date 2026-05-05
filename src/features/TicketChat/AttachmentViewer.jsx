@@ -1,99 +1,37 @@
-import { Download, X } from "lucide-react";
+import { X } from "lucide-react";
 
 export default function AttachmentViewer({
   selectedImage,
   onClose,
   getAttachmentSrc,
-  onDownload,
 }) {
   if (!selectedImage) return null;
 
   return (
     <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: "rgba(0, 0, 0, 0.8)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 10000,
-      }}
+      className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/95 backdrop-blur-sm"
       onClick={onClose}
     >
-      <div
-        style={{
-          position: "relative",
-          backgroundColor: "white",
-          borderRadius: "8px",
-          padding: "20px",
-          maxWidth: "90vw",
-          maxHeight: "90vh",
-          overflow: "auto",
+      {/* Floating Close Button */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onClose();
         }}
-        onClick={(e) => e.stopPropagation()}
+        className="absolute right-4 top-4 z-50 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white/70 transition-all hover:bg-white/20 hover:text-white sm:right-6 sm:top-6"
+        aria-label="Close viewer"
       >
-        <button
-          onClick={onClose}
-          style={{
-            position: "absolute",
-            top: "10px",
-            right: "10px",
-            background: "#333",
-            color: "white",
-            border: "none",
-            borderRadius: "50%",
-            width: "35px",
-            height: "35px",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <X size={20} />
-        </button>
+        <X size={24} />
+      </button>
+
+      {/* Fullscreen Image Container */}
+      <div className="flex h-full w-full items-center justify-center p-2 sm:p-8">
         <img
           src={getAttachmentSrc(selectedImage)}
-          alt={selectedImage.name}
-          style={{
-            maxWidth: "100%",
-            maxHeight: "80vh",
-            objectFit: "contain",
-          }}
+          alt="Fullscreen view"
+          className="max-h-full max-w-full object-contain shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
         />
-        <div style={{ marginTop: "15px", textAlign: "center" }}>
-          <p
-            style={{
-              margin: "0 0 10px 0",
-              fontSize: "14px",
-            }}
-          >
-            {selectedImage.name}
-          </p>
-          <button
-            onClick={() => onDownload(selectedImage)}
-            style={{
-              padding: "8px 16px",
-              fontSize: "14px",
-              background: "#2196F3",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              margin: "0 auto",
-            }}
-          >
-            <Download size={16} />
-            Download
-          </button>
-        </div>
       </div>
     </div>
   );

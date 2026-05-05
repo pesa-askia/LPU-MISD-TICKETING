@@ -143,7 +143,7 @@ export default function TicketDetails({
 
         {/* Right Side: Created Info + Summary Toggle */}
         <div className="flex items-center gap-2 sm:gap-4">
-          <div className="text-right flex flex-col justify-center sm:flex">
+          <div className="text-right hidden sm:flex flex-col justify-center">
             <span className="text-[9px] font-bold text-gray-400 uppercase leading-none mb-0.5">
               Created
             </span>
