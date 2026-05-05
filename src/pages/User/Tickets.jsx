@@ -7,7 +7,7 @@ import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import { useLoading } from "../../context/LoadingContext";
 import { FilterSelect, SearchInput } from "../../components/Controls";
 import { DataTable, TableBadge } from "../../components/DataTable";
-import { Modal } from "../../components/Modal";
+import { FeedbackModal } from "../../components/Modal";
 
 const PAGE_SIZE = 10;
 
@@ -321,7 +321,7 @@ function Tickets() {
       </div>
 
       {feedbackQueue.length > 0 && (
-        <Modal
+        <FeedbackModal
           key={feedbackQueue[0].id}
           ticket={feedbackQueue[0]}
           onSubmit={() => {}}

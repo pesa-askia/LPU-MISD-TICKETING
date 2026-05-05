@@ -4,7 +4,7 @@
   --color-lpu-maroon: #7d0006;
   --color-lpu-red: #ad0009;
   --color-lpu-gold: #f0b600;
-  --font-poppins: "Poppins", sans-serif;
+  --font-poppins: "Poppins", "Segoe UI", Arial, sans-serif;
 }
 
 /* Custom Flat Maroon Scrollbar */

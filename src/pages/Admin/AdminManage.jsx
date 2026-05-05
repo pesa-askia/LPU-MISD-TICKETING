@@ -256,7 +256,7 @@ export default function AdminManage() {
 
   return (
     <div className="md:flex-1 md:overflow-y-auto">
-      <section className="w-full max-w-330 mx-auto px-6 py-4 md:py-6">
+      <section className="w-full max-w-330 mx-auto px-6 py-4 md:py-6 font-poppins h-full overflow-hidden flex flex-col">
         <div className="mb-4">
           <SearchInput
             placeholder="Search by name or email..."
