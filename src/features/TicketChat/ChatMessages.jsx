@@ -176,7 +176,7 @@ export default function ChatMessages({
       ];
     }
 
-    return transcript.map((entry, entryIndex) => {
+    const transcriptBubbles = transcript.map((entry, entryIndex) => {
       const alignRight = adminView
         ? entry.role === "bot"
         : entry.role === "user";
@@ -190,6 +190,37 @@ export default function ChatMessages({
         itemKey,
       );
     });
+
+    if (m.attachments?.length > 0) {
+      // Attachments belong to the submitting user, align accordingly
+      const alignRight = !adminView;
+      transcriptBubbles.push(
+        <div
+          key={`att-${m.id || messageIndex}`}
+          className={`flex w-full mb-6 ${alignRight ? "justify-end" : "justify-start"}`}
+        >
+          <div
+            className={`flex flex-wrap gap-2 max-w-[85%] sm:max-w-[70%] ${alignRight ? "justify-end" : "justify-start"}`}
+          >
+            {m.attachments.map((file, idx) => (
+              <button
+                key={idx}
+                onClick={() => onOpenAttachment(file)}
+                className="h-20 w-32 rounded-lg overflow-hidden border border-gray-200 shadow-[8px_8px_16px_rgba(0,0,0,0.12)] hover:border-lpu-maroon transition-all"
+              >
+                <img
+                  src={getAttachmentSrc(file)}
+                  className="h-full w-full object-cover"
+                  alt="attachment"
+                />
+              </button>
+            ))}
+          </div>
+        </div>,
+      );
+    }
+
+    return transcriptBubbles;
   });
 
   return (
