@@ -371,7 +371,7 @@ export const getMeProfile = async (userId, appRole) => {
         const table = appRole === "admin" ? "admin_users" : "auth_users";
         const adminSelect =
             "id, email, full_name, is_active, email_verified_at, created_at, updated_at";
-        const userSelect = "id, email, full_name, is_active, created_at, updated_at";
+        const userSelect = "id, email, full_name, is_active, user_type, department, created_at, updated_at";
         const { data: user, error } = await supabase
             .from(table)
             .select(appRole === "admin" ? adminSelect : userSelect)
@@ -391,7 +391,7 @@ export const getMeProfile = async (userId, appRole) => {
 /**
  * PUT /api/auth/me — update own name/email on the correct table.
  */
-export const updateOwnAccountProfile = async (userId, appRole, { fullName, email }) => {
+export const updateOwnAccountProfile = async (userId, appRole, { fullName, email, userType, department }) => {
     try {
         const isAdmin = appRole === "admin";
         const table = isAdmin ? "admin_users" : "auth_users";
@@ -408,6 +408,12 @@ export const updateOwnAccountProfile = async (userId, appRole, { fullName, email
             }
             updates.email = normalized;
         }
+        if (!isAdmin && userType !== undefined) {
+            updates.user_type = userType || null;
+        }
+        if (!isAdmin && department !== undefined) {
+            updates.department = department || null;
+        }
 
         if (Object.keys(updates).length === 1) {
             return { success: false, message: "No profile fields to update" };
@@ -415,7 +421,7 @@ export const updateOwnAccountProfile = async (userId, appRole, { fullName, email
 
         const selectFields = isAdmin
             ? "id, email, full_name, is_active, email_verified_at, created_at, updated_at"
-            : "id, email, full_name, is_active, created_at, updated_at";
+            : "id, email, full_name, is_active, user_type, department, created_at, updated_at";
         const { data, error } = await supabase
             .from(table)
             .update(updates)

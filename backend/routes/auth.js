@@ -143,7 +143,7 @@ router.get("/me", authMiddleware, async (req, res) => {
  */
 router.put("/me", authMiddleware, async (req, res) => {
     try {
-        const { fullName, full_name, email } = req.body;
+        const { fullName, full_name, email, userType, department } = req.body;
         const userId = req.user.id || req.user.sub;
         const appRole = req.user.app_role || "user";
         const namePayload = fullName !== undefined ? fullName : full_name;
@@ -151,6 +151,8 @@ router.put("/me", authMiddleware, async (req, res) => {
         const result = await updateOwnAccountProfile(userId, appRole, {
             fullName: namePayload,
             email,
+            userType,
+            department,
         });
 
         if (!result.success) {

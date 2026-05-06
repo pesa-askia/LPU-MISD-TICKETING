@@ -4,7 +4,7 @@ import { MessageCircle, X, Send, User, Bot, ArrowRight, Maximize2 } from "lucide
 import { useChatbotContext } from "../context/ChatbotContext";
 import { CHATBOT_SUGGESTIONS } from "../hooks/useChatbot";
 
-function ChatbotWidget() {
+function ChatbotWidget({ hideButton = false }) {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -51,7 +51,7 @@ function ChatbotWidget() {
     <>
       {/* Floating toggle button */}
       <button
-        className="fixed z-1002 w-13 h-13 rounded-full bg-lpu-maroon text-white flex items-center justify-center shadow-lg transition-all hover:bg-lpu-gold hover:text-lpu-maroon hover:scale-105 active:scale-95 bottom-7 right-7 max-md:bottom-20.5 max-md:right-4"
+        className={`fixed z-1002 w-13 h-13 rounded-full bg-lpu-maroon text-white flex items-center justify-center shadow-lg transition-all hover:bg-lpu-gold hover:text-lpu-maroon hover:scale-105 active:scale-95 bottom-7 right-7 max-md:bottom-20.5 max-md:right-4 ${hideButton ? "max-md:hidden" : ""}`}
         onClick={() => setIsOpen((o) => !o)}
         aria-label="Toggle support chat"
       >

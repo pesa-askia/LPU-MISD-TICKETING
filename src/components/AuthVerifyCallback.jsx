@@ -152,7 +152,7 @@ export default function AuthVerifyCallback({ mode }) {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-[#f2f1ef] font-[Poppins,'Segoe_UI',sans-serif]">
-      <div className="bg-white rounded-lg shadow-[0_8px_40px_rgba(0,0,0,0.08)] max-w-105 w-full px-7 py-8 text-center border-t-4 border-t-lpu-red">
+      <div className="bg-white rounded-lg shadow-[0_8px_40px_rgba(0,0,0,0.08)] max-w-105 w-full px-7 py-8 text-center border-t-6 border-t-lpu-red">
         <img src={lpuLogo} alt="LPU" className="w-18 h-auto mb-4 mx-auto" />
         <h1 className="text-[20px] font-bold text-[#1a1a1a] mb-3">{title}</h1>
 

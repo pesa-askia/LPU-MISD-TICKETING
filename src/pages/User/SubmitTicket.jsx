@@ -22,8 +22,8 @@ function SubmitTicket() {
   const fileInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
-    userType: "",
-    department: "",
+    userType: localStorage.getItem("userType") || "",
+    department: localStorage.getItem("userDepartment") || "",
     category: "",
     description: chatPrefill?.description || "",
     summary: chatPrefill?.summary || "",
@@ -188,8 +188,8 @@ function SubmitTicket() {
       setTimeout(() => setSuccessMessage(null), 5000);
 
       setFormData({
-        userType: "",
-        department: "",
+        userType: localStorage.getItem("userType") || "",
+        department: localStorage.getItem("userDepartment") || "",
         category: "",
         description: "",
         summary: "",

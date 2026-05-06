@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, NavLink } from "react-router-dom";
 import {
   ChevronRight,
@@ -5,12 +6,106 @@ import {
   PlusCircle,
   CircleUser,
   LogOut,
+  UserCog,
 } from "lucide-react";
 import logo from "../assets/lpul-logo.png";
+import { getApiBaseUrl } from "../utils/apiBaseUrl";
+import { FormModal } from "./Modal";
+import {
+  FloatingInput,
+  FloatingSelect,
+  PrimaryButton,
+  SecondaryButton,
+} from "./FormFields";
 
-const SidePanel = ({ collapsed, onToggleCollapse }) => {
+const SidePanel = ({ collapsed, onToggleCollapse, onAccountMenuChange }) => {
   const navigate = useNavigate();
   const userEmail = localStorage.getItem("userEmail") || "Guest";
+
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const accountMenuRef = useRef(null);
+
+  const toggleAccountMenu = (val) => {
+    setAccountMenuOpen(val);
+    onAccountMenuChange?.(val);
+  };
+
+  useEffect(() => {
+    const onDocClick = (e) => {
+      if (accountMenuRef.current && !accountMenuRef.current.contains(e.target))
+        toggleAccountMenu(false);
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+  const [profileName, setProfileName] = useState(
+    () => localStorage.getItem("userFullName") || userEmail.split("@")[0],
+  );
+  const [profileType, setProfileType] = useState(
+    () => localStorage.getItem("userType") || "",
+  );
+  const [profileDept, setProfileDept] = useState(
+    () => localStorage.getItem("userDepartment") || "",
+  );
+
+  useEffect(() => {
+    const token = localStorage.getItem("authToken");
+    if (!token) return;
+    fetch(`${getApiBaseUrl()}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((json) => {
+        if (!json.success || !json.user) return;
+        const { full_name, user_type, department } = json.user;
+        if (full_name) {
+          setProfileName(full_name);
+          localStorage.setItem("userFullName", full_name);
+        }
+        if (user_type) {
+          setProfileType(user_type);
+          localStorage.setItem("userType", user_type);
+        }
+        if (department) {
+          setProfileDept(department);
+          localStorage.setItem("userDepartment", department);
+        }
+        if (!user_type || !department) setProfileOpen(true);
+      })
+      .catch(() => {
+        const type = localStorage.getItem("userType");
+        const dept = localStorage.getItem("userDepartment");
+        if (!type || !dept) setProfileOpen(true);
+      });
+  }, []);
+
+  const handleProfileSave = async (e) => {
+    e.preventDefault();
+    const token = localStorage.getItem("authToken");
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/auth/me`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          fullName: profileName,
+          userType: profileType || null,
+          department: profileDept || null,
+        }),
+      });
+      const json = await res.json();
+      if (json.success && json.token) {
+        localStorage.setItem("authToken", json.token);
+      }
+    } catch (_) {}
+    localStorage.setItem("userFullName", profileName);
+    localStorage.setItem("userType", profileType);
+    localStorage.setItem("userDepartment", profileDept);
+    setProfileOpen(false);
+  };
 
   const handleLogout = () => {
     localStorage.removeItem("isLoggedIn");
@@ -18,6 +113,9 @@ const SidePanel = ({ collapsed, onToggleCollapse }) => {
     localStorage.removeItem("userId");
     localStorage.removeItem("authToken");
     localStorage.removeItem("userRole");
+    localStorage.removeItem("userFullName");
+    localStorage.removeItem("userType");
+    localStorage.removeItem("userDepartment");
     navigate("/");
   };
 
@@ -27,7 +125,7 @@ const SidePanel = ({ collapsed, onToggleCollapse }) => {
 
   const navItemBase = `
     relative flex items-center w-full rounded-lg transition-[background-color,color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] cursor-pointer border-none no-underline
-    max-md:flex-col max-md:gap-1 max-md:p-3 max-md:flex-1 max-md:text-[0.7rem]
+    max-md:flex-col max-md:gap-0.5 max-md:py-2 max-md:px-1 max-md:flex-1 max-md:text-[0.6rem]
     md:text-lg md:min-h-14 md:px-3 md:py-4
     hover:bg-lpu-gold hover:text-lpu-maroon
   `;
@@ -47,9 +145,10 @@ const SidePanel = ({ collapsed, onToggleCollapse }) => {
         md:p-4
 
         /* Mobile */
-        max-md:order-last max-md:shrink-0 max-md:w-full max-md:h-auto max-md:flex-row 
-        max-md:rounded-t-2xl max-md:pb-[env(safe-area-inset-bottom)] 
-        max-md:shadow-[0_-4px_20px_rgba(0,0,0,0.2)]
+        max-md:order-last max-md:shrink-0 max-md:w-full max-md:h-auto max-md:flex-row
+        max-md:rounded-t-2xl max-md:border-t-[6px] max-md:border-lpu-gold
+        max-md:pb-[env(safe-area-inset-bottom)]
+        max-md:shadow-[0_-2px_12px_rgba(0,0,0,0.15)]
       `}
     >
       {/* ── Refined Dangling Toggle Handle ── */}
@@ -100,8 +199,8 @@ const SidePanel = ({ collapsed, onToggleCollapse }) => {
           }
         >
           <Ticket
-            size={28}
-            className={`shrink-0 md:absolute md:top-1/2 md:-translate-y-1/2 md:transition-[left,transform] md:duration-500 md:ease-[cubic-bezier(0.22,1,0.36,1)] ${desktopIconAnchor}`}
+            size={22}
+            className={`shrink-0 md:w-7 md:h-7 md:absolute md:top-1/2 md:-translate-y-1/2 md:transition-[left,transform] md:duration-500 md:ease-[cubic-bezier(0.22,1,0.36,1)] ${desktopIconAnchor}`}
           />
           <span
             className={`hidden md:block font-semibold whitespace-nowrap overflow-hidden transition-[max-width,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${collapsed ? "max-w-0 opacity-0 pl-0" : "max-w-32 opacity-100 pl-11"}`}
@@ -118,8 +217,8 @@ const SidePanel = ({ collapsed, onToggleCollapse }) => {
           }
         >
           <PlusCircle
-            size={28}
-            className={`shrink-0 md:absolute md:top-1/2 md:-translate-y-1/2 md:transition-[left,transform] md:duration-500 md:ease-[cubic-bezier(0.22,1,0.36,1)] ${desktopIconAnchor}`}
+            size={22}
+            className={`shrink-0 md:w-7 md:h-7 md:absolute md:top-1/2 md:-translate-y-1/2 md:transition-[left,transform] md:duration-500 md:ease-[cubic-bezier(0.22,1,0.36,1)] ${desktopIconAnchor}`}
           />
           <span
             className={`hidden md:block font-semibold whitespace-nowrap overflow-hidden transition-[max-width,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${collapsed ? "max-w-0 opacity-0 pl-0" : "max-w-40 opacity-100 pl-11"}`}
@@ -129,37 +228,127 @@ const SidePanel = ({ collapsed, onToggleCollapse }) => {
           <span className="md:hidden">Submit</span>
         </NavLink>
 
-        {/* User Info & Logout */}
-        <div className="hidden md:flex flex-col mt-auto mb-2 w-full">
-          <div className="relative flex items-center text-white rounded-lg md:min-h-14 md:px-3 md:py-4">
+        {/* Desktop: profile button + logout */}
+        <div className="hidden md:flex flex-col mt-auto mb-2 w-full gap-2">
+          <button
+            type="button"
+            onClick={() => setProfileOpen(true)}
+            className={`${navItemBase} ${inactiveClass} text-left`}
+          >
             <CircleUser
-              size={28}
-              className={`shrink-0 md:absolute md:top-1/2 md:-translate-y-1/2 md:transition-[left,transform] md:duration-500 md:ease-[cubic-bezier(0.22,1,0.36,1)] ${desktopIconAnchor}`}
+              size={22}
+              className={`shrink-0 md:w-7 md:h-7 md:absolute md:top-1/2 md:-translate-y-1/2 md:transition-[left,transform] md:duration-500 md:ease-[cubic-bezier(0.22,1,0.36,1)] ${desktopIconAnchor}`}
             />
             <div
-              className={`min-w-0 overflow-hidden transition-[max-width,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${collapsed ? "max-w-0 opacity-0 pl-0" : "max-w-72 opacity-100 pl-11"}`}
+              className={`h-7 flex flex-col justify-center min-w-0 overflow-hidden transition-[max-width,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${collapsed ? "max-w-0 opacity-0 pl-0" : "max-w-72 opacity-100 pl-11"}`}
             >
-              <p className="font-bold text-base">{userEmail.split("@")[0]}</p>
-              <p className="text-xs opacity-70">{userEmail}</p>
+              <p className="text-sm font-semibold leading-none whitespace-nowrap">
+                {profileName || userEmail.split("@")[0]}
+              </p>
+              <p className="text-[10px] opacity-70 leading-none whitespace-nowrap">
+                {userEmail}
+              </p>
             </div>
-          </div>
+          </button>
+
+          <button onClick={handleLogout} className={`${navItemBase} ${inactiveClass}`}>
+            <LogOut
+              size={22}
+              className={`shrink-0 md:w-7 md:h-7 md:absolute md:top-1/2 md:-translate-y-1/2 md:transition-[left,transform] md:duration-500 md:ease-[cubic-bezier(0.22,1,0.36,1)] ${desktopIconAnchor}`}
+            />
+            <span
+              className={`font-semibold whitespace-nowrap overflow-hidden transition-[max-width,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${collapsed ? "max-w-0 opacity-0 pl-0" : "max-w-28 opacity-100 pl-11"}`}
+            >
+              Logout
+            </span>
+          </button>
         </div>
 
-        <button
-          onClick={handleLogout}
-          className={`${navItemBase} text-white bg-transparent`}
-        >
-          <LogOut
-            size={28}
-            className={`shrink-0 md:absolute md:top-1/2 md:-translate-y-1/2 md:transition-[left,transform] md:duration-500 md:ease-[cubic-bezier(0.22,1,0.36,1)] ${desktopIconAnchor}`}
-          />
-          <span
-            className={`hidden md:block font-semibold whitespace-nowrap overflow-hidden transition-[max-width,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${collapsed ? "max-w-0 opacity-0 pl-0" : "max-w-28 opacity-100 pl-11"}`}
+        {/* Mobile: Account button with upward dropdown */}
+        <div className="relative md:hidden flex-1" ref={accountMenuRef}>
+          {accountMenuOpen && (
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-44 bg-white rounded-xl shadow-xl py-2 border border-gray-100 flex flex-col z-50">
+              <button
+                type="button"
+                onClick={() => { setProfileOpen(true); toggleAccountMenu(false); }}
+                className="flex items-center gap-3 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-lpu-maroon transition-colors w-full text-left"
+              >
+                <UserCog size={16} />
+                <span>Edit Profile</span>
+              </button>
+              <div className="h-px bg-gray-100 my-1" />
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex items-center gap-3 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors w-full text-left"
+              >
+                <LogOut size={16} />
+                <span>Logout</span>
+              </button>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => toggleAccountMenu(!accountMenuOpen)}
+            className={`${navItemBase} ${inactiveClass} w-full`}
           >
-            Logout
-          </span>
-          <span className="md:hidden">Logout</span>
-        </button>
+            <CircleUser size={22} />
+            <span className="md:hidden">Account</span>
+          </button>
+        </div>
+
+        {profileOpen && (
+          <FormModal
+            title="Edit Profile"
+            icon={UserCog}
+            onClose={() => setProfileOpen(false)}
+          >
+            <form
+              onSubmit={handleProfileSave}
+              className="flex flex-col gap-4 p-5"
+            >
+              <p className="text-sm text-gray-500 dark:text-zinc-400 -mt-1">
+                Set your name, type, and department so you won't have to fill
+                them in every ticket.
+              </p>
+              <FloatingInput
+                label="Full Name"
+                value={profileName}
+                onChange={(e) => setProfileName(e.target.value)}
+                autoComplete="name"
+              />
+              <FloatingSelect
+                label="Type"
+                value={profileType}
+                onChange={(e) => setProfileType(e.target.value)}
+                options={["Student", "Faculty", "Admin"]}
+                required={false}
+              />
+              <FloatingSelect
+                label="Department"
+                value={profileDept}
+                onChange={(e) => setProfileDept(e.target.value)}
+                options={[
+                  "CAS",
+                  "CBA",
+                  "CITHM",
+                  "COECS",
+                  "LPU-SC",
+                  "Highschool",
+                ]}
+                required={false}
+              />
+              <div className="flex gap-3 pt-1">
+                <SecondaryButton
+                  label="Skip"
+                  onClick={() => setProfileOpen(false)}
+                  className="flex-1"
+                />
+                <PrimaryButton label="Save" className="flex-1" />
+              </div>
+            </form>
+          </FormModal>
+        )}
       </div>
     </aside>
   );

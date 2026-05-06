@@ -7,6 +7,7 @@ import { ChatbotProvider } from "../context/ChatbotContext";
 const UserLayout = () => {
   const { pathname } = useLocation();
   const [isSidePanelCollapsed, setIsSidePanelCollapsed] = useState(true);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const isFullChatPage = pathname === "/Chat";
   const isTicketChat = /^\/Tickets\/[^/]+$/i.test(pathname);
   const hideChatbot = isFullChatPage || isTicketChat;
@@ -18,13 +19,14 @@ const UserLayout = () => {
         <SidePanel
           collapsed={isSidePanelCollapsed}
           onToggleCollapse={() => setIsSidePanelCollapsed((prev) => !prev)}
+          onAccountMenuChange={setAccountMenuOpen}
         />
         <main
           className={`flex-1 overflow-y-auto min-h-0 md:transition-[margin-left] md:duration-500 md:ease-[cubic-bezier(0.22,1,0.36,1)] ${sidePanelOffsetClass}`}
         >
           <Outlet />
         </main>
-        {!hideChatbot && <ChatbotWidget />}
+        {!hideChatbot && <ChatbotWidget hideButton={accountMenuOpen} />}
       </div>
     </ChatbotProvider>
   );

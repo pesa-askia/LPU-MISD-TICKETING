@@ -66,6 +66,33 @@ export const initializeDatabase = async () => {
       }
     }
 
+    // Migrate: add user_type and department to auth_users
+    try {
+      await supabase.rpc("execute_sql", {
+        sql: `
+          DO $$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_schema = 'public' AND table_name = 'auth_users' AND column_name = 'user_type'
+            ) THEN
+              ALTER TABLE auth_users ADD COLUMN user_type VARCHAR(50);
+            END IF;
+            IF NOT EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_schema = 'public' AND table_name = 'auth_users' AND column_name = 'department'
+            ) THEN
+              ALTER TABLE auth_users ADD COLUMN department VARCHAR(100);
+            END IF;
+          END
+          $$;
+        `,
+      });
+      console.log("✓ auth_users user_type/department columns ready");
+    } catch (migrateErr) {
+      console.warn("auth_users user_type/department migration skipped:", migrateErr.message);
+    }
+
     // Ensure ticket-related tables/columns exist
     try {
       await supabase.rpc("execute_sql", {
