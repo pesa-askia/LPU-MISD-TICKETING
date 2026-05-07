@@ -111,7 +111,7 @@ router.put("/:id", adminMiddleware, async (req, res) => {
     return res.status(400).json({ success: false, error: "text required" });
 
   const trimmedText = text.trim();
-  const resolvedTitle = resolveTitle(trimmedText, title);
+  const resolvedTitle = title?.trim() || "Knowledge Entry";
 
   const { data: existing, error: fetchError } = await supabase
     .from("knowledge_base")
