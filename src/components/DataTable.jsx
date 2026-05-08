@@ -133,11 +133,12 @@ export function DataTable({
 
   if (data.length === 0) {
     return (
-      <div className="datatable-root w-full rounded-xl border border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm">
-        <div className="flex flex-col items-center justify-center py-20 text-gray-400 dark:text-zinc-500 bg-gray-50/50 dark:bg-zinc-900 rounded-xl">
+      <div className="datatable-root flex flex-col w-full h-full min-h-125 rounded-xl border border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm">
+        <div className="flex flex-1 flex-col items-center justify-center text-gray-400 dark:text-zinc-500 bg-gray-50/50 dark:bg-zinc-900 rounded-xl">
           <p className="text-xl font-semibold">{emptyMessage}</p>
           {emptySubMessage && <p className="text-sm mt-1">{emptySubMessage}</p>}
         </div>
+
         {hasPagination && pageCount > 1 && (
           <PaginationFooter
             page={page}
