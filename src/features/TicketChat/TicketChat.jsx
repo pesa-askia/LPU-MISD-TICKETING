@@ -23,6 +23,7 @@ export default function TicketChat({ adminView = false } = {}) {
   } = useTicketsCache();
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
+  const [pendingAttachments, setPendingAttachments] = useState([]);
   const [ticket, setTicket] = useState(null);
   const [error, setError] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
@@ -516,9 +517,23 @@ export default function TicketChat({ adminView = false } = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, id, adminView]);
 
+  const uploadAttachment = async (file, userId) => {
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const path = `tickets/${userId}/${Date.now()}_${safeName}`;
+    const { error } = await realtimeSupabase.storage
+      .from("ticket-attachments")
+      .upload(path, file, { upsert: false });
+    if (error) throw new Error(`Upload failed for ${file.name}: ${error.message}`);
+    const {
+      data: { publicUrl },
+    } = realtimeSupabase.storage.from("ticket-attachments").getPublicUrl(path);
+    return { name: file.name, size: file.size, type: file.type, url: publicUrl };
+  };
+
   async function handleSend() {
     const trimmed = text.trim();
-    if (!trimmed) return;
+    const filesToSend = [...pendingAttachments];
+    if (!trimmed && filesToSend.length === 0) return;
 
     const senderId = userIdRef.current;
     if (!senderId) {
@@ -536,29 +551,50 @@ export default function TicketChat({ adminView = false } = {}) {
     const senderEmail = storedProfile.email || "";
 
     setText("");
+    setPendingAttachments([]);
 
     const tempId =
       typeof crypto !== "undefined" && crypto.randomUUID
         ? crypto.randomUUID()
         : `temp-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
-    setMessages((prev) => {
-      const next = [
-        ...prev,
-        {
-          id: tempId,
-          senderId,
-          senderRole,
-          senderName,
-          senderEmail,
-          text: trimmed,
-          attachments: [],
-          time: new Date().toISOString(),
-          pending: true,
-        },
-      ];
-      return next;
-    });
+    const tempAttachments = filesToSend.map((file) => ({
+      name: file.name,
+      size: file.size,
+      type: file.type,
+      url: isImageFile(file.name) ? URL.createObjectURL(file) : null,
+    }));
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: tempId,
+        senderId,
+        senderRole,
+        senderName,
+        senderEmail,
+        text: trimmed,
+        attachments: tempAttachments,
+        time: new Date().toISOString(),
+        pending: true,
+      },
+    ]);
+
+    let uploadedAttachments = [];
+    if (filesToSend.length > 0) {
+      try {
+        uploadedAttachments = await Promise.all(
+          filesToSend.map((file) => uploadAttachment(file, senderId)),
+        );
+      } catch (err) {
+        console.error("Attachment upload failed:", err);
+        alert(err.message || "Failed to upload attachment(s)");
+        setText(trimmed);
+        setPendingAttachments(filesToSend);
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+        return;
+      }
+    }
 
     try {
       const { data, error } = await realtimeSupabase
@@ -571,6 +607,9 @@ export default function TicketChat({ adminView = false } = {}) {
             sender_name: senderName,
             sender_email: senderEmail || null,
             message_text: trimmed,
+            attachments: uploadedAttachments.length
+              ? JSON.stringify(uploadedAttachments)
+              : null,
             ticket_owner_id: ticket?.created_by || null,
           },
         ])
@@ -580,7 +619,8 @@ export default function TicketChat({ adminView = false } = {}) {
 
       if (error) {
         alert(error.message || "Failed to send message");
-        setText(trimmed);
+        if (trimmed) setText(trimmed);
+        setPendingAttachments(filesToSend);
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
         return;
       }
@@ -635,7 +675,7 @@ export default function TicketChat({ adminView = false } = {}) {
       }
     } catch (err) {
       console.error("Unexpected error sending message:", err);
-      setText(trimmed);
+      if (trimmed) setText(trimmed);
     }
   }
 
@@ -820,7 +860,19 @@ export default function TicketChat({ adminView = false } = {}) {
           onDownloadAttachment={downloadAttachment}
           transcriptCreatorName={creatorName}
         />
-        <ChatInput text={text} onTextChange={setText} onSend={handleSend} />
+        <ChatInput
+          text={text}
+          onTextChange={setText}
+          onSend={handleSend}
+          disabled={isTicketClosed(ticket)}
+          pendingAttachments={pendingAttachments}
+          onAddAttachments={(files) =>
+            setPendingAttachments((prev) => [...prev, ...files].slice(0, 5))
+          }
+          onRemoveAttachment={(idx) =>
+            setPendingAttachments((prev) => prev.filter((_, i) => i !== idx))
+          }
+        />
       </div>
 
       <AttachmentViewer

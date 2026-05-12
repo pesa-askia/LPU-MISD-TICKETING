@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { Paperclip, X, ChevronDown, Send } from "lucide-react";
 import { jwtDecode } from "jwt-decode";
 import { useLocation } from "react-router-dom";
@@ -45,22 +45,14 @@ function SubmitTicket() {
     }
   }, [chatPrefill]);
 
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth >= 768) {
-        document.documentElement.style.overflow = "hidden";
-        document.body.style.overflow = "hidden";
-      } else {
-        document.documentElement.style.overflow = "";
-        document.body.style.overflow = "";
-      }
-    };
-    handleResize();
-    window.addEventListener("resize", handleResize);
+  useLayoutEffect(() => {
+    const mainEl = document.querySelector("main");
+    if (!mainEl) return;
+    mainEl.style.overflowY = "hidden";
+    mainEl.style.position = "relative";
     return () => {
-      window.removeEventListener("resize", handleResize);
-      document.documentElement.style.overflow = "";
-      document.body.style.overflow = "";
+      mainEl.style.overflowY = "";
+      mainEl.style.position = "";
     };
   }, []);
 
@@ -205,13 +197,13 @@ function SubmitTicket() {
   };
 
   return (
-    <div className="flex-1 w-full flex flex-col items-center bg-gray-50 p-4 font-poppins overflow-y-auto md:h-screen md:justify-center md:py-4 md:overflow-hidden">
-      <div className="w-full max-w-200 h-auto mx-auto px-4 py-6 flex flex-col box-border bg-white rounded-2xl shadow-xl border-t-[6px] border-lpu-maroon md:px-10 md:py-[clamp(1.25rem,3vh,2rem)]">
-        <div className="text-center">
-          <h1 className="m-0 text-2xl md:text-3xl font-black text-lpu-maroon tracking-tight">
+    <div className="absolute inset-0 flex flex-col items-center bg-gray-50 p-4 font-poppins overflow-hidden">
+      <div className="w-full max-w-200 h-full min-h-0 mx-auto px-4 py-6 flex flex-col box-border bg-white rounded-2xl shadow-xl border-t-[6px] border-lpu-maroon overflow-hidden lg:px-10 lg:py-[clamp(1.25rem,3vh,2rem)]">
+        <div className="text-center shrink-0">
+          <h1 className="m-0 text-2xl lg:text-3xl font-black text-lpu-maroon tracking-tight">
             Submit Ticket
           </h1>
-          <p className="text-[0.85rem] text-[#666] my-4 md:my-[clamp(8px,2vh,16px)]">
+          <p className="text-[0.85rem] text-[#666] my-4 lg:my-[clamp(8px,2vh,16px)]">
             Create a ticket below and a technician will respond promptly to your
             issue. You may also email directly to &nbsp;
             <a
@@ -223,76 +215,82 @@ function SubmitTicket() {
           </p>
         </div>
 
-        <Alert type="success" message={successMessage} />
-        <Alert type="error" message={errorMessage} />
+        <div className="shrink-0">
+          <Alert type="success" message={successMessage} />
+          <Alert type="error" message={errorMessage} />
+        </div>
 
         <form
           onSubmit={handleSubmit}
-          className="grid grid-cols-1 gap-4 w-full md:grid-cols-2"
+          className="flex flex-col flex-1 min-h-0 overflow-hidden"
         >
-          <FloatingTextarea
-            label="Summary (Required)"
-            name="summary"
-            value={formData.summary}
-            onChange={handleChange}
-            heightClass="h-[7vh] min-h-[44px] max-h-[60px]"
-          />
+          <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 pb-1">
+            <FloatingTextarea
+              label="Summary (Required)"
+              name="summary"
+              value={formData.summary}
+              onChange={handleChange}
+              heightClass="h-[7vh] min-h-[44px] max-h-[60px]"
+            />
 
-          <FloatingTextarea
-            label="Description (Required)"
-            name="description"
-            value={formData.description}
-            onChange={handleChange}
-            heightClass="h-[35vh] md:h-[clamp(200px,40vh,500px)]"
-            className="w-full"
-          />
+            <FloatingTextarea
+              label="Description (Required)"
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
+              heightClass="h-[35vh] lg:h-[clamp(200px,40vh,500px)]"
+              className="w-full"
+            />
 
-          <FloatingSelect
-            label="Type (Required)"
-            name="userType"
-            value={formData.userType}
-            onChange={handleChange}
-            options={["Student", "Faculty", "Admin"]}
-          />
+            <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2">
+              <FloatingSelect
+                label="Type (Required)"
+                name="userType"
+                value={formData.userType}
+                onChange={handleChange}
+                options={["Student", "Faculty", "Admin"]}
+              />
 
-          <FloatingSelect
-            label="Department (Required)"
-            name="department"
-            value={formData.department}
-            onChange={handleChange}
-            options={["CAS", "CBA", "CITHM", "COECS", "LPU-SC", "Highschool"]}
-          />
+              <FloatingSelect
+                label="Department (Required)"
+                name="department"
+                value={formData.department}
+                onChange={handleChange}
+                options={["CAS", "CBA", "CITHM", "COECS", "LPU-SC", "Highschool"]}
+              />
 
-          <FloatingSelect
-            label="Category (Required)"
-            name="category"
-            value={formData.category}
-            onChange={handleChange}
-            options={[
-              "ERP",
-              "LMS",
-              "Student Portal ",
-              "Microsoft 365",
-              "Hardware",
-              "Software",
-              "Others",
-            ]}
-          />
+              <FloatingSelect
+                label="Category (Required)"
+                name="category"
+                value={formData.category}
+                onChange={handleChange}
+                options={[
+                  "ERP",
+                  "LMS",
+                  "Student Portal ",
+                  "Microsoft 365",
+                  "Hardware",
+                  "Software",
+                  "Others",
+                ]}
+              />
 
-          <FloatingSelect
-            label="Site (Required)"
-            name="site"
-            value={formData.site}
-            onChange={handleChange}
-            options={["Onsite", "Online"]}
-          />
+              <FloatingSelect
+                label="Site (Required)"
+                name="site"
+                value={formData.site}
+                onChange={handleChange}
+                options={["Onsite", "Online"]}
+              />
+            </div>
 
-          <AttachmentPreview
-            attachments={attachments}
-            onRemove={removeAttachment}
-          />
+            <AttachmentPreview
+              attachments={attachments}
+              onRemove={removeAttachment}
+            />
+          </div>
 
-          <div className="flex flex-col gap-4 justify-between mt-2 w-full md:flex-row md:justify-end md:col-span-2">
+          <div className="shrink-0 flex flex-col gap-4 justify-between mt-2 w-full lg:flex-row lg:justify-end">
             <FilePicker
               ref={fileInputRef}
               onFileSelect={handleFileSelect}

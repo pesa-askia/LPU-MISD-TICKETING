@@ -1,4 +1,5 @@
 import React from "react";
+import { FileText, Download } from "lucide-react";
 
 /**
  * parses chatbot transcripts to display multi-turn conversations.
@@ -144,19 +145,33 @@ export default function ChatMessages({
 
           {!isTranscript && m.attachments?.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-3">
-              {m.attachments.map((file, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => onOpenAttachment(file)}
-                  className="h-20 w-32 rounded-lg overflow-hidden border border-gray-200 shadow-[8px_8px_16px_rgba(0,0,0,0.12)] hover:border-lpu-maroon transition-all"
-                >
-                  <img
-                    src={getAttachmentSrc(file)}
-                    className="h-full w-full object-cover"
-                    alt="attachment"
-                  />
-                </button>
-              ))}
+              {m.attachments.map((file, idx) =>
+                isImageFile(file.name) ? (
+                  <button
+                    key={idx}
+                    onClick={() => onOpenAttachment(file)}
+                    className="h-20 w-32 rounded-lg overflow-hidden border border-gray-200 shadow-[8px_8px_16px_rgba(0,0,0,0.12)] hover:border-lpu-maroon transition-all"
+                  >
+                    <img
+                      src={getAttachmentSrc(file)}
+                      className="h-full w-full object-cover"
+                      alt={file.name}
+                    />
+                  </button>
+                ) : (
+                  <button
+                    key={idx}
+                    onClick={() => onDownloadAttachment(file)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 hover:border-lpu-maroon hover:bg-gray-100 shadow-[8px_8px_16px_rgba(0,0,0,0.08)] transition-all text-left"
+                  >
+                    <FileText size={16} className="text-gray-400 shrink-0" />
+                    <span className="text-xs text-gray-700 max-w-28 truncate">
+                      {file.name}
+                    </span>
+                    <Download size={13} className="text-gray-400 shrink-0" />
+                  </button>
+                ),
+              )}
             </div>
           )}
         </div>
@@ -202,19 +217,33 @@ export default function ChatMessages({
           <div
             className={`flex flex-wrap gap-2 max-w-[85%] sm:max-w-[70%] ${alignRight ? "justify-end" : "justify-start"}`}
           >
-            {m.attachments.map((file, idx) => (
-              <button
-                key={idx}
-                onClick={() => onOpenAttachment(file)}
-                className="h-20 w-32 rounded-lg overflow-hidden border border-gray-200 shadow-[8px_8px_16px_rgba(0,0,0,0.12)] hover:border-lpu-maroon transition-all"
-              >
-                <img
-                  src={getAttachmentSrc(file)}
-                  className="h-full w-full object-cover"
-                  alt="attachment"
-                />
-              </button>
-            ))}
+            {m.attachments.map((file, idx) =>
+              isImageFile(file.name) ? (
+                <button
+                  key={idx}
+                  onClick={() => onOpenAttachment(file)}
+                  className="h-20 w-32 rounded-lg overflow-hidden border border-gray-200 shadow-[8px_8px_16px_rgba(0,0,0,0.12)] hover:border-lpu-maroon transition-all"
+                >
+                  <img
+                    src={getAttachmentSrc(file)}
+                    className="h-full w-full object-cover"
+                    alt={file.name}
+                  />
+                </button>
+              ) : (
+                <button
+                  key={idx}
+                  onClick={() => onDownloadAttachment(file)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 hover:border-lpu-maroon hover:bg-gray-100 shadow-[8px_8px_16px_rgba(0,0,0,0.08)] transition-all text-left"
+                >
+                  <FileText size={16} className="text-gray-400 shrink-0" />
+                  <span className="text-xs text-gray-700 max-w-28 truncate">
+                    {file.name}
+                  </span>
+                  <Download size={13} className="text-gray-400 shrink-0" />
+                </button>
+              ),
+            )}
           </div>
         </div>,
       );
