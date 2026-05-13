@@ -88,6 +88,7 @@ CREATE TABLE IF NOT EXISTS "Tickets" (
     created_by_email TEXT,
     status TEXT DEFAULT 'Open',
     satisfaction BOOLEAN,
+    satisfaction_comment TEXT,
     timer_duration_seconds INTEGER,
     sla_met BOOLEAN,
     created_at TIMESTAMPTZ DEFAULT NOW(),

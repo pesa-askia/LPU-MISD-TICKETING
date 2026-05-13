@@ -11,12 +11,10 @@ router.post("/upload", authMiddleware, async (req, res) => {
   try {
     const { fileName, fileType, fileData } = req.body;
     if (!fileName || !fileData) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "fileName and fileData are required",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "fileName and fileData are required",
+      });
     }
 
     const buffer = Buffer.from(fileData, "base64");
@@ -134,12 +132,10 @@ router.get("/:id/admin-names", authMiddleware, async (req, res) => {
           .json({ success: false, message: ticketError.message });
       }
       if (!ticketRows || ticketRows.length === 0) {
-        return res
-          .status(404)
-          .json({
-            success: false,
-            message: "Ticket not found or access denied",
-          });
+        return res.status(404).json({
+          success: false,
+          message: "Ticket not found or access denied",
+        });
       }
     }
 
@@ -194,12 +190,10 @@ router.post("/", authMiddleware, async (req, res) => {
     } = req.body;
 
     if (!Summary || !Description) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Summary and Description are required",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Summary and Description are required",
+      });
     }
 
     const { data, error } = await supabase
@@ -256,7 +250,7 @@ router.patch("/:id/status", authMiddleware, async (req, res) => {
       .update({
         status,
         closed_at: closedAt,
-        ...(isReopening && { satisfaction: null }),
+        ...(isReopening && { satisfaction: null, satisfaction_comment: null }),
       })
       .eq("id", ticketId);
 
@@ -305,7 +299,10 @@ router.patch("/:id/status", authMiddleware, async (req, res) => {
             .eq("id", openSla.id),
           supabase
             .from("Tickets")
-            .update({ timer_duration_seconds: durationSeconds, sla_met: slaMetValue })
+            .update({
+              timer_duration_seconds: durationSeconds,
+              sla_met: slaMetValue,
+            })
             .eq("id", ticketId),
         ]);
       }
@@ -333,15 +330,38 @@ router.patch("/:id/feedback", authMiddleware, async (req, res) => {
   try {
     const ticketId = parseInt(req.params.id, 10);
     if (isNaN(ticketId))
-      return res.status(400).json({ success: false, message: "Invalid ticket ID" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid ticket ID" });
 
-    const { satisfaction } = req.body;
+    const { satisfaction, comment } = req.body;
     if (typeof satisfaction !== "boolean")
-      return res.status(400).json({ success: false, message: "satisfaction must be a boolean" });
+      return res
+        .status(400)
+        .json({ success: false, message: "satisfaction must be a boolean" });
+
+    let normalizedComment;
+    if (comment === null) {
+      normalizedComment = null;
+    } else if (typeof comment === "string") {
+      normalizedComment = comment.trim() || null;
+      if (normalizedComment && normalizedComment.length > 1000) {
+        return res
+          .status(400)
+          .json({ success: false, message: "comment is too long" });
+      }
+    } else if (comment !== undefined) {
+      return res
+        .status(400)
+        .json({ success: false, message: "comment must be a string" });
+    }
+
+    const update = { satisfaction };
+    if (comment !== undefined) update.satisfaction_comment = normalizedComment;
 
     const { data, error } = await supabase
       .from("Tickets")
-      .update({ satisfaction })
+      .update(update)
       .eq("id", ticketId)
       .eq("created_by", req.user.id)
       .select();
@@ -349,7 +369,9 @@ router.patch("/:id/feedback", authMiddleware, async (req, res) => {
     if (error)
       return res.status(400).json({ success: false, message: error.message });
     if (!data || data.length === 0)
-      return res.status(404).json({ success: false, message: "Ticket not found or access denied" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Ticket not found or access denied" });
 
     return res.json({ success: true, data: data[0] });
   } catch (e) {
@@ -409,7 +431,10 @@ router.patch("/:id/assignees", adminMiddleware, async (req, res) => {
         .select("id, full_name, email")
         .in("id", newAssignees);
       const nameMap = Object.fromEntries(
-        (adminRows || []).map((a) => [a.id, (a.full_name || a.email || "").trim()])
+        (adminRows || []).map((a) => [
+          a.id,
+          (a.full_name || a.email || "").trim(),
+        ]),
       );
       assigneeNames = newAssignees.map((aid) => nameMap[aid] || aid);
     }

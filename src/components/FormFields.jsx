@@ -2,7 +2,14 @@ import { forwardRef } from "react";
 import { ChevronDown, Paperclip, X } from "lucide-react";
 
 // PrimaryButton: Main action button, typically for form submission
-export const PrimaryButton = ({ label, loadingLabel = "Submitting...", isLoading, icon: Icon, className = "", ...props }) => (
+export const PrimaryButton = ({
+  label,
+  loadingLabel = "Submitting...",
+  isLoading,
+  icon: Icon,
+  className = "",
+  ...props
+}) => (
   <button
     type="submit"
     disabled={isLoading}
@@ -179,8 +186,10 @@ export const FloatingTextarea = ({
   heightClass = "h-[clamp(300px,55vh,800px)]",
   required = true,
   autoResize = false,
+  ...props
 }) => {
-  const textareaClass = `w-full box-border rounded-xl border border-gray-200 dark:border-zinc-700 text-[0.95rem] bg-white dark:bg-zinc-900 dark:text-zinc-100 outline-none transition-all duration-200 focus:ring-2 focus:ring-lpu-gold focus:border-lpu-gold px-[14px] py-[12px] peer resize-none ${heightClass} ${autoResize ? "[field-sizing:content]" : ""}`.trim();
+  const textareaClass =
+    `w-full box-border rounded-xl border border-gray-200 dark:border-zinc-700 text-[0.95rem] bg-white dark:bg-zinc-900 dark:text-zinc-100 outline-none transition-all duration-200 focus:ring-2 focus:ring-lpu-gold focus:border-lpu-gold px-[14px] py-[12px] peer resize-none ${heightClass} ${autoResize ? "[field-sizing:content]" : ""}`.trim();
 
   const labelClass =
     "absolute left-[14px] top-[12px] text-[0.9rem] text-gray-500 dark:text-zinc-400 bg-white dark:bg-zinc-900 px-1 transition-all duration-200 pointer-events-none peer-focus:-top-2 peer-focus:text-[0.75rem] peer-focus:font-bold peer-focus:!text-lpu-gold peer-[:not(:placeholder-shown)]:-top-2 peer-[:not(:placeholder-shown)]:text-[0.75rem] peer-[:not(:placeholder-shown)]:font-bold peer-[:not(:placeholder-shown)]:text-gray-500 dark:peer-[:not(:placeholder-shown)]:text-zinc-400";
@@ -188,6 +197,7 @@ export const FloatingTextarea = ({
   return (
     <div className="relative flex flex-col w-full group md:col-span-2">
       <textarea
+        {...props}
         name={name}
         placeholder=" "
         className={textareaClass}

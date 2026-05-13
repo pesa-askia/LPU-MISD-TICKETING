@@ -15,6 +15,7 @@ import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { realtimeSupabase } from "../lib/realtimeSupabaseClient";
 import {
   FloatingInput,
+  FloatingTextarea,
   PrimaryButton,
   SecondaryButton,
 } from "./FormFields";
@@ -54,18 +55,43 @@ export function Modal({ header, children, className = "" }) {
  *
  * Props:
  *   ticket   – closed ticket object { id, Summary, Description, Category }
- *   onSubmit – fn(satisfied: boolean) called on selection
- *   onClose  – fn() called 2s after selection (auto-close)
+ *   onSubmit – fn(satisfied: boolean, comment: string | null) called on submit
+ *   onClose  – fn() called 2s after submit (auto-close)
  */
 export function FeedbackModal({ ticket, onSubmit, onClose }) {
   const [submitted, setSubmitted] = useState(false);
   const [satisfied, setSatisfied] = useState(null);
+  const [comment, setComment] = useState("");
+  const [error, setError] = useState("");
 
   const handleSelect = (val) => {
     setSatisfied(val);
+    setError("");
+  };
+
+  const handleBack = () => {
+    setSatisfied(null);
+    setComment("");
+    setError("");
+  };
+
+  const handleSubmit = () => {
+    if (satisfied === null) return;
+    const trimmed = comment.trim();
+    if (satisfied === false && !trimmed) {
+      setError("Please add a short comment so we can improve.");
+      return;
+    }
     setSubmitted(true);
-    onSubmit?.(val);
+    onSubmit?.(satisfied, trimmed || null);
     setTimeout(() => onClose?.(), 2000);
+  };
+
+  const handleCommentKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
   };
 
   const header = (
@@ -105,7 +131,21 @@ export function FeedbackModal({ ticket, onSubmit, onClose }) {
 
       {/* Feedback area */}
       <div className="px-5 py-4">
-        {!submitted ? (
+        {submitted ? (
+          <div className="flex flex-col items-center gap-3 py-2">
+            {satisfied ? (
+              <Smile size={48} className="text-green-500" />
+            ) : (
+              <Frown size={48} className="text-lpu-red" />
+            )}
+            <p className="text-lpu-maroon font-black text-lg">
+              Thank you for your feedback!
+            </p>
+            <p className="text-gray-400 text-base">
+              {satisfied ? "Glad we could help." : "We'll work to improve."}
+            </p>
+          </div>
+        ) : satisfied === null ? (
           <>
             <p className="text-gray-600 font-semibold text-base text-center mb-4">
               Were you satisfied with the resolution?
@@ -142,18 +182,51 @@ export function FeedbackModal({ ticket, onSubmit, onClose }) {
             </div>
           </>
         ) : (
-          <div className="flex flex-col items-center gap-3 py-2">
-            {satisfied ? (
-              <Smile size={48} className="text-green-500" />
-            ) : (
-              <Frown size={48} className="text-lpu-red" />
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                {satisfied ? (
+                  <Smile size={22} className="text-green-500" />
+                ) : (
+                  <Frown size={22} className="text-lpu-red" />
+                )}
+                <span className="text-sm font-bold text-gray-600">
+                  {satisfied ? "Satisfied" : "Not Satisfied"}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleBack}
+                className="text-xs font-bold text-gray-400 hover:text-lpu-maroon transition-colors"
+              >
+                Change
+              </button>
+            </div>
+
+            <FloatingTextarea
+              label={`Comment ${satisfied ? "(optional)" : "(required)"}`}
+              value={comment}
+              onChange={(e) => {
+                setComment(e.target.value);
+                if (error && e.target.value.trim()) setError("");
+              }}
+              required={satisfied === false}
+              autoResize
+              heightClass="min-h-[96px] max-h-[220px] overflow-y-auto"
+              aria-required={satisfied === false}
+              onKeyDown={handleCommentKeyDown}
+            />
+            {error && (
+              <p className="mt-2 text-sm font-semibold text-red-500">{error}</p>
             )}
-            <p className="text-lpu-maroon font-black text-lg">
-              Thank you for your feedback!
-            </p>
-            <p className="text-gray-400 text-base">
-              {satisfied ? "Glad we could help." : "We'll work to improve."}
-            </p>
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <SecondaryButton label="Back" onClick={handleBack} />
+              <PrimaryButton
+                label="Send feedback"
+                type="button"
+                onClick={handleSubmit}
+              />
+            </div>
           </div>
         )}
       </div>
@@ -181,7 +254,12 @@ export function FormModal({
   const header = (
     <>
       <div className="flex items-center gap-2.5 min-w-0">
-        {Icon && <Icon size={20} className="shrink-0 text-lpu-maroon dark:text-lpu-gold" />}
+        {Icon && (
+          <Icon
+            size={20}
+            className="shrink-0 text-lpu-maroon dark:text-lpu-gold"
+          />
+        )}
         <h2 className="text-lpu-maroon dark:text-lpu-gold font-black text-lg tracking-tight leading-tight truncate">
           {title}
         </h2>
@@ -200,7 +278,10 @@ export function FormModal({
   );
 
   return (
-    <Modal header={header} className={`max-w-7xl max-h-[90vh] overflow-y-auto ${className}`.trim()}>
+    <Modal
+      header={header}
+      className={`max-w-7xl max-h-[90vh] overflow-y-auto ${className}`.trim()}
+    >
       {children}
     </Modal>
   );
@@ -329,8 +410,17 @@ function ProfileSection({ loading, loadErr, profile, setProfile, onClose }) {
       <StatusLine msg={msg} err={err} />
 
       <div className="flex gap-3 pt-1">
-        <SecondaryButton label="Cancel" onClick={onClose} disabled={saving} className="flex-1" />
-        <PrimaryButton label={saving ? "Saving…" : "Save changes"} isLoading={saving} className="flex-1" />
+        <SecondaryButton
+          label="Cancel"
+          onClick={onClose}
+          disabled={saving}
+          className="flex-1"
+        />
+        <PrimaryButton
+          label={saving ? "Saving…" : "Save changes"}
+          isLoading={saving}
+          className="flex-1"
+        />
       </div>
     </form>
   );
@@ -410,7 +500,11 @@ function SecuritySection() {
 
       <StatusLine msg={msg} err={err} />
 
-      <PrimaryButton label={saving ? "Updating…" : "Change password"} isLoading={saving} className="w-full" />
+      <PrimaryButton
+        label={saving ? "Updating…" : "Change password"}
+        isLoading={saving}
+        className="w-full"
+      />
     </form>
   );
 }
@@ -506,7 +600,10 @@ export function SettingsModal({ open, onClose, darkMode, onToggleDark }) {
         {/* Header */}
         <div className="px-5 py-4 flex items-center justify-between gap-3 border-b border-gray-100 dark:border-zinc-800 shrink-0">
           <div className="flex items-center gap-2.5 min-w-0">
-            <Settings size={20} className="shrink-0 text-lpu-maroon dark:text-lpu-gold" />
+            <Settings
+              size={20}
+              className="shrink-0 text-lpu-maroon dark:text-lpu-gold"
+            />
             <h2 className="text-lpu-maroon dark:text-lpu-gold font-black text-lg tracking-tight leading-tight">
               Settings
             </h2>

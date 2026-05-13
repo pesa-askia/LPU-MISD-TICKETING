@@ -127,16 +127,19 @@ function Tickets() {
     },
   ];
 
-  const enqueueForFeedback = useCallback((ticket) => {
-    if (queuedIdsRef.current.has(ticket.id)) return;
-    queuedIdsRef.current.add(ticket.id);
-    prevOpenIdsRef.current.delete(ticket.id);
-    setFeedbackQueue((q) => {
-      const next = [...q, ticket];
-      localStorage.setItem(feedbackStorageKey, JSON.stringify(next));
-      return next;
-    });
-  }, [feedbackStorageKey]);
+  const enqueueForFeedback = useCallback(
+    (ticket) => {
+      if (queuedIdsRef.current.has(ticket.id)) return;
+      queuedIdsRef.current.add(ticket.id);
+      prevOpenIdsRef.current.delete(ticket.id);
+      setFeedbackQueue((q) => {
+        const next = [...q, ticket];
+        localStorage.setItem(feedbackStorageKey, JSON.stringify(next));
+        return next;
+      });
+    },
+    [feedbackStorageKey],
+  );
 
   const handleActionClick = async (ticket) => {
     if (!ticket) return;
@@ -194,7 +197,7 @@ function Tickets() {
     }
   };
 
-  const handleFeedbackSubmit = async (ticketId, satisfied) => {
+  const handleFeedbackSubmit = async (ticketId, satisfied, comment) => {
     markFeedbackGiven(ticketId);
     try {
       const token = localStorage.getItem("authToken");
@@ -204,7 +207,10 @@ function Tickets() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ satisfaction: satisfied }),
+        body: JSON.stringify({
+          satisfaction: satisfied,
+          comment: comment ?? null,
+        }),
       });
     } catch {
       // fire-and-forget — localStorage already guards against re-showing
@@ -426,8 +432,8 @@ function Tickets() {
         <FeedbackModal
           key={feedbackQueue[0].id}
           ticket={feedbackQueue[0]}
-          onSubmit={(satisfied) =>
-            handleFeedbackSubmit(feedbackQueue[0].id, satisfied)
+          onSubmit={(satisfied, comment) =>
+            handleFeedbackSubmit(feedbackQueue[0].id, satisfied, comment)
           }
           onClose={handleFeedbackClose}
         />

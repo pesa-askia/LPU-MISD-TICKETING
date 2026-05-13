@@ -22,14 +22,22 @@ const sql = async (query) => {
 
 export const initializeDatabase = async () => {
   try {
-    const kind = process.env.SUPABASE_SERVICE_ROLE_KEY ? "service_role" : "anon";
+    const kind = process.env.SUPABASE_SERVICE_ROLE_KEY
+      ? "service_role"
+      : "anon";
     const origin = (() => {
-      try { return new URL(supabaseUrl).origin; } catch { return supabaseUrl; }
+      try {
+        return new URL(supabaseUrl).origin;
+      } catch {
+        return supabaseUrl;
+      }
     })();
     console.log(`[DB] Using Supabase (${kind}) at ${origin}`);
 
     // Verify execute_sql exists — created by backend/schema.sql
-    const { error: rpcCheck } = await supabase.rpc("execute_sql", { sql: "SELECT 1" });
+    const { error: rpcCheck } = await supabase.rpc("execute_sql", {
+      sql: "SELECT 1",
+    });
     if (rpcCheck) {
       console.error(`
 ╔══════════════════════════════════════════════════════════════╗
@@ -102,6 +110,7 @@ export const initializeDatabase = async () => {
         created_by_email TEXT,
         status TEXT DEFAULT 'Open',
         satisfaction BOOLEAN,
+        satisfaction_comment TEXT,
         timer_duration_seconds INTEGER,
         sla_met BOOLEAN,
         created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -275,7 +284,9 @@ export const initializeDatabase = async () => {
         ON chatbot_account_limits(user_id);
       ALTER TABLE chatbot_account_limits ENABLE ROW LEVEL SECURITY;
     `);
-    console.log("✓ chatbot_sessions / chatbot_messages / chatbot_account_limits");
+    console.log(
+      "✓ chatbot_sessions / chatbot_messages / chatbot_account_limits",
+    );
 
     // ── knowledge_base ────────────────────────────────────────
     await sql(`
@@ -324,12 +335,13 @@ export const initializeDatabase = async () => {
 
     // ── Storage bucket ────────────────────────────────────────
     try {
-      const { data: buckets, error: listErr } = await supabase.storage.listBuckets();
+      const { data: buckets, error: listErr } =
+        await supabase.storage.listBuckets();
       if (listErr) throw listErr;
       if (!buckets?.some((b) => b.name === "ticket-attachments")) {
         const { error: createErr } = await supabase.storage.createBucket(
           "ticket-attachments",
-          { public: true }
+          { public: true },
         );
         if (createErr) throw createErr;
         console.log("✓ ticket-attachments (bucket created)");
@@ -423,12 +435,16 @@ export const initializeAdminUsers = async () => {
     if (!err) return false;
     if (err.code === "PGRST116") return true;
     const msg = (err.message || "").toLowerCase();
-    return msg.includes("schema cache") || msg.includes("could not find the table");
+    return (
+      msg.includes("schema cache") || msg.includes("could not find the table")
+    );
   };
 
   const reloadSchemaCache = async () => {
     try {
-      await supabase.rpc("execute_sql", { sql: "NOTIFY pgrst, 'reload schema';" });
+      await supabase.rpc("execute_sql", {
+        sql: "NOTIFY pgrst, 'reload schema';",
+      });
     } catch {
       // non-critical
     }
@@ -448,7 +464,9 @@ export const initializeAdminUsers = async () => {
     }
 
     if (!seedEmail || !seedPassword) {
-      console.log("Skipping admin seed (set ADMIN_SEED_EMAIL and ADMIN_SEED_PASSWORD to seed a root admin).");
+      console.log(
+        "Skipping admin seed (set ADMIN_SEED_EMAIL and ADMIN_SEED_PASSWORD to seed a root admin).",
+      );
       return;
     }
 
@@ -479,14 +497,16 @@ export const initializeAdminUsers = async () => {
     }
 
     const passwordHash = await bcrypt.hash(seedPassword, 10);
-    const { error: insertError } = await supabase.from("admin_users").insert([{
-      email: seedEmail,
-      password_hash: passwordHash,
-      full_name: seedFullName,
-      is_active: true,
-      admin_level: 0,
-      email_verified_at: new Date().toISOString(),
-    }]);
+    const { error: insertError } = await supabase.from("admin_users").insert([
+      {
+        email: seedEmail,
+        password_hash: passwordHash,
+        full_name: seedFullName,
+        is_active: true,
+        admin_level: 0,
+        email_verified_at: new Date().toISOString(),
+      },
+    ]);
 
     if (insertError) {
       console.error("[Admin init] Seed insert failed:", insertError.message);
