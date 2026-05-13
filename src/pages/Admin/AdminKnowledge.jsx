@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   Plus,
   Trash2,
@@ -93,7 +93,7 @@ export default function AdminKnowledge() {
 
   const pageCount = Math.ceil(total / PAGE_SIZE);
 
-  const fetchEntries = async (currentPage = page, currentSearch = search) => {
+  const fetchEntries = useCallback(async (currentPage = page, currentSearch = search) => {
     setLoading(true);
     setError("");
     try {
@@ -141,11 +141,11 @@ export default function AdminKnowledge() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, search]);
 
   useEffect(() => {
     fetchEntries(page, search);
-  }, [page, search]);
+  }, [page, search, fetchEntries]);
 
   const handleSearch = (val) => {
     setSearch(val);

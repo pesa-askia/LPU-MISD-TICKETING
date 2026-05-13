@@ -15,6 +15,62 @@ import lpuLogo from "../assets/lpul-logo.png";
 import { SettingsModal } from "./Modal";
 import { useNavbarActionsContext } from "../context/NavbarActionsContext";
 
+// --- Reusable Admin Dropdown Block ---
+const AdminDropdown = ({
+  innerRef,
+  menuOpen,
+  setMenuOpen,
+  setAccountModalOpen,
+  setIsMobileMenuOpen,
+  onLogout,
+}) => (
+  <div className="relative flex items-center h-8" ref={innerRef}>
+    <button
+      type="button"
+      onClick={() => setMenuOpen((v) => !v)}
+      className={`flex items-center justify-center lg:justify-start gap-2 px-3 md:px-2 lg:px-3 h-8 rounded-lg text-sm font-medium transition-all duration-200 ${menuOpen
+        ? "bg-lpu-red text-white shadow-sm font-bold"
+        : "text-white/85 hover:bg-lpu-gold hover:text-lpu-maroon"
+        }`}
+    >
+      <User size={16} />
+      {/* Hide text on iPad (md), show on desktop (lg) */}
+      <span className="hidden lg:inline">Admin</span>
+      <ChevronDown
+        size={14}
+        className={`transition-transform duration-200 ${menuOpen ? "rotate-180" : ""}`}
+      />
+    </button>
+
+    {/* Popup Menu */}
+    {menuOpen && (
+      <div className="absolute left-1/2 -translate-x-1/2 md:left-auto md:right-0 md:translate-x-0 mt-2 top-full w-48 bg-white rounded-xl shadow-xl py-2 border border-gray-100 flex flex-col z-50 animate-in fade-in zoom-in-95">
+        <button
+          type="button"
+          onClick={() => {
+            setMenuOpen(false);
+            setAccountModalOpen(true);
+            setIsMobileMenuOpen(false);
+          }}
+          className="flex items-center gap-3 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-lpu-maroon transition-colors w-full text-left"
+        >
+          <Settings size={16} /> <span>Settings</span>
+        </button>
+
+        <div className="h-px bg-gray-100 my-1 w-full"></div>
+
+        <button
+          type="button"
+          onClick={onLogout}
+          className="flex items-center gap-3 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors w-full text-left"
+        >
+          <LogOut size={16} /> <span>Logout</span>
+        </button>
+      </div>
+    )}
+  </div>
+);
+
 export default function AdminNavbar() {
   const { actions = null, isRoot } = useNavbarActionsContext();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -72,56 +128,6 @@ export default function AdminNavbar() {
   const getLinkClass = ({ isActive }) =>
     `${linkBase} ${isActive ? linkActive : linkInactive}`;
 
-  // --- Reusable Admin Dropdown Block ---
-  const AdminDropdown = ({ innerRef }) => (
-    <div className="relative flex items-center h-8" ref={innerRef}>
-      <button
-        type="button"
-        onClick={() => setMenuOpen((v) => !v)}
-        className={`flex items-center justify-center lg:justify-start gap-2 px-3 md:px-2 lg:px-3 h-8 rounded-lg text-sm font-medium transition-all duration-200 ${
-          menuOpen
-            ? "bg-lpu-red text-white shadow-sm font-bold"
-            : "text-white/85 hover:bg-lpu-gold hover:text-lpu-maroon"
-        }`}
-      >
-        <User size={16} />
-        {/* Hide text on iPad (md), show on desktop (lg) */}
-        <span className="hidden lg:inline">Admin</span>
-        <ChevronDown
-          size={14}
-          className={`transition-transform duration-200 ${menuOpen ? "rotate-180" : ""}`}
-        />
-      </button>
-
-      {/* Popup Menu */}
-      {menuOpen && (
-        <div className="absolute left-1/2 -translate-x-1/2 md:left-auto md:right-0 md:translate-x-0 mt-2 top-full w-48 bg-white rounded-xl shadow-xl py-2 border border-gray-100 flex flex-col z-50 animate-in fade-in zoom-in-95">
-          <button
-            type="button"
-            onClick={() => {
-              setMenuOpen(false);
-              setAccountModalOpen(true);
-              setIsMobileMenuOpen(false);
-            }}
-            className="flex items-center gap-3 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-lpu-maroon transition-colors w-full text-left"
-          >
-            <Settings size={16} /> <span>Settings</span>
-          </button>
-
-          <div className="h-px bg-gray-100 my-1 w-full"></div>
-
-          <button
-            type="button"
-            onClick={onLogout}
-            className="flex items-center gap-3 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors w-full text-left"
-          >
-            <LogOut size={16} /> <span>Logout</span>
-          </button>
-        </div>
-      )}
-    </div>
-  );
-
   return (
     <>
       <header className="sticky top-0 z-50 w-full bg-lpu-maroon shadow-md font-poppins">
@@ -160,7 +166,14 @@ export default function AdminNavbar() {
           {/* --- Desktop Actions & Admin Menu --- */}
           <div className="hidden md:flex items-center gap-2 md:gap-4">
             {actions}
-            <AdminDropdown innerRef={desktopMenuRef} />
+            <AdminDropdown
+              innerRef={desktopMenuRef}
+              menuOpen={menuOpen}
+              setMenuOpen={setMenuOpen}
+              setAccountModalOpen={setAccountModalOpen}
+              setIsMobileMenuOpen={setIsMobileMenuOpen}
+              onLogout={onLogout}
+            />
           </div>
 
           {/* --- Mobile Menu Toggle Button --- */}
@@ -216,7 +229,14 @@ export default function AdminNavbar() {
             {/* Mobile Actions Container */}
             <div className="pt-4 border-t border-lpu-red flex flex-row flex-wrap gap-4 items-center justify-center">
               {actions}
-              <AdminDropdown innerRef={mobileMenuRef} />
+              <AdminDropdown
+                innerRef={mobileMenuRef}
+                menuOpen={menuOpen}
+                setMenuOpen={setMenuOpen}
+                setAccountModalOpen={setAccountModalOpen}
+                setIsMobileMenuOpen={setIsMobileMenuOpen}
+                onLogout={onLogout}
+              />
             </div>
           </div>
         )}

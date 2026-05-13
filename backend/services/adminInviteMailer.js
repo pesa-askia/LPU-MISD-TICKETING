@@ -1,6 +1,4 @@
-const debugEnabled = () =>
-  String(process.env.ADMIN_INVITE_DEBUG || "").trim().toLowerCase() === "true";
-
+/* global process */
 export function isAdminInviteEmailEnabled() {
   return true; // Supabase inviteUserByEmail uses the project's configured email provider
 }

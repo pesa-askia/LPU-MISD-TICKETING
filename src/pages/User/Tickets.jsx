@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { AlertCircle } from "lucide-react";
 import { jwtDecode } from "jwt-decode";
 import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
@@ -52,7 +52,7 @@ function Tickets() {
   }, []);
 
   // Set of ticket IDs where user already answered — prevents re-queuing answered tickets
-  const getFeedbackGiven = () => {
+  const getFeedbackGiven = useCallback(() => {
     try {
       return new Set(
         JSON.parse(localStorage.getItem(feedbackGivenKey) || "[]"),
@@ -60,12 +60,14 @@ function Tickets() {
     } catch {
       return new Set();
     }
-  };
+  }, [feedbackGivenKey]);
+
   const markFeedbackGiven = (ticketId) => {
     const given = getFeedbackGiven();
     given.add(ticketId);
     localStorage.setItem(feedbackGivenKey, JSON.stringify([...given]));
   };
+
   const removeFeedbackGiven = (ticketId) => {
     const given = getFeedbackGiven();
     given.delete(ticketId);
@@ -125,7 +127,7 @@ function Tickets() {
     },
   ];
 
-  const enqueueForFeedback = (ticket) => {
+  const enqueueForFeedback = useCallback((ticket) => {
     if (queuedIdsRef.current.has(ticket.id)) return;
     queuedIdsRef.current.add(ticket.id);
     prevOpenIdsRef.current.delete(ticket.id);
@@ -134,7 +136,7 @@ function Tickets() {
       localStorage.setItem(feedbackStorageKey, JSON.stringify(next));
       return next;
     });
-  };
+  }, [feedbackStorageKey]);
 
   const handleActionClick = async (ticket) => {
     if (!ticket) return;
@@ -285,7 +287,7 @@ function Tickets() {
     };
 
     fetchTickets();
-  }, [userId, page, filter, search, realtimeTick]);
+  }, [userId, page, filter, search, realtimeTick, showLoading, hideLoading]);
 
   useEffect(() => {
     if (!userId) return;
@@ -320,7 +322,7 @@ function Tickets() {
       .subscribe();
 
     return () => realtimeSupabase.removeChannel(channel);
-  }, [userId]);
+  }, [userId, enqueueForFeedback]);
 
   // On mount: catch tickets closed while user was offline/logged out
   useEffect(() => {
@@ -345,7 +347,7 @@ function Tickets() {
       });
     };
     checkMissedCloses();
-  }, [userId]);
+  }, [userId, enqueueForFeedback, getFeedbackGiven]);
 
   const handleSearch = (val) => {
     setSearch(val);

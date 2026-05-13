@@ -14,7 +14,6 @@ function ChatbotWidget({ hideButton = false }) {
     setInputText,
     isTyping,
     shouldHandoff,
-    sessionId,
     cooldownUntilMs,
     cooldownLabel,
     showSuggestions,
@@ -24,6 +23,14 @@ function ChatbotWidget({ hideButton = false }) {
     handleKeyDown,
     handleHandoff: baseHandleHandoff,
   } = useChatbotContext();
+
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    if (!cooldownUntilMs) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [cooldownUntilMs]);
 
   useEffect(() => {
     if (isOpen) {
@@ -104,13 +111,12 @@ function ChatbotWidget({ hideButton = false }) {
                   </div>
                   <div
                     className={`p-2 px-3 rounded-xl text-[13.5px] leading-relaxed whitespace-pre-wrap wrap-break-word border
-                    ${
-                      msg.role === "user"
+                    ${msg.role === "user"
                         ? "bg-lpu-maroon text-white border-transparent"
                         : msg.isError
                           ? "bg-red-50 border-red-400 text-red-700"
                           : "bg-white border-gray-100 text-gray-800"
-                    }`}
+                      }`}
                   >
                     {msg.content}
                   </div>
@@ -192,7 +198,7 @@ function ChatbotWidget({ hideButton = false }) {
               placeholder={cooldownLabel || "Type a message..."}
               rows={1}
               disabled={
-                isTyping || (cooldownUntilMs && Date.now() < cooldownUntilMs)
+                isTyping || (cooldownUntilMs && now < cooldownUntilMs)
               }
             />
             <button

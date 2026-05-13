@@ -42,7 +42,7 @@ export function useNavbarActions(actions) {
 
   useEffect(() => {
     setActions(actions);
-  });
+  }, [actions, setActions]);
 
   useEffect(() => {
     return () => setActions(null);

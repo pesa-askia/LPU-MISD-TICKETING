@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { useChatbotContext } from "../../context/ChatbotContext";
@@ -34,9 +34,16 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (shouldHandoff) handleHandoff();
-  }, [shouldHandoff]);
+  }, [shouldHandoff, handleHandoff]);
 
-  const isCoolingDown = cooldownUntilMs && Date.now() < cooldownUntilMs;
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!cooldownUntilMs) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [cooldownUntilMs]);
+
+  const isCoolingDown = cooldownUntilMs && now < cooldownUntilMs;
 
   return (
     <div className="flex flex-col w-full h-full max-h-full overflow-hidden bg-gray-50">
@@ -65,13 +72,12 @@ export default function ChatPage() {
                     </span>
                   </div>
                   <div
-                    className={`px-4 py-3 rounded-2xl text-sm leading-relaxed border shadow-[12px_12px_24px_rgba(0,0,0,0.18)] ${
-                      msg.role === "user"
+                    className={`px-4 py-3 rounded-2xl text-sm leading-relaxed border shadow-[12px_12px_24px_rgba(0,0,0,0.18)] ${msg.role === "user"
                         ? "bg-lpu-maroon text-white border-lpu-maroon rounded-tr-none"
                         : msg.isError
                           ? "bg-red-50 border-red-400 text-red-700 rounded-tl-none"
                           : "bg-white text-gray-800 border-gray-100 rounded-tl-none"
-                    }`}
+                      }`}
                   >
                     <p className="whitespace-pre-wrap wrap-break-word">
                       {msg.content}

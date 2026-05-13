@@ -1,3 +1,4 @@
+/* global process */
 import { supabase } from "../config/database.js";
 
 // --- Rate limit (env-tunable; no separate shared module) ---

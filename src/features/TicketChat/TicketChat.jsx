@@ -47,7 +47,6 @@ export default function TicketChat({ adminView = false } = {}) {
   };
 
   const ticketKey = normalizeTicketId(id);
-  const cachedMessages = getMessages(ticketKey);
 
   const getDisplayName = (name, email, role, senderId) => {
     const trimmedName = (name || "").trim();

@@ -1,3 +1,4 @@
+/* global process */
 import express from "express";
 import { optionalAuthMiddleware } from "../middleware/auth.js";
 import {

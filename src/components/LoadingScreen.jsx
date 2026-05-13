@@ -16,7 +16,8 @@ const LoadingScreen = ({ isLoading }) => {
     // Loading finished: cancel pending show + hide immediately.
     if (showTimerRef.current) clearTimeout(showTimerRef.current);
     showTimerRef.current = null;
-    setVisible(false);
+    const hideTimer = setTimeout(() => setVisible(false), 0);
+    return () => clearTimeout(hideTimer);
   }, [isLoading]);
 
   useEffect(() => {

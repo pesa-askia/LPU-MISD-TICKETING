@@ -1,3 +1,4 @@
+/* global process */
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { randomUUID } from "crypto";

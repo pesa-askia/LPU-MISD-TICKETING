@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { Navigate } from "react-router-dom";
-import { Download, Calendar, X, ChevronRight } from "lucide-react";
+import { Download, Calendar, ChevronDown, ChevronUp, Users } from "lucide-react";
+import { jwtDecode } from "jwt-decode";
+import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
 import { useLoading } from "../../context/LoadingContext";
 import { useTicketsCache } from "../../context/TicketsCacheContext";
@@ -8,19 +10,57 @@ import {
   useNavbarActions,
   NavbarActionButton,
 } from "../../context/NavbarActionsContext";
+import { isGlobalAdmin } from "../../utils/adminLevels";
 
-// Utility functions
-function getStatusValue(ticket) {
-  return (
-    ticket?.Status ?? ticket?.status ?? ticket?.state ?? ticket?.State ?? ""
-  );
+const ALL_DEPARTMENTS = ["CAS", "CBA", "CITHM", "COECS", "LPU-SC", "HIGHSCHOOL"];
+const ANALYTICS_CATEGORY_ORDER = ["LMS", "Microsoft 365", "STUDENT PORTAL", "ERP", "HARDWARE", "SOFTWARE", "OTHERS"];
+const ANALYTICS_TYPE_ORDER = ["Student", "Faculty", "Admin"];
+const ANALYTICS_SITE_ORDER = ["Onsite", "Online", "OTHERS"];
+const SLA_PRIORITY_ORDER = ["Low", "Medium", "High"];
+
+const COLORS = {
+  closed: "#336be3",
+  open: "#e6bc23",
+  satisfied: "#22c55e",
+  unsatisfied: "#f43f5e",
+  slaLow: "#166534",
+  slaMedium: "#ca8a04",
+  slaHigh: "#ad0009",
+};
+
+const DISTRIBUTION_COLORS = [
+  "#3b82f6", // Blue
+  "#fbbf24", // Yellow
+  "#22c55e", // Green
+  "#06b6d4", // Cyan
+  "#f97316", // Orange
+  "#a855f7", // Purple
+  "#ec4899", // Pink
+];
+
+function normalizePriorityLabel(ticket) {
+  const p = String(ticket?.Priority ?? ticket?.priority ?? "").trim().toLowerCase();
+  if (p === "low") return "Low";
+  if (p === "medium") return "Medium";
+  if (p === "high") return "High";
+  return null;
 }
 
 function isClosed(ticket) {
   if (!ticket) return false;
   if (ticket.closed_at) return true;
-  const s = String(getStatusValue(ticket)).toLowerCase();
+  const s = String(ticket?.Status ?? ticket?.status ?? "").toLowerCase();
   return s.includes("closed") || s.includes("resolved") || s.includes("done");
+}
+
+function durationMinutesFromSeconds(seconds) {
+  if (typeof seconds !== "number" || Number.isNaN(seconds) || seconds < 0) return null;
+  return seconds / 60;
+}
+
+function formatMinutesOneDecimal(m) {
+  if (m == null || Number.isNaN(m)) return "—";
+  return `${m.toFixed(1)} min`;
 }
 
 function escapeCsv(value) {
@@ -31,338 +71,8 @@ function escapeCsv(value) {
   return next;
 }
 
-const SLA_PRIORITY_ORDER = ["Low", "Medium", "High"];
-
-function normalizePriorityLabel(ticket) {
-  const p = String(ticket?.Priority ?? ticket?.priority ?? "")
-    .trim()
-    .toLowerCase();
-  if (p === "low") return "Low";
-  if (p === "medium") return "Medium";
-  if (p === "high") return "High";
-  return null;
-}
-
-function resolutionMinutes(ticket) {
-  if (!ticket?.created_at || !ticket?.closed_at) return null;
-  const start = new Date(ticket.created_at);
-  const end = new Date(ticket.closed_at);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
-  const ms = end.getTime() - start.getTime();
-  if (ms < 0) return null;
-  return ms / (1000 * 60);
-}
-
-function formatMinutesOneDecimal(m) {
-  if (m == null || Number.isNaN(m)) return "—";
-  return `${m.toFixed(1)} min`;
-}
-
-function durationMinutesFromSeconds(seconds) {
-  if (typeof seconds !== "number" || Number.isNaN(seconds) || seconds < 0)
-    return null;
-  return seconds / 60;
-}
-
-// Components
-function PieChart({ closedCount, openCount }) {
-  const total = Math.max(closedCount + openCount, 1);
-  const closedAngle = (closedCount / total) * 360;
-  const openAngle = 360 - closedAngle;
-
-  return (
-    <div className="flex flex-col items-center gap-6 py-4">
-      <div
-        className="w-56 h-56 rounded-full grid place-items-center shadow-inner"
-        style={{
-          background: `conic-gradient(#336be3 0deg ${closedAngle}deg, #e6bc23 ${closedAngle}deg ${closedAngle + openAngle
-            }deg)`,
-        }}
-      >
-        <div className="w-[140px] h-[140px] rounded-full bg-white dark:bg-zinc-900 grid place-items-center text-6xl font-semibold text-gray-900 dark:text-zinc-100 shadow-md">
-          {closedCount + openCount}
-        </div>
-      </div>
-      <div className="w-full flex justify-center gap-8 text-lg font-medium text-gray-700 dark:text-zinc-300">
-        <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#336be3] shadow-sm" />
-          Closed: <span className="font-bold">{closedCount}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#e6bc23] shadow-sm" />
-          Open: <span className="font-bold">{openCount}</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SatisfactionPieChart({ satisfiedCount, unsatisfiedCount }) {
-  const total = Math.max(satisfiedCount + unsatisfiedCount, 1);
-  const satAngle = (satisfiedCount / total) * 360;
-  const unsatAngle = 360 - satAngle;
-
-  return (
-    <div className="flex flex-col items-center gap-6 py-4">
-      <div
-        className="w-56 h-56 rounded-full grid place-items-center shadow-inner"
-        style={{
-          background: `conic-gradient(#16a34a 0deg ${satAngle}deg, #ef4444 ${satAngle}deg ${satAngle + unsatAngle
-            }deg)`,
-        }}
-      >
-        <div className="w-[140px] h-[140px] rounded-full bg-white dark:bg-zinc-900 grid place-items-center text-5xl font-semibold text-gray-900 dark:text-zinc-100 shadow-md">
-          {satisfiedCount + unsatisfiedCount}
-        </div>
-      </div>
-      <div className="w-full flex justify-center gap-8 text-base font-medium text-gray-700 dark:text-zinc-300">
-        <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#16a34a] shadow-sm" />
-          Satisfied: <span className="font-bold">{satisfiedCount}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#ef4444] shadow-sm" />
-          Not: <span className="font-bold">{unsatisfiedCount}</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DepartmentBarChart({ chartData, onDepartmentBarClick }) {
-  const { stats = [], maxTotal = 1 } = chartData || {};
-
-  return (
-    <div
-      className="flex flex-col gap-3 min-h-[320px]"
-      aria-label="Tickets by department bar chart"
-    >
-      <p className="text-[11px] text-gray-500 dark:text-zinc-500 -mt-1 mb-1">
-        Click a bar with tickets to see category and site breakdown.
-      </p>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-5 items-end min-h-[240px] py-3">
-        {stats.map((item) => {
-          const isEmpty = item.total === 0;
-          const closedHeight = isEmpty ? 0 : (item.closed / maxTotal) * 100;
-          const openHeight = isEmpty ? 0 : (item.open / maxTotal) * 100;
-
-          return (
-            <div
-              key={item.department}
-              className={`flex flex-col items-center gap-2 w-full ${!isEmpty && onDepartmentBarClick
-                ? "cursor-pointer focus-within:ring-2 focus-within:ring-[var(--color-lpu-maroon)]/25 rounded-lg"
-                : ""
-                }`}
-            >
-              <div
-                role={!isEmpty && onDepartmentBarClick ? "button" : undefined}
-                tabIndex={!isEmpty && onDepartmentBarClick ? 0 : undefined}
-                className={`group w-full flex flex-col items-center gap-2 ${!isEmpty && onDepartmentBarClick ? "outline-none" : ""
-                  }`}
-                aria-label={
-                  !isEmpty && onDepartmentBarClick
-                    ? `${item.department}: ${item.total} tickets — click for category and site breakdown`
-                    : undefined
-                }
-                onClick={(e) => {
-                  if (isEmpty || !onDepartmentBarClick) return;
-                  onDepartmentBarClick(item.department, e.currentTarget);
-                }}
-                onKeyDown={(e) => {
-                  if (isEmpty || !onDepartmentBarClick) return;
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    onDepartmentBarClick(item.department, e.currentTarget);
-                  }
-                }}
-              >
-                <div
-                  className={`w-full max-w-[70px] xl:max-w-[90px] h-[220px] flex flex-col-reverse rounded-lg overflow-hidden border relative transition-all duration-300 ease-out ${!isEmpty && onDepartmentBarClick
-                    ? "hover:-translate-y-1 hover:shadow-lg dark:hover:shadow-black/50 group-hover:border-[var(--color-lpu-maroon)]/30"
-                    : "hover:-translate-y-1 hover:shadow-lg dark:hover:shadow-black/50"
-                    } ${isEmpty
-                      ? "bg-gray-50 dark:bg-zinc-900/50 border-dashed border-gray-300 dark:border-white/10"
-                      : "bg-[#f7f8fc] dark:bg-zinc-800/50 border-gray-200 dark:border-white/10"
-                    }`}
-                  role="img"
-                  aria-hidden={!!onDepartmentBarClick}
-                  aria-label={
-                    !onDepartmentBarClick
-                      ? `${item.department}: ${item.total} total, ${item.open} open, ${item.closed} closed`
-                      : undefined
-                  }
-                >
-                  {!isEmpty ? (
-                    <>
-                      <div
-                        className="w-full bg-[#336be3] transition-all duration-500 ease-out pointer-events-none"
-                        style={{ height: `${closedHeight}%` }}
-                        title={`Closed: ${item.closed}`}
-                      />
-                      <div
-                        className="w-full bg-[#e6bc23] transition-all duration-500 ease-out pointer-events-none"
-                        style={{ height: `${openHeight}%` }}
-                        title={`Open: ${item.open}`}
-                      />
-                    </>
-                  ) : (
-                    <div
-                      className="absolute bottom-0 left-0 right-0 h-2 bg-gray-200 dark:bg-zinc-800 rounded-full mx-1 mb-1"
-                      title="No tickets"
-                    />
-                  )}
-                </div>
-
-                <div className="flex flex-col items-center gap-0.5 pointer-events-none">
-                  <span className="text-base font-bold text-gray-900 dark:text-zinc-100">
-                    {item.total}
-                  </span>
-                  {!isEmpty && (
-                    <div className="flex gap-2 text-[11px] font-semibold">
-                      <span className="text-[#336be3]">C:{item.closed}</span>
-                      <span className="text-[#e6bc23]">O:{item.open}</span>
-                    </div>
-                  )}
-                </div>
-                <div className="text-[11px] xl:text-xs font-semibold text-center text-gray-500 dark:text-zinc-400 uppercase mt-1 pointer-events-none">
-                  {item.department}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="flex flex-wrap gap-6 justify-center pt-4 mt-3 border-t border-gray-100 dark:border-white/10">
-        <div className="inline-flex items-center gap-2 text-xs font-semibold text-gray-700 dark:text-zinc-300">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#336be3] shadow-sm" />
-          <span>Closed</span>
-        </div>
-        <div className="inline-flex items-center gap-2 text-xs font-semibold text-gray-700 dark:text-zinc-300">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#e6bc23] shadow-sm" />
-          <span>Open</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-const SLA_BAR_COLORS = {
-  Low: "#166534",
-  Medium: "#ca8a04",
-  High: "#ad0009",
-};
-
-function SlaPriorityBarChart({ stats }) {
-  const maxAvg = Math.max(1, ...stats.map((s) => s.avgMinutes));
-
-  return (
-    <div
-      className="flex flex-col gap-2 min-h-0"
-      aria-label="Average resolution time by priority"
-    >
-      <div className="grid grid-cols-3 gap-4 sm:gap-6 items-end min-h-[200px] py-2">
-        {stats.map((item) => {
-          const hasData = item.count > 0;
-          const heightPct = hasData ? (item.avgMinutes / maxAvg) * 100 : 0;
-          const barColor = SLA_BAR_COLORS[item.priority] ?? "#336be3";
-
-          return (
-            <div
-              key={item.priority}
-              className="flex flex-col items-center gap-2 w-full"
-            >
-              <div
-                className={`w-full max-w-[100px] h-[160px] sm:h-[180px] flex flex-col justify-end rounded-lg overflow-hidden border relative transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg dark:hover:shadow-black/50 ${hasData
-                  ? "bg-[#f7f8fc] dark:bg-zinc-800/50 border-gray-200 dark:border-white/10"
-                  : "bg-gray-50 dark:bg-zinc-900/50 border-dashed border-gray-300 dark:border-white/10"
-                  }`}
-                role="img"
-                aria-label={`${item.priority}: average ${item.avgMinutes.toFixed(1)} minutes, ${item.count} tickets`}
-              >
-                {hasData ? (
-                  <div
-                    className="w-full transition-all duration-500 ease-out rounded-t-sm"
-                    style={{
-                      height: `${heightPct}%`,
-                      backgroundColor: barColor,
-                      minHeight: "8px",
-                    }}
-                    title={`Avg: ${item.avgMinutes.toFixed(1)} min (${item.count} tickets)`}
-                  />
-                ) : (
-                  <div className="absolute bottom-0 left-0 right-0 h-2 bg-gray-200 dark:bg-zinc-800 rounded-full mx-1 mb-1" />
-                )}
-              </div>
-
-              <div className="flex flex-col items-center gap-0.5 text-center">
-                <span className="text-lg font-bold text-gray-900 dark:text-zinc-100 tabular-nums">
-                  {hasData ? formatMinutesOneDecimal(item.avgMinutes) : "—"}
-                </span>
-                <span className="text-[11px] font-semibold text-gray-500 dark:text-zinc-400">
-                  n={item.count}
-                </span>
-              </div>
-              <div className="text-xs font-semibold text-gray-700 dark:text-zinc-300 uppercase tracking-wide">
-                {item.priority}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="flex flex-wrap gap-6 justify-center pt-4 mt-3 border-t border-gray-100 dark:border-white/10">
-        {SLA_PRIORITY_ORDER.map((p) => (
-          <div
-            key={p}
-            className="inline-flex items-center gap-2 text-xs font-semibold text-gray-700 dark:text-zinc-300"
-          >
-            <span
-              className="w-2.5 h-2.5 rounded-full shadow-sm"
-              style={{ backgroundColor: SLA_BAR_COLORS[p] }}
-            />
-            <span>{p}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-const ALL_DEPARTMENTS = [
-  "CAS",
-  "CBA",
-  "CITHM",
-  "COECS",
-  "LPU-SC",
-  "HIGHSCHOOL",
-];
-
-/** Display order for analytics breakdown; unmatched → OTHERS */
-const ANALYTICS_CATEGORY_ORDER = [
-  "LMS",
-  "Microsoft 365",
-  "STUDENT PORTAL",
-  "ERP",
-  "HARDWARE",
-  "SOFTWARE",
-  "OTHERS",
-];
-
-function emptyDepartmentBreakdown() {
-  return {
-    categories: Object.fromEntries(
-      ANALYTICS_CATEGORY_ORDER.map((c) => [c, 0]),
-    ),
-    sites: { Onsite: 0, Online: 0, OTHERS: 0 },
-  };
-}
-
 function normalizeAnalyticsCategory(raw) {
-  const s = String(raw ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ");
+  const s = String(raw ?? "").trim().toLowerCase().replace(/\s+/g, " ");
   if (!s) return "OTHERS";
   if (s === "lms") return "LMS";
   if (s.includes("microsoft") && s.includes("365")) return "Microsoft 365";
@@ -370,7 +80,6 @@ function normalizeAnalyticsCategory(raw) {
   if (s === "erp") return "ERP";
   if (s === "hardware") return "HARDWARE";
   if (s === "software") return "SOFTWARE";
-  if (s === "others" || s === "other") return "OTHERS";
   return "OTHERS";
 }
 
@@ -381,122 +90,306 @@ function normalizeAnalyticsSite(raw) {
   return "OTHERS";
 }
 
-function positionDepartmentPopout(anchorEl) {
-  const rect = anchorEl.getBoundingClientRect();
-  const popW = 320;
-  const margin = 8;
-  const estH = 340;
-  let left = rect.left + rect.width / 2 - popW / 2;
-  left = Math.max(margin, Math.min(left, window.innerWidth - popW - margin));
-  let top = rect.bottom + margin;
-  if (top + estH > window.innerHeight - margin) {
-    top = Math.max(margin, rect.top - estH - margin);
-  }
-  return { top, left };
+function normalizeAnalyticsType(raw) {
+  const s = String(raw ?? "").trim().toLowerCase();
+  if (s === "student") return "Student";
+  if (s === "faculty") return "Faculty";
+  if (s === "admin") return "Admin";
+  return "OTHERS";
 }
 
-function DepartmentBreakdownFlyout({
-  department,
-  breakdown,
-  styleTop,
-  styleLeft,
-  onClose,
-}) {
-  if (!breakdown) return null;
+function MultiRingDonutChart({ closedCount, openCount, satisfiedCount, unsatisfiedCount, total }) {
+  const feedbackTotal = satisfiedCount + unsatisfiedCount;
+  const closedAngle = total > 0 ? (closedCount / total) * 360 : 0;
+  const openAngle = total > 0 ? (openCount / total) * 360 : 0;
+  const satisfiedAngle = feedbackTotal > 0 ? (satisfiedCount / feedbackTotal) * 360 : 0;
+  const unsatisfiedAngle = feedbackTotal > 0 ? (unsatisfiedCount / feedbackTotal) * 360 : 0;
 
   return (
-    <>
-      <div
-        className="fixed inset-0 z-[60]"
-        aria-hidden
-        onClick={onClose}
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="dept-popout-title"
-        className="fixed z-[70] w-[min(calc(100vw-1.5rem),20rem)] max-h-[min(70vh,28rem)] overflow-y-auto rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-zinc-900 shadow-xl p-4 text-sm"
-        style={{ top: styleTop, left: styleLeft }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="relative pr-7 mb-3">
-          <h2
-            id="dept-popout-title"
-            className="text-base font-bold text-gray-900 dark:text-zinc-100"
-          >
-            {department}
-          </h2>
-          <button
-            type="button"
-            className="absolute top-0 right-0 p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-zinc-800 dark:text-zinc-400"
-            aria-label="Close breakdown"
-            onClick={onClose}
-          >
-            <X className="w-4 h-4" />
-          </button>
+    <div className="flex flex-col items-center gap-4">
+      <div className="relative w-48 h-48 md:w-56 md:h-56">
+        <div
+          className="absolute inset-0 rounded-full shadow-inner"
+          style={{
+            background: `conic-gradient(
+              ${COLORS.satisfied} 0deg ${satisfiedAngle}deg,
+              ${COLORS.unsatisfied} ${satisfiedAngle}deg ${satisfiedAngle + unsatisfiedAngle}deg,
+              transparent ${satisfiedAngle + unsatisfiedAngle}deg 360deg
+            )`,
+          }}
+        />
+        <div
+          className="absolute inset-[18px] rounded-full shadow-md"
+          style={{
+            background: `conic-gradient(
+              ${COLORS.closed} 0deg ${closedAngle}deg,
+              ${COLORS.open} ${closedAngle}deg ${closedAngle + openAngle}deg,
+              transparent ${closedAngle + openAngle}deg 360deg
+            )`,
+          }}
+        />
+        <div className="absolute inset-[36px] rounded-full bg-white dark:bg-zinc-900 shadow-md grid place-items-center">
+          <div className="text-center">
+            <span className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-zinc-100">{total}</span>
+            <p className="text-[10px] text-gray-500 dark:text-zinc-400 font-medium">TOTAL</p>
+          </div>
         </div>
-        <p className="text-[11px] text-gray-500 dark:text-zinc-500 mb-3 leading-relaxed">
-          Same tickets as this bar (created date within From / To). Categories
-          outside the list count as OTHERS.
-        </p>
-        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-zinc-500 mb-2">
-          Category
-        </h3>
-        <ul className="space-y-1.5 mb-4 border-b border-gray-100 dark:border-white/10 pb-3">
-          {ANALYTICS_CATEGORY_ORDER.map((cat) => (
-            <li
-              key={cat}
-              className="flex justify-between gap-3 text-[13px]"
-            >
-              <span className="text-gray-700 dark:text-zinc-300 truncate pr-2">
-                {cat}
-              </span>
-              <span className="font-semibold tabular-nums text-gray-900 dark:text-zinc-100 shrink-0">
-                {breakdown.categories[cat] ?? 0}
-              </span>
-            </li>
-          ))}
-        </ul>
-        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-zinc-500 mb-2">
-          Site
-        </h3>
-        <ul className="space-y-1.5">
-          {["Onsite", "Online", "OTHERS"].map((sk) => (
-            <li
-              key={sk}
-              className="flex justify-between gap-3 text-[13px]"
-            >
-              <span className="text-gray-700 dark:text-zinc-300">
-                {sk === "OTHERS" ? "Others" : sk}
-              </span>
-              <span className="font-semibold tabular-nums text-gray-900 dark:text-zinc-100">
-                {breakdown.sites[sk] ?? 0}
-              </span>
-            </li>
-          ))}
-        </ul>
       </div>
-    </>
+      <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs font-semibold">
+        <div className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS.satisfied }} />Satisfied<span className="font-bold text-gray-900 dark:text-zinc-100">{satisfiedCount}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS.unsatisfied }} />Not<span className="font-bold text-gray-900 dark:text-zinc-100">{unsatisfiedCount}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS.closed }} />Closed<span className="font-bold text-gray-900 dark:text-zinc-100">{closedCount}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS.open }} />Open<span className="font-bold text-gray-900 dark:text-zinc-100">{openCount}</span>
+        </div>
+      </div>
+    </div>
   );
 }
 
-// Main Page Component
+function VerticalBarGraph({ chartData, selectedDept, onBarClick }) {
+  const { stats = [], maxTotal = 1 } = chartData || {};
+
+  return (
+    <div className="flex flex-col gap-3" aria-label="Tickets by department bar chart">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 items-end min-h-[200px] py-3">
+        {stats.map((item) => {
+          const isEmpty = item.total === 0;
+          const isSelected = selectedDept === item.department;
+          const closedHeight = isEmpty ? 0 : (item.closed / maxTotal) * 100;
+          const openHeight = isEmpty ? 0 : (item.open / maxTotal) * 100;
+
+          return (
+            <div
+              key={item.department}
+              className={`flex flex-col items-center gap-2 w-full ${!isEmpty && onBarClick ? "cursor-pointer" : ""}`}
+            >
+              <div
+                role={!isEmpty && onBarClick ? "button" : undefined}
+                tabIndex={!isEmpty && onBarClick ? 0 : undefined}
+                className={`group w-full flex flex-col items-center gap-2 ${!isEmpty && onBarClick ? "outline-none" : ""}`}
+                onClick={(e) => { if (!isEmpty && onBarClick) onBarClick(item.department, e.currentTarget); }}
+                onKeyDown={(e) => { if (!isEmpty && onBarClick && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onBarClick(item.department, e.currentTarget); } }}
+              >
+                <div
+                  className={`w-full max-w-[70px] xl:max-w-[90px] h-[180px] flex flex-col-reverse rounded-lg overflow-hidden border relative transition-all duration-300 ease-out ${isSelected ? "ring-2 ring-[var(--color-lpu-maroon)] ring-offset-2 dark:ring-offset-zinc-900" : ""} ${!isEmpty && onBarClick ? "hover:-translate-y-1 hover:shadow-lg group-hover:border-[var(--color-lpu-maroon)]/30" : ""} ${isEmpty ? "bg-gray-50 dark:bg-zinc-900/50 border-dashed border-gray-300 dark:border-white/10" : "bg-[#f7f8fc] dark:bg-zinc-800/50 border-gray-200 dark:border-white/10"}`}
+                >
+                  {!isEmpty ? (
+                    <>
+                      <div className="w-full bg-[#336be3] transition-all duration-500 ease-out pointer-events-none" style={{ height: `${closedHeight}%` }} />
+                      <div className="w-full bg-[#e6bc23] transition-all duration-500 ease-out pointer-events-none" style={{ height: `${openHeight}%` }} />
+                    </>
+                  ) : (
+                    <div className="absolute bottom-0 left-0 right-0 h-2 bg-gray-200 dark:bg-zinc-800 rounded-full mx-1 mb-1" />
+                  )}
+                </div>
+                <div className="flex flex-col items-center gap-0.5 pointer-events-none">
+                  <span className={`text-base font-bold ${isSelected ? "text-[var(--color-lpu-maroon)]" : "text-gray-900 dark:text-zinc-100"}`}>{item.total}</span>
+                  {!isEmpty && (
+                    <div className="flex gap-2 text-[11px] font-semibold">
+                      <span className="text-[#336be3]">C:{item.closed}</span>
+                      <span className="text-[#e6bc23]">O:{item.open}</span>
+                    </div>
+                  )}
+                </div>
+                <div className={`text-[11px] xl:text-xs font-semibold text-center uppercase mt-1 pointer-events-none ${isSelected ? "text-[var(--color-lpu-maroon)] font-bold" : "text-gray-500 dark:text-zinc-400"}`}>
+                  {item.department}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex flex-wrap gap-6 justify-center pt-3 mt-2 border-t border-gray-100 dark:border-white/10">
+        <div className="inline-flex items-center gap-2 text-xs font-semibold text-gray-700 dark:text-zinc-300">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#336be3]" />Closed
+        </div>
+        <div className="inline-flex items-center gap-2 text-xs font-semibold text-gray-700 dark:text-zinc-300">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#e6bc23]" />Open
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StackedDistributionBar({ title, data }) {
+  const total = data.reduce((acc, item) => acc + item.value, 0);
+
+  return (
+    <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-white/10 rounded-xl shadow-sm p-3 md:p-4 mb-3 last:mb-0">
+      <h4 className="text-[11px] font-bold text-gray-500 dark:text-zinc-400 uppercase tracking-wider mb-2">{title}</h4>
+
+      {/* The Stacked Bar */}
+      <div className="w-full h-8 md:h-10 bg-gray-100 dark:bg-zinc-800 rounded-lg overflow-hidden flex shadow-inner">
+        {data.map((item, idx) => {
+          if (item.value === 0) return null;
+          const percentage = total > 0 ? (item.value / total) * 100 : 0;
+          const color = DISTRIBUTION_COLORS[idx % DISTRIBUTION_COLORS.length];
+
+          return (
+            <div
+              key={item.label}
+              className="h-full flex items-center justify-center text-white text-[10px] md:text-xs font-bold transition-all duration-500 ease-out border-r border-white/10 last:border-0"
+              style={{
+                width: `${percentage}%`,
+                backgroundColor: color,
+              }}
+            >
+              <span className="truncate px-1">
+                {item.value} ({Math.round(percentage)}%)
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Legend & Total */}
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-y-2">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          {data.map((item, idx) => (
+            <div key={item.label} className="flex items-center gap-1.5">
+              <span
+                className="w-2 h-2 rounded-full"
+                style={{ backgroundColor: DISTRIBUTION_COLORS[idx % DISTRIBUTION_COLORS.length] }}
+              />
+              <span className="text-[10px] md:text-[11px] font-medium text-gray-600 dark:text-zinc-400">
+                {item.label} <span className="text-gray-900 dark:text-zinc-200 font-bold">({item.value})</span>
+              </span>
+            </div>
+          ))}
+        </div>
+        <div className="text-[10px] md:text-[11px] font-bold text-gray-900 dark:text-zinc-200">
+          Total: {total}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SlaSection({ slaData, currentUserId, isGlobalAdminUser }) {
+  const sortedAdmins = useMemo(() => {
+    return [...(slaData || [])].sort((a, b) => {
+      if (a.adminId === currentUserId) return -1;
+      if (b.adminId === currentUserId) return 1;
+      return 0;
+    });
+  }, [slaData, currentUserId]);
+
+  return (
+    <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-white/10 rounded-xl shadow-sm h-full flex flex-col">
+      <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-white/10">
+        <div className="flex items-center gap-3">
+          <Users className="w-5 h-5 text-[var(--color-lpu-maroon)]" />
+          <div>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-zinc-100">SLA — Resolution Time</h3>
+            <p className="text-xs text-gray-500 dark:text-zinc-400">
+              {isGlobalAdminUser ? "All admins" : "Your data only"}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-4 py-4 flex-1 overflow-y-auto">
+        {sortedAdmins.length === 0 ? (
+          <p className="text-sm text-gray-500 dark:text-zinc-400 py-4 text-center">No SLA data available</p>
+        ) : (
+          <div className="space-y-4">
+            {sortedAdmins.map((adminEntry) => {
+              const isCurrentUser = adminEntry.adminId === currentUserId;
+              return (
+                <div key={adminEntry.adminId} className={`rounded-lg p-3 ${isCurrentUser ? "bg-[var(--color-lpu-maroon)]/5 border border-[var(--color-lpu-maroon)]/20" : "bg-gray-50 dark:bg-zinc-800/50"}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-bold text-gray-900 dark:text-zinc-100">
+                      {adminEntry.adminName || "Unknown Admin"}
+                      {isCurrentUser && <span className="ml-2 text-[10px] font-semibold text-[var(--color-lpu-maroon)]">(You)</span>}
+                    </span>
+                    <span className="text-xs font-semibold text-gray-500 dark:text-zinc-400">
+                      n={adminEntry.totalCount}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {SLA_PRIORITY_ORDER.map((priority) => {
+                      const stat = adminEntry.byPriority[priority] || { count: 0, avgMinutes: 0 };
+                      const colorMap = { Low: COLORS.slaLow, Medium: COLORS.slaMedium, High: COLORS.slaHigh };
+                      return (
+                        <div key={priority} className="flex flex-col items-center p-2 bg-white dark:bg-zinc-900 rounded-lg">
+                          <span className="text-[10px] font-semibold uppercase" style={{ color: colorMap[priority] }}>{priority}</span>
+                          <span className="text-sm font-bold text-gray-900 dark:text-zinc-100 tabular-nums">
+                            {stat.count > 0 ? formatMinutesOneDecimal(stat.avgMinutes) : "—"}
+                          </span>
+                          <span className="text-[10px] text-gray-400 dark:text-zinc-500">n={stat.count}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminAnalytics() {
   const { showLoading, hideLoading } = useLoading();
   const { adminTickets } = useTicketsCache();
   const [tickets, setTickets] = useState([]);
   const [error, setError] = useState("");
+  const [adminUsers, setAdminUsers] = useState([]);
 
-  const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
-  const role = localStorage.getItem("userRole");
-  const isAdmin = role === "admin";
+  const { isLoggedIn, isAdmin, currentUserId, isGlobalAdminUser } = useMemo(() => {
+    const token = localStorage.getItem("authToken");
+    const loggedIn = localStorage.getItem("isLoggedIn") === "true";
+    if (!token) return { isLoggedIn: loggedIn, isAdmin: false, currentUserId: null, isGlobalAdminUser: false };
+    try {
+      const decoded = jwtDecode(token);
+      return {
+        isLoggedIn: loggedIn,
+        isAdmin: decoded.app_role === "admin",
+        currentUserId: decoded.sub || decoded.id,
+        isGlobalAdminUser: isGlobalAdmin(decoded.admin_level),
+      };
+    } catch {
+      return { isLoggedIn: loggedIn, isAdmin: false, currentUserId: null, isGlobalAdminUser: false };
+    }
+  }, []);
 
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  const [slaModalOpen, setSlaModalOpen] = useState(false);
-  const [satModalOpen, setSatModalOpen] = useState(false);
-  const [deptModalOpen, setDeptModalOpen] = useState(false);
-  const [deptPopout, setDeptPopout] = useState(null);
+  const [selectedDept, setSelectedDept] = useState(null);
+
+  useEffect(() => {
+    const fetchAdminUsers = async () => {
+      try {
+        const API_BASE_URL = getApiBaseUrl();
+        const token = localStorage.getItem("authToken");
+        const response = await fetch(`${API_BASE_URL}/api/admin/staff`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (!response.ok) {
+          throw new Error("Failed to fetch admin users");
+        }
+        const data = await response.json();
+        setAdminUsers(data.data);
+      } catch (err) {
+        console.error("Error fetching admin users:", err);
+        // Optionally set an error state or display a message
+      }
+    };
+    if (isLoggedIn && isAdmin) {
+      fetchAdminUsers();
+    }
+  }, [isLoggedIn, isAdmin]);
 
   const toYMDLocal = (value) => {
     if (!value) return "";
@@ -508,169 +401,87 @@ export default function AdminAnalytics() {
     return `${y}-${m}-${day}`;
   };
 
-  const visibleTickets = useMemo(() => {
-    if (!fromDate && !toDate) return tickets;
-    return tickets.filter((t) => {
-      const ymd = toYMDLocal(t.created_at);
-      if (!ymd) return false;
-      if (fromDate && ymd < fromDate) return false;
-      if (toDate && ymd > toDate) return false;
-      return true;
-    });
+  const ticketsFilteredByDate = useMemo(() => {
+    if (fromDate || toDate) {
+      return tickets.filter((t) => {
+        const ymd = toYMDLocal(t.created_at);
+        if (!ymd) return false;
+        if (fromDate && ymd < fromDate) return false;
+        if (toDate && ymd > toDate) return false;
+        return true;
+      });
+    }
+    return tickets;
   }, [tickets, fromDate, toDate]);
 
-  const formatFilterDate = (ymd) => {
-    if (!ymd) return "";
-    const [y, m, d] = ymd.split("-");
-    if (!y || !m || !d) return "";
-    return `${m}/${d}/${y.slice(-2)}`;
-  };
-
-  useEffect(() => {
-    if (!isLoggedIn || !isAdmin) return;
-
-    if (Array.isArray(adminTickets)) {
-      setTickets(adminTickets);
-      return;
+  const visibleTickets = useMemo(() => {
+    let filtered = ticketsFilteredByDate;
+    if (selectedDept) {
+      filtered = filtered.filter((t) => (t?.Department || "").trim() === selectedDept);
     }
+    return filtered;
+  }, [ticketsFilteredByDate, selectedDept]);
 
-    const fetchTickets = async () => {
-      try {
-        showLoading();
-        setError("");
-        const { data, error: supaError } = await realtimeSupabase
-          .from("Tickets")
-          .select(
-            "id,status,closed_at,created_at,Department,Type,Category,Priority,Summary,Description,Site,timer_duration_seconds,satisfaction",
-          )
-          .order("id", { ascending: false });
-
-        if (supaError) {
-          setError(supaError.message || "Failed to load analytics");
-          setTickets([]);
-          return;
-        }
-        setTickets(data || []);
-      } catch (e) {
-        setError(e?.message || "Failed to load analytics");
-      } finally {
-        hideLoading();
-      }
-    };
-    fetchTickets();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (!slaModalOpen && !satModalOpen && !deptModalOpen && !deptPopout) return;
-    const onKey = (e) => {
-      if (e.key === "Escape") {
-        setSlaModalOpen(false);
-        setSatModalOpen(false);
-        setDeptModalOpen(false);
-        setDeptPopout(null);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [slaModalOpen, satModalOpen, deptModalOpen, deptPopout]);
-
-  useEffect(() => {
-    setDeptPopout(null);
-  }, [fromDate, toDate]);
-
-  const handleDatePillClick = (e) => {
-    const pill = e.currentTarget;
-    const input = pill.querySelector('input[type="date"]');
-    if (!input) return;
-    if (typeof input.showPicker === "function") {
-      input.showPicker();
-      input.focus();
-      return;
-    }
-    input.focus();
-    input.click();
-  };
-
-  const handleDepartmentBarClick = (department, anchorEl) => {
-    const { top, left } = positionDepartmentPopout(anchorEl);
-    setDeptPopout({ department, top, left });
-  };
-
-  const {
-    closedCount,
-    openCount,
-    satisfiedCount,
-    unsatisfiedCount,
-    departmentChartData,
-    satisfactionByDept,
-  } = useMemo(() => {
+  const { closedCount, openCount, satisfiedCount, unsatisfiedCount, departmentChartData, typeData, categoryData, siteData } = useMemo(() => {
     const closed = visibleTickets.filter((t) => isClosed(t)).length;
     const open = visibleTickets.length - closed;
     const satisfied = visibleTickets.filter((t) => t?.satisfaction === true).length;
     const unsatisfied = visibleTickets.filter((t) => t?.satisfaction === false).length;
 
     const statsMap = new Map();
-    const breakdownByDept = {};
-    const satByDept = {};
+    ALL_DEPARTMENTS.forEach((dept) => statsMap.set(dept, { department: dept, total: 0, open: 0, closed: 0 }));
 
-    ALL_DEPARTMENTS.forEach((dept) => {
-      statsMap.set(dept, { department: dept, total: 0, open: 0, closed: 0 });
-      breakdownByDept[dept] = emptyDepartmentBreakdown();
-      satByDept[dept] = { satisfied: 0, unsatisfied: 0, total: 0 };
-    });
-
-    visibleTickets.forEach((ticket) => {
+    // IMPORTANT: Department chart should use tickets filtered by date but NOT by department
+    // so that other bars don't disappear when one is selected.
+    ticketsFilteredByDate.forEach((ticket) => {
       const dept = (ticket?.Department || "").trim();
-      if (!dept) return;
-
-      if (statsMap.has(dept)) {
+      if (dept && statsMap.has(dept)) {
         const stat = statsMap.get(dept);
         stat.total += 1;
-        if (isClosed(ticket)) {
-          stat.closed += 1;
-        } else {
-          stat.open += 1;
-        }
-
-        const b = breakdownByDept[dept];
-        const cat = normalizeAnalyticsCategory(
-          ticket.Category ?? ticket.category,
-        );
-        b.categories[cat] += 1;
-        const site = normalizeAnalyticsSite(ticket.Site ?? ticket.site);
-        b.sites[site] = (b.sites[site] ?? 0) + 1;
-
-        // Satisfaction breakdown per department
-        if (ticket.satisfaction === true) {
-          satByDept[dept].satisfied += 1;
-          satByDept[dept].total += 1;
-        } else if (ticket.satisfaction === false) {
-          satByDept[dept].unsatisfied += 1;
-          satByDept[dept].total += 1;
-        }
+        if (isClosed(ticket)) stat.closed += 1;
+        else stat.open += 1;
       }
+    });
+
+    const typeMap = {};
+    const catMap = {};
+    const sessionSiteMap = {}; // renamed to avoid confusion
+    ANALYTICS_TYPE_ORDER.forEach((t) => (typeMap[t] = 0));
+    ANALYTICS_CATEGORY_ORDER.forEach((c) => (catMap[c] = 0));
+    ANALYTICS_SITE_ORDER.forEach((s) => (sessionSiteMap[s] = 0));
+
+    visibleTickets.forEach((ticket) => {
+      const type = normalizeAnalyticsType(ticket?.Type ?? ticket?.type);
+      typeMap[type] = (typeMap[type] || 0) + 1;
+
+      const cat = normalizeAnalyticsCategory(ticket?.Category ?? ticket?.category);
+      catMap[cat] = (catMap[cat] || 0) + 1;
+
+      const site = normalizeAnalyticsSite(ticket?.Site ?? ticket?.site);
+      sessionSiteMap[site] = (sessionSiteMap[site] || 0) + 1;
     });
 
     const stats = ALL_DEPARTMENTS.map((dept) => statsMap.get(dept));
     const maxTotal = Math.max(1, ...stats.map((item) => item.total));
+
+    const typeChartData = Object.entries(typeMap).map(([label, value]) => ({ label, value }));
+    const categoryChartData = Object.entries(catMap).map(([label, value]) => ({ label, value }));
+    const siteChartData = Object.entries(sessionSiteMap).map(([label, value]) => ({ label, value }));
 
     return {
       closedCount: closed,
       openCount: open,
       satisfiedCount: satisfied,
       unsatisfiedCount: unsatisfied,
-      departmentChartData: {
-        stats,
-        maxTotal,
-        breakdownByDept,
-      },
-      satisfactionByDept: satByDept,
+      departmentChartData: { stats, maxTotal },
+      typeData: typeChartData,
+      categoryData: categoryChartData,
+      siteData: siteChartData,
     };
-  }, [visibleTickets]);
+  }, [visibleTickets, ticketsFilteredByDate]);
 
-  const closedTicketsInSlaRange = useMemo(() => {
-    return tickets.filter((t) => {
+  const slaByAdminAndPriority = useMemo(() => {
+    const closedTickets = tickets.filter((t) => {
       if (!t?.closed_at) return false;
       if (!fromDate && !toDate) return true;
       const ymd = toYMDLocal(t.closed_at);
@@ -679,74 +490,72 @@ export default function AdminAnalytics() {
       if (toDate && ymd > toDate) return false;
       return true;
     });
-  }, [tickets, fromDate, toDate]);
 
-  const slaPriorityStats = useMemo(() => {
-    const sums = { Low: 0, Medium: 0, High: 0 };
-    const counts = { Low: 0, Medium: 0, High: 0 };
+    const adminMap = {};
 
-    closedTicketsInSlaRange.forEach((t) => {
-      const label = normalizePriorityLabel(t);
-      if (!label) return;
-      const minutes = durationMinutesFromSeconds(t?.timer_duration_seconds);
-      if (minutes == null) return;
-      sums[label] += minutes;
-      counts[label] += 1;
+    closedTickets.forEach((ticket) => {
+      const assignees = [ticket?.Assignee1, ticket?.Assignee2, ticket?.Assignee3].filter(Boolean);
+      const priority = normalizePriorityLabel(ticket);
+      const minutes = durationMinutesFromSeconds(ticket?.timer_duration_seconds);
+
+      if (assignees.length === 0) {
+        // Handle unassigned tickets if needed, or skip
+        return;
+      }
+
+      assignees.forEach(assigneeId => {
+        if (!adminMap[assigneeId]) {
+          const admin = adminUsers.find(a => a.id === assigneeId);
+          adminMap[assigneeId] = {
+            adminId: assigneeId,
+            adminName: admin?.full_name || `Unknown Admin (${assigneeId})`,
+            totalCount: 0,
+            byPriority: { Low: { count: 0, avgMinutes: 0 }, Medium: { count: 0, avgMinutes: 0 }, High: { count: 0, avgMinutes: 0 } }
+          };
+        }
+
+        if (priority && minutes != null) {
+          const p = adminMap[assigneeId].byPriority[priority];
+          p.avgMinutes = (p.avgMinutes * p.count + minutes) / (p.count + 1);
+          p.count += 1;
+          adminMap[assigneeId].totalCount += 1;
+        }
+      });
     });
 
-    return SLA_PRIORITY_ORDER.map((priority) => {
-      const n = counts[priority];
-      return {
-        priority,
-        count: n,
-        avgMinutes: n > 0 ? sums[priority] / n : 0,
-      };
-    });
-  }, [closedTicketsInSlaRange]);
+    let result = Object.values(adminMap);
 
-  const slaOverallStats = useMemo(() => {
-    let sum = 0;
-    let n = 0;
-    closedTicketsInSlaRange.forEach((t) => {
-      const m = durationMinutesFromSeconds(t?.timer_duration_seconds);
-      if (m == null) return;
-      sum += m;
-      n += 1;
-    });
-    return { avgMinutes: n > 0 ? sum / n : null, count: n };
-  }, [closedTicketsInSlaRange]);
+    if (!isGlobalAdminUser) {
+      result = result.filter((a) => a.adminId === currentUserId);
+    }
 
-  const onExportCsv = () => {
-    const headers = [
-      "id",
-      "summary",
-      "description",
-      "department",
-      "type",
-      "category",
-      "priority",
-      "site",
-      "status",
-      "created_at",
-      "closed_at",
-    ];
-    const rows = visibleTickets.map((t) => [
-      t.id,
-      t.Summary,
-      t.Description,
-      t.Department,
-      t.Type,
-      t.Category,
-      t.Priority ?? t.priority ?? "",
-      t.Site,
-      t.status || t.Status || "Open",
-      t.created_at,
-      t.closed_at,
-    ]);
-    const csv = [headers, ...rows]
-      .map((row) => row.map(escapeCsv).join(","))
-      .join("\n");
+    return result;
+  }, [tickets, fromDate, toDate, currentUserId, isGlobalAdminUser, adminUsers]);
 
+  const formatFilterDate = (ymd) => {
+    if (!ymd) return "";
+    const [y, m, d] = ymd.split("-");
+    if (!y || !m || !d) return "";
+    return `${m}/${d}/${y.slice(-2)}`;
+  };
+
+  const handleDatePillClick = (e) => {
+    const pill = e.currentTarget;
+    const input = pill.querySelector('input[type="date"]');
+    if (!input) return;
+    if (typeof input.showPicker === "function") { input.showPicker(); input.focus(); return; }
+    input.focus();
+    input.click();
+  };
+
+  const handleDeptBarClick = (department) => {
+    setSelectedDept((prev) => (prev === department ? null : department));
+  };
+
+  const onExportCsv = useCallback(() => {
+    const headers = ["id", "summary", "description", "department", "type", "category", "priority", "site", "status", "created_at", "closed_at"];
+    const rows = visibleTickets.map((t) => [t.id, t.Summary, t.Description, t.Department, t.Type, t.Category, t.Priority ?? t.priority ?? "", t.Site, t.status || t.Status || "Open", t.created_at, t.closed_at]);
+    const csv = [headers, ...rows].map((row) => row.map(escapeCsv).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -756,368 +565,148 @@ export default function AdminAnalytics() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-  };
+  }, [visibleTickets]);
 
-  useNavbarActions(
-    <NavbarActionButton
-      icon={Download}
-      label="Export CSV"
-      onClick={onExportCsv}
-    />,
-  );
+  const fetchTickets = useCallback(async () => {
+    try {
+      showLoading();
+      setError("");
+      const { data, error: supaError } = await realtimeSupabase
+        .from("Tickets")
+        .select("id,status,closed_at,created_at,Department,Type,Category,Priority,Summary,Description,Site,timer_duration_seconds,satisfaction,Assignee1,Assignee2,Assignee3")
+        .order("id", { ascending: false });
+
+      if (supaError) { setError(supaError.message || "Failed to load analytics"); setTickets([]); return; }
+      setTickets(data || []);
+    } catch (e) {
+      setError(e?.message || "Failed to load analytics");
+    } finally {
+      hideLoading();
+    }
+  }, [showLoading, hideLoading]);
+
+  useEffect(() => {
+    if (!isLoggedIn || !isAdmin) return;
+    if (Array.isArray(adminTickets)) { setTickets(adminTickets); return; }
+
+    fetchTickets();
+  }, [isLoggedIn, isAdmin, adminTickets, fetchTickets]);
+
+  useEffect(() => {
+    setSelectedDept(null);
+  }, [fromDate, toDate]);
+
+  const exportAction = useMemo(() => <NavbarActionButton icon={Download} label="Export CSV" onClick={onExportCsv} />, [onExportCsv]);
+  useNavbarActions(exportAction);
 
   if (!isLoggedIn) return <Navigate to="/" replace />;
   if (!isAdmin) return <Navigate to="/Tickets" replace />;
 
+  if (!tickets.length && !error) {
+    return (
+      <div className="w-full min-h-screen bg-[#f9fafb] dark:bg-zinc-950 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-[var(--color-lpu-maroon)] border-t-transparent rounded-full animate-spin" />
+          <p className="text-gray-500 dark:text-zinc-400 font-medium">Loading analytics data...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full min-h-screen bg-[#f9fafb] dark:bg-zinc-950 font-[family:var(--font-poppins)] pt-6 pb-12 transition-colors duration-200">
-      <section className="max-w-[1550px] mx-auto px-4 md:px-6">
+      <section className="max-w-[1600px] mx-auto px-4 md:px-6">
         {error ? (
-          <div className="mt-4 p-4 rounded-xl bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-900">
-            {error}
-          </div>
+          <div className="mt-4 p-4 rounded-xl bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-900">{error}</div>
         ) : (
-          <div className="flex flex-col">
-            {/* Date Filters */}
-            <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-end mb-5">
+          <div className="flex flex-col gap-6">
+            <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-end">
               <div
-                className="relative group flex-1 sm:flex-none cursor-pointer select-none bg-white dark:bg-zinc-900 border border-gray-300 dark:border-white/10 rounded-xl px-4 py-2.5 flex items-center justify-between gap-3 min-w-[170px] text-[13px] font-medium text-gray-700 dark:text-zinc-300 shadow-sm transition-all hover:border-[var(--color-lpu-maroon)] dark:hover:border-white/20 focus-within:ring-2 focus-within:ring-[var(--color-lpu-maroon)]/20 dark:focus-within:ring-white/10"
-                role="button"
-                tabIndex={0}
-                aria-label="Filter by from date"
+                className="relative group flex-1 sm:flex-none cursor-pointer select-none bg-white dark:bg-zinc-900 border border-gray-300 dark:border-white/10 rounded-xl px-4 py-2.5 flex items-center justify-between gap-3 min-w-[170px] text-[13px] font-medium text-gray-700 dark:text-zinc-300 shadow-sm transition-all hover:border-[var(--color-lpu-maroon)] dark:hover:border-white/20 focus-within:ring-2 focus-within:ring-[var(--color-lpu-maroon)]/20"
+                role="button" tabIndex={0}
                 onClick={handleDatePillClick}
-                onKeyDown={(e) =>
-                  e.key === "Enter" &&
-                  handleDatePillClick({ currentTarget: e.currentTarget })
-                }
+                onKeyDown={(e) => e.key === "Enter" && handleDatePillClick({ currentTarget: e.currentTarget })}
               >
-                <span className="relative z-10 pointer-events-none">
-                  {fromDate
-                    ? `From ${formatFilterDate(fromDate)}`
-                    : "From MM/DD/YY"}
-                </span>
-                <Calendar className="w-4 h-4 text-gray-400 dark:text-zinc-500 group-hover:text-[var(--color-lpu-maroon)] dark:group-hover:text-zinc-300 transition-colors" />
-                <input
-                  type="date"
-                  className="absolute inset-0 opacity-0 cursor-pointer z-20"
-                  value={fromDate}
-                  onChange={(e) => setFromDate(e.target.value)}
-                />
+                <span className="relative z-10 pointer-events-none">{fromDate ? `From ${formatFilterDate(fromDate)}` : "From MM/DD/YY"}</span>
+                <Calendar className="w-4 h-4 text-gray-400 group-hover:text-[var(--color-lpu-maroon)] transition-colors" />
+                <input type="date" className="absolute inset-0 opacity-0 cursor-pointer z-20" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
               </div>
-
               <div
-                className="relative group flex-1 sm:flex-none cursor-pointer select-none bg-white dark:bg-zinc-900 border border-gray-300 dark:border-white/10 rounded-xl px-4 py-2.5 flex items-center justify-between gap-3 min-w-[170px] text-[13px] font-medium text-gray-700 dark:text-zinc-300 shadow-sm transition-all hover:border-[var(--color-lpu-maroon)] dark:hover:border-white/20 focus-within:ring-2 focus-within:ring-[var(--color-lpu-maroon)]/20 dark:focus-within:ring-white/10"
-                role="button"
-                tabIndex={0}
-                aria-label="Filter by to date"
+                className="relative group flex-1 sm:flex-none cursor-pointer select-none bg-white dark:bg-zinc-900 border border-gray-300 dark:border-white/10 rounded-xl px-4 py-2.5 flex items-center justify-between gap-3 min-w-[170px] text-[13px] font-medium text-gray-700 dark:text-zinc-300 shadow-sm transition-all hover:border-[var(--color-lpu-maroon)] dark:hover:border-white/20 focus-within:ring-2 focus-within:ring-[var(--color-lpu-maroon)]/20"
+                role="button" tabIndex={0}
                 onClick={handleDatePillClick}
-                onKeyDown={(e) =>
-                  e.key === "Enter" &&
-                  handleDatePillClick({ currentTarget: e.currentTarget })
-                }
+                onKeyDown={(e) => e.key === "Enter" && handleDatePillClick({ currentTarget: e.currentTarget })}
               >
-                <span className="relative z-10 pointer-events-none">
-                  {toDate ? `To ${formatFilterDate(toDate)}` : "To MM/DD/YY"}
-                </span>
-                <Calendar className="w-4 h-4 text-gray-400 dark:text-zinc-500 group-hover:text-[var(--color-lpu-maroon)] dark:group-hover:text-zinc-300 transition-colors" />
-                <input
-                  type="date"
-                  className="absolute inset-0 opacity-0 cursor-pointer z-20"
-                  value={toDate}
-                  onChange={(e) => setToDate(e.target.value)}
-                />
+                <span className="relative z-10 pointer-events-none">{toDate ? `To ${formatFilterDate(toDate)}` : "To MM/DD/YY"}</span>
+                <Calendar className="w-4 h-4 text-gray-400 group-hover:text-[var(--color-lpu-maroon)] transition-colors" />
+                <input type="date" className="absolute inset-0 opacity-0 cursor-pointer z-20" value={toDate} onChange={(e) => setToDate(e.target.value)} />
               </div>
+              {selectedDept && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedDept(null)}
+                  className="px-3 py-2 text-xs font-semibold text-white bg-[var(--color-lpu-maroon)] rounded-lg hover:bg-[var(--color-lpu-red)] transition-colors"
+                >
+                  Clear: {selectedDept}
+                </button>
+              )}
             </div>
 
-            {/* Main Cards Grid */}
             <div className="flex flex-col gap-6">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Total Tickets Card */}
-                <button
-                  type="button"
-                  className="group bg-white dark:bg-zinc-900 border border-gray-200 dark:border-white/10 rounded-2xl shadow-sm hover:shadow-md hover:border-[var(--color-lpu-maroon)]/35 dark:hover:border-white/20 transition-all duration-300 p-5 md:p-7 text-left w-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-lpu-maroon)]/30 dark:focus-visible:ring-white/20 flex flex-col"
-                  onClick={() => setDeptModalOpen(true)}
-                  aria-haspopup="dialog"
-                  aria-expanded={deptModalOpen}
-                >
-                  <div className="flex items-start justify-between gap-3 mb-4">
-                    <h3 className="text-xl font-bold tracking-tight text-gray-900 dark:text-zinc-100">
-                      Total Tickets
-                    </h3>
-                    <ChevronRight className="w-5 h-5 shrink-0 text-gray-400 group-hover:text-[var(--color-lpu-maroon)] dark:group-hover:text-zinc-300 transition-colors mt-0.5" />
-                  </div>
-                  <PieChart closedCount={closedCount} openCount={openCount} />
-                  <div className="mt-auto">
-                    <p className="text-[11px] text-center text-gray-400 dark:text-zinc-500 mt-3 group-hover:text-gray-500 dark:group-hover:text-zinc-400 transition-colors">
-                      Click for breakdown by department
-                    </p>
-                  </div>
-                </button>
-
-                {/* SLA summary — click opens priority breakdown */}
-                <button
-                  type="button"
-                  className="group bg-white dark:bg-zinc-900 border border-gray-200 dark:border-white/10 rounded-2xl shadow-sm hover:shadow-md hover:border-[var(--color-lpu-maroon)]/35 dark:hover:border-white/20 transition-all duration-300 p-5 md:p-7 text-left w-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-lpu-maroon)]/30 dark:focus-visible:ring-white/20 flex flex-col"
-                  onClick={() => setSlaModalOpen(true)}
-                  aria-haspopup="dialog"
-                  aria-expanded={slaModalOpen}
-                >
-                  <div className="flex items-start justify-between gap-3 mb-4">
-                    <h3 className="text-xl font-bold tracking-tight text-gray-900 dark:text-zinc-100">
-                      SLA — Resolution time
-                    </h3>
-                    <ChevronRight className="w-5 h-5 shrink-0 text-gray-400 group-hover:text-[var(--color-lpu-maroon)] dark:group-hover:text-zinc-300 transition-colors mt-0.5" />
-                  </div>
-
-                  <div className="flex flex-col items-center justify-center py-10 gap-2 min-h-[280px]">
-                    <span className="text-5xl md:text-6xl font-semibold tabular-nums text-gray-900 dark:text-zinc-100 tracking-tight">
-                      {slaOverallStats.avgMinutes != null
-                        ? slaOverallStats.avgMinutes.toFixed(1)
-                        : "—"}
-                    </span>
-                    <span className="text-base font-medium text-gray-500 dark:text-zinc-400">
-                      minutes avg.
-                    </span>
-                    <span className="text-xs font-semibold text-gray-400 dark:text-zinc-500 mt-2">
-                      n={slaOverallStats.count} closed in range
-                    </span>
-                  </div>
-
-                  <div className="mt-auto">
-                    <p className="text-[11px] text-gray-500 dark:text-zinc-500 mb-4 leading-relaxed text-center px-2">
-                      Average minutes based on the Timeline Duration. Uses tickets
-                      whose{" "}
-                      <span className="font-medium text-gray-600 dark:text-zinc-400">
-                        closed date
-                      </span>{" "}
-                      is in the From / To range above.
-                    </p>
-
-                    <p className="text-[11px] text-center text-gray-400 dark:text-zinc-500 mt-3 group-hover:text-gray-500 dark:group-hover:text-zinc-400 transition-colors">
-                      Click for breakdown by priority
-                    </p>
-                  </div>
-                </button>
-
-                {/* Satisfaction pie card */}
-                <button
-                  type="button"
-                  className="group bg-white dark:bg-zinc-900 border border-gray-200 dark:border-white/10 rounded-2xl shadow-sm hover:shadow-md hover:border-[var(--color-lpu-maroon)]/35 dark:hover:border-white/20 transition-all duration-300 p-5 md:p-7 text-left w-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-lpu-maroon)]/30 dark:focus-visible:ring-white/20 flex flex-col"
-                  onClick={() => setSatModalOpen(true)}
-                  aria-haspopup="dialog"
-                  aria-expanded={satModalOpen}
-                >
-                  <div className="flex items-start justify-between gap-3 mb-4">
-                    <h3 className="text-xl font-bold tracking-tight text-gray-900 dark:text-zinc-100">
-                      Satisfaction
-                    </h3>
-                    <ChevronRight className="w-5 h-5 shrink-0 text-gray-400 group-hover:text-[var(--color-lpu-maroon)] dark:group-hover:text-zinc-300 transition-colors mt-0.5" />
-                  </div>
-                  <SatisfactionPieChart
-                    satisfiedCount={satisfiedCount}
-                    unsatisfiedCount={unsatisfiedCount}
-                  />
-                  <div className="mt-auto">
-                    <p className="text-[11px] text-center text-gray-400 dark:text-zinc-500 mt-3 group-hover:text-gray-500 dark:group-hover:text-zinc-400 transition-colors">
-                      Click for breakdown by department
-                    </p>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {deptModalOpen ? (
-              <div
-                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-[1px]"
-                role="presentation"
-                onClick={() => setDeptModalOpen(false)}
-              >
-                <div
-                  role="dialog"
-                  aria-modal="true"
-                  aria-labelledby="dept-modal-title"
-                  className="relative w-full max-w-4xl max-h-[min(90vh,700px)] overflow-y-auto rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-zinc-900 shadow-xl p-5 md:p-8"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="flex items-start justify-between gap-3 mb-6">
-                    <div>
-                      <h2
-                        id="dept-modal-title"
-                        className="text-2xl font-bold tracking-tight text-gray-900 dark:text-zinc-100 mb-1"
-                      >
-                        Tickets by Department
-                      </h2>
-                      <p className="text-sm text-gray-500 dark:text-zinc-400">
-                        Visual breakdown of total tickets across different departments.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      className="p-2 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors"
-                      onClick={() => setDeptModalOpen(false)}
-                      aria-label="Close"
-                    >
-                      <X className="w-6 h-6" />
-                    </button>
-                  </div>
-                  <div className="bg-[#fcfdfe] dark:bg-zinc-950/30 rounded-xl border border-gray-100 dark:border-white/5 p-6">
-                    <DepartmentBarChart
-                      chartData={departmentChartData}
-                      onDepartmentBarClick={handleDepartmentBarClick}
+              <div className="grid grid-cols-1 xl:grid-cols-[1fr_1.8fr] gap-6">
+                <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-white/10 rounded-2xl shadow-sm p-5 md:p-7 flex flex-col">
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-zinc-100 mb-4">Total Tickets</h3>
+                  <div className="flex-1 flex items-center justify-center">
+                    <MultiRingDonutChart
+                      closedCount={closedCount}
+                      openCount={openCount}
+                      satisfiedCount={satisfiedCount}
+                      unsatisfiedCount={unsatisfiedCount}
+                      total={closedCount + openCount}
                     />
                   </div>
                 </div>
-              </div>
-            ) : null}
 
-            {deptPopout ? (
-              <DepartmentBreakdownFlyout
-                department={deptPopout.department}
-                breakdown={
-                  departmentChartData.breakdownByDept[deptPopout.department]
-                }
-                styleTop={deptPopout.top}
-                styleLeft={deptPopout.left}
-                onClose={() => setDeptPopout(null)}
-              />
-            ) : null}
-
-            {slaModalOpen ? (
-              <div
-                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-[1px]"
-                role="presentation"
-                onClick={() => setSlaModalOpen(false)}
-              >
-                <div
-                  role="dialog"
-                  aria-modal="true"
-                  aria-labelledby="sla-modal-title"
-                  className="relative w-full max-w-lg max-h-[min(90vh,560px)] overflow-y-auto rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-zinc-900 shadow-xl p-5 md:p-7"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <h2
-                      id="sla-modal-title"
-                      className="text-xl font-bold tracking-tight text-gray-900 dark:text-zinc-100 pr-8"
-                    >
-                      Resolution time by priority
-                    </h2>
-                    <button
-                      type="button"
-                      className="absolute top-4 right-4 p-2 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors"
-                      onClick={() => setSlaModalOpen(false)}
-                      aria-label="Close"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-                  <p className="text-sm text-gray-500 dark:text-zinc-400 mb-5">
-                    Same date rules as the card: closed between From and To.
-                    Overall average on the card includes every closed ticket in
-                    that range; below is the average per Low / Medium / High
-                    only.
-                  </p>
-                  <SlaPriorityBarChart stats={slaPriorityStats} />
+                <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-white/10 rounded-2xl shadow-sm p-5 md:p-7">
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-zinc-100 mb-4">Tickets by Department</h3>
+                  <VerticalBarGraph
+                    chartData={departmentChartData}
+                    selectedDept={selectedDept}
+                    onBarClick={handleDeptBarClick}
+                  />
                 </div>
               </div>
-            ) : null}
 
-            {satModalOpen ? (
-              <div
-                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-[1px]"
-                role="presentation"
-                onClick={() => setSatModalOpen(false)}
-              >
-                <div
-                  role="dialog"
-                  aria-modal="true"
-                  aria-labelledby="sat-modal-title"
-                  className="relative w-full max-w-lg max-h-[min(90vh,640px)] overflow-y-auto rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-zinc-900 shadow-xl p-5 md:p-7"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <h2
-                      id="sat-modal-title"
-                      className="text-xl font-bold tracking-tight text-gray-900 dark:text-zinc-100 pr-8"
-                    >
-                      Satisfaction by Department
-                    </h2>
-                    <button
-                      type="button"
-                      className="absolute top-4 right-4 p-2 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors"
-                      onClick={() => setSatModalOpen(false)}
-                      aria-label="Close"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-                  <p className="text-sm text-gray-500 dark:text-zinc-400 mb-6">
-                    Breakdown of satisfied and not satisfied responses for each department within the selected date range.
-                  </p>
+              <div className="grid grid-cols-1 xl:grid-cols-[1fr_1.8fr] gap-6 items-stretch">
+                <div className="h-full">
+                  <SlaSection
+                    slaData={slaByAdminAndPriority}
+                    currentUserId={currentUserId}
+                    isGlobalAdminUser={isGlobalAdminUser}
+                  />
+                </div>
 
-                  <div className="space-y-6">
-                    {ALL_DEPARTMENTS.map((dept) => {
-                      const stats = satisfactionByDept[dept];
-                      const total = stats.total || 0;
-                      const satPct = total > 0 ? (stats.satisfied / total) * 100 : 0;
-                      const unsatPct = total > 0 ? (stats.unsatisfied / total) * 100 : 0;
-
-                      return (
-                        <div key={dept} className="flex flex-col gap-2">
-                          <div className="flex justify-between items-end">
-                            <span className="font-bold text-gray-900 dark:text-zinc-100">{dept}</span>
-                            <span className="text-xs font-semibold text-gray-500 dark:text-zinc-400">
-                              {total} total response{total !== 1 ? 's' : ''}
-                            </span>
-                          </div>
-                          <div className="h-3 w-full bg-gray-100 dark:bg-zinc-800 rounded-full overflow-hidden flex">
-                            {total > 0 ? (
-                              <>
-                                <div
-                                  className="h-full bg-[#16a34a] transition-all duration-500"
-                                  style={{ width: `${satPct}%` }}
-                                  title={`Satisfied: ${stats.satisfied}`}
-                                />
-                                <div
-                                  className="h-full bg-[#ef4444] transition-all duration-500"
-                                  style={{ width: `${unsatPct}%` }}
-                                  title={`Not Satisfied: ${stats.unsatisfied}`}
-                                />
-                              </>
-                            ) : (
-                              <div className="h-full w-full bg-gray-100 dark:bg-zinc-800 border-dashed border border-gray-300 dark:border-white/10" />
-                            )}
-                          </div>
-                          <div className="flex justify-between text-[11px] font-bold uppercase tracking-wider">
-                            <div className="flex items-center gap-1.5 text-[#16a34a]">
-                              <span>Satisfied:</span>
-                              <span className="text-gray-900 dark:text-zinc-100">{stats.satisfied}</span>
-                              {total > 0 && <span className="text-gray-400 dark:text-zinc-500 font-normal">({satPct.toFixed(0)}%)</span>}
-                            </div>
-                            <div className="flex items-center gap-1.5 text-[#ef4444]">
-                              <span>Not Satisfied:</span>
-                              <span className="text-gray-900 dark:text-zinc-100">{stats.unsatisfied}</span>
-                              {total > 0 && <span className="text-gray-400 dark:text-zinc-500 font-normal">({unsatPct.toFixed(0)}%)</span>}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
+                <div className="flex flex-col gap-4 h-full">
+                  <div className="flex items-center justify-between px-2">
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-zinc-100">Breakdown</h3>
+                    {selectedDept && <span className="text-xs font-semibold text-[var(--color-lpu-maroon)] bg-[var(--color-lpu-maroon)]/10 px-2 py-1 rounded-md">Filtered: {selectedDept}</span>}
                   </div>
 
-                  <div className="mt-8 pt-5 border-t border-gray-100 dark:border-white/10 flex justify-center gap-6">
-                    <div className="flex items-center gap-2 text-xs font-semibold text-gray-700 dark:text-zinc-300">
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#16a34a]" />
-                      <span>Satisfied</span>
+                  <div className="flex-1 flex flex-col gap-3">
+                    <StackedDistributionBar title="By Type" data={typeData} />
+                    <StackedDistributionBar title="By Category" data={categoryData} />
+                    <StackedDistributionBar title="By Site" data={siteData} />
+                  </div>
+
+                  <div className="flex items-center gap-2 text-[10px] md:text-xs text-gray-500 dark:text-zinc-400 bg-blue-50/50 dark:bg-blue-900/10 p-3 rounded-lg border border-blue-100 dark:border-blue-900/20">
+                    <div className="bg-blue-500 text-white rounded-full p-0.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></svg>
                     </div>
-                    <div className="flex items-center gap-2 text-xs font-semibold text-gray-700 dark:text-zinc-300">
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#ef4444]" />
-                      <span>Not Satisfied</span>
-                    </div>
+                    <span>Each bar represents 100% of the total for the specific group. Numbers may not add up in the chart due to rounding.</span>
                   </div>
                 </div>
               </div>
-            ) : null}
+            </div>
           </div>
         )}
       </section>

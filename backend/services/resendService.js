@@ -1,3 +1,4 @@
+/* global process */
 /**
  * Send transactional email via Resend (https://resend.com).
  * Set RESEND_API_KEY and RESEND_FROM_EMAIL in the server environment.

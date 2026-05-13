@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
@@ -173,7 +173,6 @@ export default function AdminTickets() {
       return null;
     }
   }, []);
-  const currentAdminId = decoded?.id || decoded?.sub;
   const isGlobalAdmin = decoded?.admin_level === 0;
 
   const [assignableAdmins, setAssignableAdmins] = useState([]);
@@ -199,14 +198,14 @@ export default function AdminTickets() {
           setAdminNameMap(map);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
 
     fetch(`${base}/api/admin/assignees`, { headers })
       .then((r) => r.json())
       .then((json) => {
         if (json.success) setAssignableAdmins(json.data);
       })
-      .catch(() => {});
+      .catch(() => { });
   }, [isLoggedIn, isAdmin]);
 
   // Main paginated fetch
@@ -252,7 +251,7 @@ export default function AdminTickets() {
     };
 
     fetchTickets();
-  }, [isLoggedIn, isAdmin, page, filter, search, realtimeTick]);
+  }, [isLoggedIn, isAdmin, page, filter, search, realtimeTick, showLoading, hideLoading]);
 
   // Realtime: refetch on any ticket change
   useEffect(() => {
@@ -348,7 +347,7 @@ export default function AdminTickets() {
     }
   };
 
-  const toggleTicketStatus = async (ticket) => {
+  const toggleTicketStatus = useCallback(async (ticket) => {
     if (!isAdmin || !ticket) return;
     try {
       showLoading();
@@ -372,9 +371,9 @@ export default function AdminTickets() {
     } finally {
       hideLoading();
     }
-  };
+  }, [isAdmin, showLoading, hideLoading]);
 
-  const handleAddAssignee = async (ticket, adminId) => {
+  const handleAddAssignee = useCallback(async (ticket, adminId) => {
     const slots = ["Assignee1", "Assignee2", "Assignee3"];
     const emptySlot = slots.find((s) => !ticket[s]);
     if (!emptySlot) return;
@@ -399,9 +398,9 @@ export default function AdminTickets() {
     } catch (e) {
       console.error("Unexpected error:", e);
     }
-  };
+  }, []);
 
-  const handleRemoveAssignee = async (ticket, adminId) => {
+  const handleRemoveAssignee = useCallback(async (ticket, adminId) => {
     const slots = ["Assignee1", "Assignee2", "Assignee3"];
     const slot = slots.find((s) => ticket[s] === adminId);
     if (!slot) return;
@@ -426,9 +425,9 @@ export default function AdminTickets() {
     } catch (e) {
       console.error("Unexpected error:", e);
     }
-  };
+  }, []);
 
-  const handlePriorityChange = async (ticket, value) => {
+  const handlePriorityChange = useCallback(async (ticket, value) => {
     if (!isAdmin || !ticket) return;
     const nextPriority = value || null;
     try {
@@ -448,7 +447,7 @@ export default function AdminTickets() {
     } catch (e) {
       console.error("Unexpected error:", e);
     }
-  };
+  }, [isAdmin]);
 
   const adminColumns = useMemo(
     () => [
@@ -498,7 +497,15 @@ export default function AdminTickets() {
         onClick: (t) => toggleTicketStatus(t),
       },
     ],
-    [assignableAdmins, adminNameMap],
+    [
+      assignableAdmins,
+      adminNameMap,
+      isGlobalAdmin,
+      handleAddAssignee,
+      handleRemoveAssignee,
+      handlePriorityChange,
+      toggleTicketStatus,
+    ],
   );
 
   useNavbarActions(

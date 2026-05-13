@@ -38,7 +38,7 @@ const SidePanel = ({ collapsed, onToggleCollapse, onAccountMenuChange }) => {
     };
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
-  }, []);
+  }, [toggleAccountMenu]);
   const [profileName, setProfileName] = useState(
     () => localStorage.getItem("userFullName") || userEmail.split("@")[0],
   );
@@ -100,7 +100,9 @@ const SidePanel = ({ collapsed, onToggleCollapse, onAccountMenuChange }) => {
       if (json.success && json.token) {
         localStorage.setItem("authToken", json.token);
       }
-    } catch (_) {}
+    } catch (err) {
+      console.error("Profile update failed:", err);
+    }
     localStorage.setItem("userFullName", profileName);
     localStorage.setItem("userType", profileType);
     localStorage.setItem("userDepartment", profileDept);

@@ -101,11 +101,13 @@ export default function AuthVerifyCallback({ mode }) {
     const hashParams = new URLSearchParams(window.location.hash.slice(1));
     const token = searchParams.get("token") || hashParams.get("access_token");
     if (!token) {
-      setStatus("err");
-      setMessage(
-        "This link is missing a token. Use the full URL from your invitation email.",
-      );
-      return;
+      const timer = setTimeout(() => {
+        setStatus("err");
+        setMessage(
+          "This link is missing a token. Use the full URL from your invitation email.",
+        );
+      }, 0);
+      return () => clearTimeout(timer);
     }
 
     let cancelled = false;

@@ -1,8 +1,8 @@
+import { useMemo } from "react";
 import { Clock, FileText, ChevronDown, ChevronUp } from "lucide-react";
 
 export default function TicketDetails({
   ticket,
-  adminView,
   expandedSummary,
   onToggleSummary,
   expandedTimeline,
@@ -13,11 +13,13 @@ export default function TicketDetails({
   formatDateTime,
 }) {
   const statusText = ticket?.status || ticket?.Status || "Open";
+  const now = useMemo(() => Date.now(), []);
+
   const calcRemaining = (dueAtValue) => {
     if (!dueAtValue) return "—";
     const dueMs = Date.parse(dueAtValue);
     if (Number.isNaN(dueMs)) return "—";
-    const ms = dueMs - Date.now();
+    const ms = dueMs - now;
     const abs = Math.abs(ms);
     const mins = Math.floor(abs / 60000);
     const hrs = Math.floor(mins / 60);
@@ -80,10 +82,10 @@ export default function TicketDetails({
   const historySnapshots = (
     Array.isArray(timelineHistory) ? timelineHistory : []
   )
-    .map((row) => ({
+    .map((row, idx) => ({
       key: row?.id
         ? `hist-${row.id}`
-        : `hist-${row?.closed_at || Math.random()}`,
+        : `hist-${row?.closed_at || idx}`,
       source: "history",
       priority: row?.priority ?? row?.Priority ?? null,
       timer_started_at: row?.timer_started_at ?? row?.started_at ?? null,
@@ -125,11 +127,10 @@ export default function TicketDetails({
             #{ticket.id}
           </span>
           <span
-            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-              statusText.toLowerCase() === "open"
+            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${statusText.toLowerCase() === "open"
                 ? "bg-green-100 text-green-700"
                 : "bg-gray-100 text-gray-600"
-            }`}
+              }`}
           >
             {statusText}
           </span>
@@ -186,9 +187,8 @@ export default function TicketDetails({
 
       {/* Timeline Section */}
       <div
-        className={`overflow-hidden transition-all duration-300 ease-in-out bg-gray-50/50 ${
-          expandedTimeline ? "max-h-130 border-t border-gray-100" : "max-h-0"
-        }`}
+        className={`overflow-hidden transition-all duration-300 ease-in-out bg-gray-50/50 ${expandedTimeline ? "max-h-130 border-t border-gray-100" : "max-h-0"
+          }`}
       >
         <div className="p-4 sm:p-5 space-y-3 overflow-y-auto max-h-130">
           {snapshots.length === 0 ? (
@@ -279,13 +279,12 @@ export default function TicketDetails({
                       SLA met
                     </span>
                     <span
-                      className={`text-sm font-extrabold ${
-                        s.sla_met === true
+                      className={`text-sm font-extrabold ${s.sla_met === true
                           ? "text-emerald-700"
                           : s.sla_met === false
                             ? "text-red-600"
                             : "text-gray-600"
-                      }`}
+                        }`}
                     >
                       {s.sla_met === true
                         ? "Yes"
@@ -303,9 +302,8 @@ export default function TicketDetails({
 
       {/* Summary Section */}
       <div
-        className={`overflow-hidden transition-all duration-300 ease-in-out bg-gray-50/50 ${
-          expandedSummary ? "max-h-40 border-t border-gray-100" : "max-h-0"
-        }`}
+        className={`overflow-hidden transition-all duration-300 ease-in-out bg-gray-50/50 ${expandedSummary ? "max-h-40 border-t border-gray-100" : "max-h-0"
+          }`}
       >
         <div className="p-5 grid grid-cols-2 md:grid-cols-4 gap-6">
           <div className="flex flex-col gap-1">

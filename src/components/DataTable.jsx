@@ -211,7 +211,7 @@ export function DataTable({
             {value || "Open"}
           </span>
         );
-      case "select":
+      case "select": {
         if (!col.options || col.options.length === 0) {
           return (
             <span className="text-sm text-gray-500 dark:text-zinc-400 whitespace-nowrap">
@@ -227,11 +227,6 @@ export function DataTable({
           typeof col.pillClassName === "function"
             ? col.pillClassName(row, value)
             : col.pillClassName || "";
-        const displayValue =
-          col.getDisplayValue?.(row, value) ||
-          value ||
-          col.fallbackText?.(row) ||
-          "";
 
         if (pillClassName) {
           return (
@@ -273,7 +268,8 @@ export function DataTable({
             onChange={(e) => col.onChange && col.onChange(row, e.target.value)}
           />
         );
-      case "action":
+      }
+      case "action": {
         const isPrimary = col.isPrimary ? col.isPrimary(row) : true;
         return (
           <TableButton
@@ -283,6 +279,7 @@ export function DataTable({
             {col.getLabel ? col.getLabel(row) : "Action"}
           </TableButton>
         );
+      }
       default:
         return (
           <span className="text-sm text-gray-700 dark:text-zinc-200 line-clamp-1">
