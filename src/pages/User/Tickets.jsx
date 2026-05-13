@@ -333,7 +333,7 @@ function Tickets() {
       ).toISOString();
       const { data } = await realtimeSupabase
         .from("Tickets")
-        .select("id, Summary, Description, Category, closed_at")
+        .select("id, Summary, Description, Category, closed_at, satisfaction")
         .eq("created_by", userId)
         .not("closed_at", "is", null)
         .gte("closed_at", sevenDaysAgo)
@@ -341,6 +341,11 @@ function Tickets() {
       if (!data) return;
       const given = getFeedbackGiven();
       data.forEach((t) => {
+        // satisfaction already recorded in DB — skip regardless of localStorage state
+        if (t.satisfaction != null) {
+          markFeedbackGiven(t.id);
+          return;
+        }
         if (!given.has(t.id) && !queuedIdsRef.current.has(t.id)) {
           enqueueForFeedback(t);
         }
