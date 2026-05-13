@@ -358,13 +358,12 @@ function MultiRingDonutChart({
             key={key}
             type="button"
             onClick={() => onStatusClick?.(key)}
-            className={`flex items-center gap-2 rounded-xl px-3 py-2 text-left transition-all duration-150 border w-full ${
-              anySelected && !selectedStatuses.has(key)
-                ? "opacity-40 border-transparent"
-                : selectedStatuses.has(key)
-                  ? "border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-zinc-800 shadow-sm"
-                  : "border-transparent hover:border-gray-100 dark:hover:border-white/5 hover:bg-gray-50 dark:hover:bg-zinc-800/50"
-            }`}
+            className={`flex items-center gap-2 rounded-xl px-3 py-2 text-left transition-all duration-150 border w-full ${anySelected && !selectedStatuses.has(key)
+              ? "opacity-40 border-transparent"
+              : selectedStatuses.has(key)
+                ? "border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-zinc-800 shadow-sm"
+                : "border-transparent hover:border-gray-100 dark:hover:border-white/5 hover:bg-gray-50 dark:hover:bg-zinc-800/50"
+              }`}
           >
             <span
               className="w-2 h-2 rounded-full shrink-0"
@@ -443,21 +442,19 @@ function VerticalBarGraph({
               </div>
 
               <div
-                className={`flex-1 min-h-0 w-full flex transition-all duration-150 ${
-                  isSelected
-                    ? "outline-2 outline-lpu-maroon outline-offset-2 rounded-lg"
-                    : !isEmpty && onBarClick
-                      ? "group-hover:scale-[1.03]"
-                      : ""
-                }`}
+                className={`flex-1 min-h-0 w-full flex transition-all duration-150 ${isSelected
+                  ? "outline-2 outline-lpu-maroon outline-offset-2 rounded-lg"
+                  : !isEmpty && onBarClick
+                    ? "group-hover:scale-[1.03]"
+                    : ""
+                  }`}
               >
                 {/* Left bar: satisfied / unsatisfied */}
                 <div
-                  className={`flex-1 h-full flex flex-col-reverse rounded-l-lg overflow-hidden relative transition-all duration-150 ${
-                    isEmpty
-                      ? "bg-gray-50 dark:bg-zinc-800/30 border border-dashed border-gray-200 dark:border-white/8"
-                      : "bg-gray-100 dark:bg-zinc-800/60"
-                  }`}
+                  className={`flex-1 h-full flex flex-col-reverse rounded-l-lg overflow-hidden relative transition-all duration-150 ${isEmpty
+                    ? "bg-gray-50 dark:bg-zinc-800/30 border border-dashed border-gray-200 dark:border-white/8"
+                    : "bg-gray-100 dark:bg-zinc-800/60"
+                    }`}
                 >
                   {!isEmpty && (
                     <>
@@ -475,11 +472,10 @@ function VerticalBarGraph({
 
                 {/* Right bar: closed / open */}
                 <div
-                  className={`flex-1 h-full flex flex-col-reverse rounded-r-lg overflow-hidden relative transition-all duration-150 ${
-                    isEmpty
-                      ? "bg-gray-50 dark:bg-zinc-800/30 border border-dashed border-gray-200 dark:border-white/8"
-                      : "bg-gray-100 dark:bg-zinc-800/60"
-                  }`}
+                  className={`flex-1 h-full flex flex-col-reverse rounded-r-lg overflow-hidden relative transition-all duration-150 ${isEmpty
+                    ? "bg-gray-50 dark:bg-zinc-800/30 border border-dashed border-gray-200 dark:border-white/8"
+                    : "bg-gray-100 dark:bg-zinc-800/60"
+                    }`}
                 >
                   {!isEmpty && (
                     <>
@@ -578,9 +574,8 @@ function StackedDistributionBar({
                   onSegmentClick?.(item.label);
                 }
               }}
-              className={`h-full flex items-center justify-center text-white text-[10px] font-bold cursor-pointer outline-none transition-all duration-150 border-r border-white/15 last:border-0 ${
-                isSelected ? "brightness-110" : "hover:brightness-110"
-              }`}
+              className={`h-full flex items-center justify-center text-white text-[10px] font-bold cursor-pointer outline-none transition-all duration-150 border-r border-white/15 last:border-0 ${isSelected ? "brightness-110" : "hover:brightness-110"
+                }`}
               style={{ width: `${percentage}%`, backgroundColor: color }}
             >
               {percentage > 8 && (
@@ -599,11 +594,10 @@ function StackedDistributionBar({
               key={item.label}
               type="button"
               onClick={() => onSegmentClick?.(item.label)}
-              className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-medium cursor-pointer transition-all duration-150 ${
-                isSelected
-                  ? "bg-white dark:bg-zinc-900 shadow-sm ring-1 ring-lpu-maroon/40 text-gray-800 dark:text-zinc-200"
-                  : "text-gray-500 dark:text-zinc-400 hover:bg-white dark:hover:bg-zinc-900/60 hover:text-gray-700 dark:hover:text-zinc-300"
-              }`}
+              className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-medium cursor-pointer transition-all duration-150 ${isSelected
+                ? "bg-white dark:bg-zinc-900 shadow-sm ring-1 ring-lpu-maroon/40 text-gray-800 dark:text-zinc-200"
+                : "text-gray-500 dark:text-zinc-400 hover:bg-white dark:hover:bg-zinc-900/60 hover:text-gray-700 dark:hover:text-zinc-300"
+                }`}
             >
               <span
                 className="w-1.5 h-1.5 rounded-full shrink-0"
@@ -693,13 +687,12 @@ function SlaSection({
                       onAdminClick?.(adminEntry.adminId);
                     }
                   }}
-                  className={`rounded-xl p-3 transition-all duration-150 border ${
-                    isSelected
-                      ? "ring-2 ring-lpu-maroon ring-offset-1 bg-lpu-maroon/5 border-lpu-maroon/20"
-                      : isCurrentUser
-                        ? "bg-lpu-maroon/4 border-lpu-maroon/15"
-                        : "bg-gray-50 dark:bg-zinc-800/40 border-gray-100 dark:border-white/5 hover:border-gray-200 dark:hover:border-white/10"
-                  } ${isGlobalAdminUser ? "cursor-pointer" : ""}`}
+                  className={`rounded-xl p-3 transition-all duration-150 border ${isSelected
+                    ? "ring-2 ring-lpu-maroon ring-offset-1 bg-lpu-maroon/5 border-lpu-maroon/20"
+                    : isCurrentUser
+                      ? "bg-lpu-maroon/4 border-lpu-maroon/15"
+                      : "bg-gray-50 dark:bg-zinc-800/40 border-gray-100 dark:border-white/5 hover:border-gray-200 dark:hover:border-white/10"
+                    } ${isGlobalAdminUser ? "cursor-pointer" : ""}`}
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <Users
@@ -1407,8 +1400,8 @@ export default function AdminAnalytics() {
                   <MultiRingDonutChart
                     closedCount={closedCount}
                     openCount={openCount}
-                    satisfiedCount={satisfiedCount}
-                    unsatisfiedCount={unsatisfiedCount}
+                    satisfiedCount={selectedStatuses.has("open") ? 0 : satisfiedCount}
+                    unsatisfiedCount={selectedStatuses.has("open") ? 0 : unsatisfiedCount}
                     total={closedCount + openCount}
                     selectedStatuses={selectedStatuses}
                     onStatusClick={handleStatusClick}
