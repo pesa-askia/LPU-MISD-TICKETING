@@ -467,6 +467,29 @@ export const initializeDatabase = async () => {
       console.warn("ticket_sla_history init skipped:", slaInitError.message);
     }
 
+    // activity_logs table
+    try {
+      await supabase.rpc("execute_sql", {
+        sql: `
+          CREATE TABLE IF NOT EXISTS activity_logs (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            admin_id UUID NOT NULL,
+            action_type VARCHAR(50) NOT NULL,
+            target_type VARCHAR(50),
+            target_id VARCHAR(100),
+            target_label VARCHAR(255),
+            metadata JSONB DEFAULT '{}',
+            created_at TIMESTAMPTZ DEFAULT NOW()
+          );
+          CREATE INDEX IF NOT EXISTS idx_activity_logs_admin_id ON activity_logs(admin_id);
+          CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON activity_logs(created_at DESC);
+        `,
+      });
+      console.log("✓ activity_logs");
+    } catch (activityInitError) {
+      console.warn("activity_logs init skipped:", activityInitError.message);
+    }
+
     // RLS policies for all tables
     // Backend uses service_role key which bypasses RLS entirely.
     // Policies here only govern frontend (anon key + user JWT).
@@ -545,6 +568,7 @@ export const initializeDatabase = async () => {
           ALTER TABLE chatbot_sessions ENABLE ROW LEVEL SECURITY;
           ALTER TABLE chatbot_messages ENABLE ROW LEVEL SECURITY;
           ALTER TABLE chatbot_account_limits ENABLE ROW LEVEL SECURITY;
+          ALTER TABLE activity_logs ENABLE ROW LEVEL SECURITY;
         `,
       });
       console.log("✓ RLS policies");

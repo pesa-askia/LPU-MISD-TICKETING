@@ -10,6 +10,7 @@ import {
   User,
   ChevronDown,
   LogOut,
+  Activity,
 } from "lucide-react";
 import lpuLogo from "../assets/lpul-logo.png";
 import { SettingsModal } from "./Modal";
@@ -149,6 +150,10 @@ export default function AdminNavbar() {
               <BookOpen size={16} />
               <span className="hidden lg:inline">Knowledge</span>
             </NavLink>
+            <NavLink to="/admin/activity" className={getLinkClass}>
+              <Activity size={16} />
+              <span className="hidden lg:inline">Activity</span>
+            </NavLink>
             {isRoot && (
               <NavLink to="/admin/manage" className={getLinkClass}>
                 <Settings size={16} />
@@ -200,6 +205,14 @@ export default function AdminNavbar() {
               >
                 <BookOpen size={16} />
                 <span>Knowledge</span>
+              </NavLink>
+              <NavLink
+                to="/admin/activity"
+                onClick={toggleMenu}
+                className={getLinkClass}
+              >
+                <Activity size={16} />
+                <span>Activity</span>
               </NavLink>
               {isRoot && (
                 <NavLink

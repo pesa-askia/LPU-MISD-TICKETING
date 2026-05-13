@@ -11,6 +11,7 @@ import {
   AttachmentPreview,
   FloatingSelect,
   FloatingTextarea,
+  FloatingInput,
   Alert,
 } from "../../components/FormFields";
 
@@ -49,11 +50,7 @@ function SubmitTicket() {
     const mainEl = document.querySelector("main");
     if (!mainEl) return;
     mainEl.style.overflowY = "hidden";
-    mainEl.style.position = "relative";
-    return () => {
-      mainEl.style.overflowY = "";
-      mainEl.style.position = "";
-    };
+    return () => { mainEl.style.overflowY = ""; };
   }, []);
 
   const handleChange = (e) => {
@@ -197,8 +194,8 @@ function SubmitTicket() {
   };
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center bg-gray-50 p-4 font-poppins overflow-hidden">
-      <div className="w-full max-w-200 h-full min-h-0 mx-auto px-4 py-6 flex flex-col box-border bg-white rounded-2xl shadow-xl border-t-[6px] border-lpu-maroon overflow-hidden lg:px-10 lg:py-[clamp(1.25rem,3vh,2rem)]">
+    <div className="w-full min-h-full flex flex-col items-center justify-center p-4 bg-gray-50 font-poppins">
+      <div className="w-full max-w-200 mx-auto px-2 py-6 flex flex-col box-border bg-white rounded-2xl shadow-xl border-t-[6px] border-lpu-maroon overflow-hidden lg:px-8 lg:py-[clamp(1.25rem,3vh,2rem)]">
         <div className="text-center shrink-0">
           <h1 className="m-0 text-2xl lg:text-3xl font-black text-lpu-maroon tracking-tight">
             Submit Ticket
@@ -222,15 +219,15 @@ function SubmitTicket() {
 
         <form
           onSubmit={handleSubmit}
-          className="flex flex-col flex-1 min-h-0 overflow-hidden"
+          className="flex flex-col"
         >
-          <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 pb-1">
-            <FloatingTextarea
+          <div className="overflow-y-auto overflow-x-hidden flex flex-col gap-4 pt-3 pb-2 px-2 max-h-[55vh] lg:max-h-[65vh]">
+            <FloatingInput
               label="Summary (Required)"
               name="summary"
               value={formData.summary}
               onChange={handleChange}
-              heightClass="h-[7vh] min-h-[44px] max-h-[60px]"
+              required
             />
 
             <FloatingTextarea
@@ -238,8 +235,8 @@ function SubmitTicket() {
               name="description"
               value={formData.description}
               onChange={handleChange}
-              heightClass="h-[35vh] lg:h-[clamp(200px,40vh,500px)]"
-              className="w-full"
+              heightClass="min-h-[72px]"
+              autoResize
             />
 
             <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2">

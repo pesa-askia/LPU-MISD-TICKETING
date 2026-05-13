@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { getAllUsers, getUserById, deleteUser, updateUser } from "../services/authService.js";
 import { adminMiddleware, globalAdminMiddleware } from "../middleware/auth.js";
 import { supabase } from "../config/database.js";
+import { logActivity } from "../services/activityService.js";
 
 const resendApiConfigured = () => Boolean(String(process.env.RESEND_API_KEY || "").trim());
 
@@ -355,6 +356,16 @@ router.post("/admins", globalAdminMiddleware, async (req, res) => {
             console.error("[admin create] Supabase invite exception:", inviteEx.message);
         }
 
+        const callerId = req.user?.id || req.user?.sub;
+        logActivity({
+            adminId: callerId,
+            actionType: "ADMIN_CREATED",
+            targetType: "admin",
+            targetId: created.id,
+            targetLabel: created.full_name || created.email,
+            metadata: { email: created.email, admin_level: level },
+        });
+
         return res.status(201).json({
             success: true,
             data: created,
@@ -423,6 +434,15 @@ router.delete("/admins/:adminId", globalAdminMiddleware, async (req, res) => {
             }
         }
 
+        logActivity({
+            adminId: callerId,
+            actionType: "ADMIN_DELETED",
+            targetType: "admin",
+            targetId: target.id,
+            targetLabel: target.full_name || target.email,
+            metadata: { email: target.email, admin_level: target.admin_level },
+        });
+
         return res.status(200).json({
             success: true,
             message: "Admin deleted",
@@ -472,7 +492,92 @@ router.patch("/admins/:adminId", globalAdminMiddleware, async (req, res) => {
         if (error) return res.status(400).json({ success: false, message: error.message });
         if (!data || data.length === 0) return res.status(404).json({ success: false, message: "Admin not found" });
 
-        return res.status(200).json({ success: true, data: data[0] });
+        const updated = data[0];
+        const callerId = req.user?.id || req.user?.sub;
+
+        if (req.body.isActive !== undefined) {
+            logActivity({
+                adminId: callerId,
+                actionType: updates.is_active ? "ADMIN_ENABLED" : "ADMIN_DISABLED",
+                targetType: "admin",
+                targetId: adminId,
+                targetLabel: updated.full_name || updated.email,
+                metadata: { email: updated.email },
+            });
+        }
+        if (req.body.adminLevel !== undefined) {
+            logActivity({
+                adminId: callerId,
+                actionType: "ADMIN_LEVEL_CHANGED",
+                targetType: "admin",
+                targetId: adminId,
+                targetLabel: updated.full_name || updated.email,
+                metadata: { email: updated.email, new_level: updates.admin_level },
+            });
+        }
+
+        return res.status(200).json({ success: true, data: updated });
+    } catch (e) {
+        return res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+/**
+ * GET /api/admin/activity
+ * Any admin — returns activity logs.
+ * Global admins see all; ticket admins see only their own.
+ */
+const ACTIVITY_PAGE_SIZE = 20;
+
+router.get("/activity", adminMiddleware, async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 0;
+        const type = req.query.type || null;
+        const callerId = req.user?.id || req.user?.sub;
+        const isGlobal = Number(req.user?.admin_level) === 0;
+
+        let query = supabase
+            .from("activity_logs")
+            .select("*", { count: "exact" })
+            .order("created_at", { ascending: false })
+            .range(page * ACTIVITY_PAGE_SIZE, (page + 1) * ACTIVITY_PAGE_SIZE - 1);
+
+        if (!isGlobal) {
+            query = query.eq("admin_id", callerId);
+        }
+
+        if (type === "ticket") {
+            query = query.like("action_type", "TICKET_%");
+        } else if (type === "knowledge") {
+            query = query.like("action_type", "KNOWLEDGE_%");
+        } else if (type === "admin") {
+            query = query.like("action_type", "ADMIN_%");
+        }
+
+        const { data, error, count } = await query;
+
+        if (error) return res.status(400).json({ success: false, message: error.message });
+
+        const adminIds = [...new Set((data || []).map((l) => l.admin_id).filter(Boolean))];
+        let adminMap = {};
+
+        if (adminIds.length > 0) {
+            const { data: admins } = await supabase
+                .from("admin_users")
+                .select("id, full_name, email, admin_level")
+                .in("id", adminIds);
+
+            for (const a of admins || []) {
+                adminMap[a.id] = a;
+            }
+        }
+
+        const enriched = (data || []).map((log) => ({
+            ...log,
+            admin: adminMap[log.admin_id] || null,
+        }));
+
+        return res.json({ success: true, data: enriched, total: count ?? 0 });
     } catch (e) {
         return res.status(500).json({ success: false, message: e.message });
     }

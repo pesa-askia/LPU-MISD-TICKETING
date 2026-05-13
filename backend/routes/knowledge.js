@@ -2,6 +2,7 @@ import express from "express";
 import { adminMiddleware } from "../middleware/auth.js";
 import { supabase } from "../config/database.js";
 import { embedText } from "../services/chatbotService.js";
+import { logActivity } from "../services/activityService.js";
 
 const router = express.Router();
 
@@ -94,6 +95,16 @@ router.post("/", adminMiddleware, async (req, res) => {
     return res.status(500).json({ success: false, error: errors.join("; ") });
   }
 
+  const adminId = req.user?.id || req.user?.sub;
+  logActivity({
+    adminId,
+    actionType: "KNOWLEDGE_ADDED",
+    targetType: "knowledge",
+    targetId: inserted[0]?.id,
+    targetLabel: title?.trim() || "Knowledge Entry",
+    metadata: { chunks: inserted.length, title: title?.trim() || "Knowledge Entry" },
+  });
+
   res.json({
     success: true,
     inserted,
@@ -140,6 +151,16 @@ router.put("/:id", adminMiddleware, async (req, res) => {
     if (error)
       return res.status(500).json({ success: false, error: error.message });
 
+    const adminId = req.user?.id || req.user?.sub;
+    logActivity({
+      adminId,
+      actionType: "KNOWLEDGE_EDITED",
+      targetType: "knowledge",
+      targetId: id,
+      targetLabel: resolvedTitle,
+      metadata: { title: resolvedTitle },
+    });
+
     return res.json({ success: true, data });
   } catch (err) {
     console.error("[Knowledge API Update Error]:", err.message);
@@ -151,9 +172,26 @@ router.put("/:id", adminMiddleware, async (req, res) => {
 router.delete("/:id", adminMiddleware, async (req, res) => {
   const { id } = req.params;
 
+  const { data: existing } = await supabase
+    .from("knowledge_base")
+    .select("metadata")
+    .eq("id", id)
+    .single();
+
   const { error } = await supabase.from("knowledge_base").delete().eq("id", id);
   if (error)
     return res.status(500).json({ success: false, error: error.message });
+
+  const adminId = req.user?.id || req.user?.sub;
+  const title = existing?.metadata?.title || "Knowledge Entry";
+  logActivity({
+    adminId,
+    actionType: "KNOWLEDGE_DELETED",
+    targetType: "knowledge",
+    targetId: id,
+    targetLabel: title,
+    metadata: { title },
+  });
 
   res.json({ success: true });
 });
@@ -171,6 +209,16 @@ router.delete("/bulk/by-title", adminMiddleware, async (req, res) => {
 
   if (error)
     return res.status(500).json({ success: false, error: error.message });
+
+  const adminId = req.user?.id || req.user?.sub;
+  logActivity({
+    adminId,
+    actionType: "KNOWLEDGE_BULK_DELETED",
+    targetType: "knowledge",
+    targetLabel: title,
+    metadata: { title },
+  });
+
   res.json({ success: true });
 });
 

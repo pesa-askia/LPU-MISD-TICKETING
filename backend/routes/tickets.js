@@ -1,6 +1,7 @@
 import express from "express";
 import { supabase } from "../config/database.js";
 import { authMiddleware, adminMiddleware } from "../middleware/auth.js";
+import { logActivity } from "../services/activityService.js";
 
 const router = express.Router();
 
@@ -268,6 +269,18 @@ router.patch("/:id/status", authMiddleware, async (req, res) => {
         .status(404)
         .json({ success: false, message: "Ticket not found or access denied" });
     }
+
+    if (req.user.app_role === "admin") {
+      const adminId = req.user.id || req.user.sub;
+      logActivity({
+        adminId,
+        actionType: status === "Open" ? "TICKET_REOPENED" : "TICKET_CLOSED",
+        targetType: "ticket",
+        targetId: ticketId,
+        targetLabel: `#${ticketId}`,
+      });
+    }
+
     return res.json({ success: true, data: data[0] });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
@@ -344,6 +357,18 @@ router.patch("/:id/assignees", adminMiddleware, async (req, res) => {
         .status(404)
         .json({ success: false, message: "Ticket not found" });
     }
+
+    const adminId = req.user.id || req.user.sub;
+    const newAssignees = [Assignee1, Assignee2, Assignee3].filter(Boolean);
+    logActivity({
+      adminId,
+      actionType: "TICKET_ASSIGNED",
+      targetType: "ticket",
+      targetId: ticketId,
+      targetLabel: `#${ticketId}`,
+      metadata: { assignees: newAssignees },
+    });
+
     return res.json({ success: true, data: data[0] });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
