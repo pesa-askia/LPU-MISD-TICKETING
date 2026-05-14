@@ -105,7 +105,10 @@ function SkeletonAnalysisCard() {
       </div>
       <div className="px-4 py-3 space-y-0">
         {[80, 65, 50, 40].map((w, i) => (
-          <div key={i} className="flex items-start gap-3 py-3 border-b border-gray-100 dark:border-white/5 last:border-0">
+          <div
+            key={i}
+            className="flex items-start gap-3 py-3 border-b border-gray-100 dark:border-white/5 last:border-0"
+          >
             <Sk className="w-5 h-5 shrink-0 mt-0.5 rounded-md" />
             <div className="flex-1 space-y-1.5">
               <div className="flex items-center gap-2">
@@ -132,7 +135,10 @@ function SkeletonFeedbackCard() {
       </div>
       <div className="px-4 py-3 space-y-0">
         {[3, 2, 4].map((_, i) => (
-          <div key={i} className="flex items-start gap-3 py-3 border-b border-gray-100 dark:border-white/5 last:border-0">
+          <div
+            key={i}
+            className="flex items-start gap-3 py-3 border-b border-gray-100 dark:border-white/5 last:border-0"
+          >
             <Sk className="w-5 h-5 shrink-0 mt-0.5 rounded-md" />
             <Sk className="h-4 flex-1" />
           </div>
@@ -151,7 +157,10 @@ function SkeletonKBCard() {
       </div>
       <div className="px-5 py-4 space-y-0">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="py-3.5 border-b border-gray-100 dark:border-white/5 last:border-0">
+          <div
+            key={i}
+            className="py-3.5 border-b border-gray-100 dark:border-white/5 last:border-0"
+          >
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 space-y-2">
                 <div className="flex items-center gap-2">
@@ -336,13 +345,16 @@ function FeedbackCard({ positive, themes }) {
       <div className="px-4 py-3">
         {normalized.length > 0 ? (
           normalized.map((t, i) => {
-            const pct = t.count != null ? Math.round((t.count / maxCount) * 100) : 0;
+            const pct =
+              t.count != null ? Math.round((t.count / maxCount) * 100) : 0;
             return (
               <div
                 key={i}
                 className="flex items-start gap-3 py-3 border-b border-gray-100 dark:border-white/5 last:border-0"
               >
-                <span className={`shrink-0 mt-0.5 w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold ${numBg}`}>
+                <span
+                  className={`shrink-0 mt-0.5 w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold ${numBg}`}
+                >
                   {i + 1}
                 </span>
                 <div className="flex-1 min-w-0">
@@ -555,6 +567,7 @@ export default function AdminAIAnalytics() {
   );
 
   const [periodTicketCount, setPeriodTicketCount] = useState(null);
+  const [categoryFilter, setCategoryFilter] = useState(null);
   const [addedEntries, setAddedEntries] = useState(new Set());
   const [addingEntry, setAddingEntry] = useState(null);
   const [kbError, setKbError] = useState(null);
@@ -626,6 +639,10 @@ export default function AdminAIAnalytics() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    setCategoryFilter(null);
+  }, [results]);
 
   useEffect(() => {
     checkPeriod(periodType, periodKey, customStart, customEnd);
@@ -707,11 +724,27 @@ export default function AdminAIAnalytics() {
     const rows = [];
     const headers = ["type", "category", "label", "count", "description"];
 
-    for (const p of [...(results.results?.problems || [])].sort((a, b) => (b.count || 0) - (a.count || 0))) {
-      rows.push(["Problem", p.category || "", p.issue || "", p.count ?? "", p.description || ""]);
+    for (const p of [...(results.results?.problems || [])].sort(
+      (a, b) => (b.count || 0) - (a.count || 0),
+    )) {
+      rows.push([
+        "Problem",
+        p.category || "",
+        p.issue || "",
+        p.count ?? "",
+        p.description || "",
+      ]);
     }
-    for (const s of [...(results.results?.solutions || [])].sort((a, b) => (b.count || 0) - (a.count || 0))) {
-      rows.push(["Solution", s.category || "", s.problem || "", s.count ?? "", s.description || s.solution || ""]);
+    for (const s of [...(results.results?.solutions || [])].sort(
+      (a, b) => (b.count || 0) - (a.count || 0),
+    )) {
+      rows.push([
+        "Solution",
+        s.category || "",
+        s.problem || "",
+        s.count ?? "",
+        s.description || s.solution || "",
+      ]);
     }
     for (const t of results.results?.satisfied_themes || []) {
       rows.push(["Satisfied Theme", "", t, "", ""]);
@@ -720,10 +753,11 @@ export default function AdminAIAnalytics() {
       rows.push(["Dissatisfied Theme", "", t, "", ""]);
     }
 
-    const periodLabel = periodType === "custom"
-      ? `${customStart}_${customEnd}`
-      : periodKey;
-    const csv = [headers, ...rows].map((r) => r.map(escapeCsv).join(",")).join("\n");
+    const periodLabel =
+      periodType === "custom" ? `${customStart}_${customEnd}` : periodKey;
+    const csv = [headers, ...rows]
+      .map((r) => r.map(escapeCsv).join(","))
+      .join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -744,7 +778,8 @@ export default function AdminAIAnalytics() {
   );
 
   const unanalyzedCount = alreadyAnalyzed ? 0 : (periodTicketCount ?? null);
-  const unknownRe = /^(unknown|unidentified|other issue|n\/a|none|unclear|unspecified)$/i;
+  const unknownRe =
+    /^(unknown|unidentified|other issue|n\/a|none|unclear|unspecified)$/i;
   const problems = [...(results?.results?.problems || [])]
     .filter((p) => p.issue && !unknownRe.test(p.issue.trim()))
     .sort((a, b) => (b.count || 0) - (a.count || 0));
@@ -754,11 +789,26 @@ export default function AdminAIAnalytics() {
   const satisfiedThemes = results?.results?.satisfied_themes || [];
   const dissatisfiedThemes = results?.results?.dissatisfied_themes || [];
   const kbSuggestions = results?.results?.suggested_kb_entries || [];
-  const maxProblemCount = problems.reduce(
+
+  const availableCategories = [
+    ...new Set([
+      ...problems.map((p) => p.category).filter(Boolean),
+      ...solutions.map((s) => s.category).filter(Boolean),
+    ]),
+  ].sort();
+
+  const filteredProblems = categoryFilter
+    ? problems.filter((p) => p.category === categoryFilter)
+    : problems;
+  const filteredSolutions = categoryFilter
+    ? solutions.filter((s) => s.category === categoryFilter)
+    : solutions;
+
+  const maxProblemCount = filteredProblems.reduce(
     (m, p) => Math.max(m, p.count || 0),
     1,
   );
-  const maxSolutionCount = solutions.reduce(
+  const maxSolutionCount = filteredSolutions.reduce(
     (m, s) => Math.max(m, s.count || 0),
     1,
   );
@@ -773,64 +823,65 @@ export default function AdminAIAnalytics() {
     <section className="w-full max-w-330 mx-auto px-6 py-4 md:py-6 font-poppins dark:text-gray-100">
       <div className="flex flex-col gap-4">
         {/* ── Run Analysis ── */}
-        <Card>
-          <CardHeader
-            icon={Sparkles}
-            title="Run Analysis"
-            aside={
-              status != null ? (
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            {/* Left: period tabs + date input */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-zinc-800/60 shadow-sm p-0.5 gap-0.5">
+                {PERIOD_TYPES.map((pt) => (
+                  <ToggleBtn
+                    key={pt.value}
+                    active={periodType === pt.value}
+                    onClick={() => {
+                      setPeriodType(pt.value);
+                      if (pt.value !== "custom")
+                        setPeriodKey(defaultPeriodKey(pt.value));
+                      setAlreadyAnalyzed(false);
+                      setCheckingPeriod(true);
+                      setError(null);
+                    }}
+                    label={pt.label}
+                  />
+                ))}
+              </div>
+
+              <PeriodInput
+                periodType={periodType}
+                periodKey={periodKey}
+                setPeriodKey={setPeriodKey}
+                customStart={customStart}
+                setCustomStart={setCustomStart}
+                customEnd={customEnd}
+                setCustomEnd={setCustomEnd}
+              />
+            </div>
+
+            {/* Right: stats + action buttons */}
+            <div className="flex items-center gap-3">
+              {status != null && (
                 <span className="flex items-center gap-2 text-xs">
                   <span>
                     <span className="font-semibold tabular-nums text-gray-800 dark:text-zinc-200">
                       {status.totalClosed}
                     </span>
-                    <span className="ml-1 text-gray-400 dark:text-zinc-500">total closed</span>
+                    <span className="ml-1 text-gray-400 dark:text-zinc-500">
+                      closed
+                    </span>
                   </span>
-                  <span className="text-gray-200 dark:text-white/10 select-none">·</span>
+                  <span className="text-gray-300 dark:text-white/10 select-none">
+                    ·
+                  </span>
                   <span>
                     <span className="font-semibold tabular-nums text-gray-800 dark:text-zinc-200">
                       {checkingPeriod ? "—" : (unanalyzedCount ?? "—")}
                     </span>
-                    <span className="ml-1 text-gray-400 dark:text-zinc-500">unanalyzed</span>
+                    <span className="ml-1 text-gray-400 dark:text-zinc-500">
+                      unanalyzed
+                    </span>
                   </span>
                 </span>
-              ) : null
-            }
-          />
-          <div className="px-4 py-3 space-y-3">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              {/* Left: period tabs + date input */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-zinc-800/60 shadow-sm p-0.5 gap-0.5">
-                  {PERIOD_TYPES.map((pt) => (
-                    <ToggleBtn
-                      key={pt.value}
-                      active={periodType === pt.value}
-                      onClick={() => {
-                        setPeriodType(pt.value);
-                        if (pt.value !== "custom")
-                          setPeriodKey(defaultPeriodKey(pt.value));
-                        setAlreadyAnalyzed(false);
-                        setCheckingPeriod(true);
-                        setError(null);
-                      }}
-                      label={pt.label}
-                    />
-                  ))}
-                </div>
+              )}
 
-                <PeriodInput
-                  periodType={periodType}
-                  periodKey={periodKey}
-                  setPeriodKey={setPeriodKey}
-                  customStart={customStart}
-                  setCustomStart={setCustomStart}
-                  customEnd={customEnd}
-                  setCustomEnd={setCustomEnd}
-                />
-              </div>
-
-              {/* Right: action buttons */}
               <div className="flex items-center gap-1.5">
                 <div
                   title={
@@ -878,28 +929,49 @@ export default function AdminAIAnalytics() {
                 </div>
               </div>
             </div>
-
-            {error && !analyzing && (
-              <div className="flex items-center gap-2.5 px-4 py-3 bg-[#FDEBEC] dark:bg-rose-950/20 border border-red-100 dark:border-rose-800 rounded-xl text-sm text-[#9F2F2D] dark:text-rose-400">
-                <XCircle size={14} className="shrink-0" />
-                {error}
-              </div>
-            )}
           </div>
-        </Card>
+
+          {error && !analyzing && (
+            <div className="flex items-center gap-2.5 px-4 py-3 bg-[#FDEBEC] dark:bg-rose-950/20 border border-red-100 dark:border-rose-800 rounded-xl text-sm text-[#9F2F2D] dark:text-rose-400">
+              <XCircle size={14} className="shrink-0" />
+              {error}
+            </div>
+          )}
+        </div>
 
         {/* ── results ── */}
         {analyzing ? (
           <SkeletonResults />
         ) : hasResults ? (
           <>
+            {/* Category filter */}
+            {availableCategories.length > 1 && (
+              <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-zinc-800/60 shadow-sm p-0.5 gap-0.5 flex-wrap">
+                <ToggleBtn
+                  active={!categoryFilter}
+                  onClick={() => setCategoryFilter(null)}
+                  label="All"
+                />
+                {availableCategories.map((cat) => (
+                  <ToggleBtn
+                    key={cat}
+                    active={categoryFilter === cat}
+                    onClick={() =>
+                      setCategoryFilter(categoryFilter === cat ? null : cat)
+                    }
+                    label={cat}
+                  />
+                ))}
+              </div>
+            )}
+
             {/* Problems + Solutions — 50/50 */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Card>
                 <CardHeader icon={BarChart3} title="Common Problems" />
                 <div className="px-4 py-3">
-                  {problems.length > 0 ? (
-                    problems.map((p, i) => (
+                  {filteredProblems.length > 0 ? (
+                    filteredProblems.map((p, i) => (
                       <AnalysisRow
                         key={i}
                         index={i}
@@ -921,8 +993,8 @@ export default function AdminAIAnalytics() {
               <Card>
                 <CardHeader icon={Lightbulb} title="Common Solutions" />
                 <div className="px-4 py-3">
-                  {solutions.length > 0 ? (
-                    solutions.map((s, i) => (
+                  {filteredSolutions.length > 0 ? (
+                    filteredSolutions.map((s, i) => (
                       <AnalysisRow
                         key={i}
                         index={i}
@@ -953,7 +1025,7 @@ export default function AdminAIAnalytics() {
               <Card>
                 <CardHeader
                   icon={BookOpen}
-                  title="Suggested Knowledge Base Entries"
+                  title="Suggested Knowledge Entries"
                   aside={
                     <span className="text-xs text-gray-400 dark:text-zinc-500">
                       {addedEntries.size}/{kbSuggestions.length} added
