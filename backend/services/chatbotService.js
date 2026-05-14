@@ -136,9 +136,9 @@ function parseJsonReply(raw) {
     const answer = typeof parsed.answer === "string" ? parsed.answer.trim() : "";
     const suggestions = Array.isArray(parsed.suggestions)
       ? parsed.suggestions
-          .filter((s) => typeof s === "string" && s.trim().length > 3)
-          .map((s) => s.trim())
-          .slice(0, 5)
+        .filter((s) => typeof s === "string" && s.trim().length > 3)
+        .map((s) => s.trim())
+        .slice(0, 5)
       : [];
     if (!answer) {
       console.warn("[Chatbot] JSON parsed but 'answer' field missing. Raw:", cleaned.slice(0, 200));
@@ -209,8 +209,8 @@ export async function sendChatMessage(userMessage, sessionId, userId = null, his
   // for conversational follow-ups even when KB results are noisy/irrelevant.
   const conversationSummary = historyMessages.length > 0
     ? historyMessages
-        .map((m) => `${m.role === "assistant" ? "Stella" : "User"}: ${m.content}`)
-        .join("\n")
+      .map((m) => `${m.role === "assistant" ? "Stella" : "User"}: ${m.content}`)
+      .join("\n")
     : "No prior conversation.";
 
   const systemContent =

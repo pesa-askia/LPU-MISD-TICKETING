@@ -13,41 +13,67 @@ const BATCH_SIZE = 40;
 const API_TIMEOUT = 30000;
 const VALID_PERIOD_TYPES = ["daily", "weekly", "monthly", "yearly", "custom"];
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const modelCooldowns = new Map(); // Track rate-limited models to skip them temporarily
+
 async function callGroq(messages, maxTokens = 800) {
   for (const model of MODELS) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
-    try {
-      const res = await fetch(GROQ_URL, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model,
-          messages,
-          temperature: 0.1,
-          max_tokens: maxTokens,
-          response_format: { type: "json_object" },
-        }),
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-      const data = await res.json();
-      if (res.status === 429) {
-        console.warn(`[AI Analytics] ${model} rate limited, trying next...`);
-        continue;
+    // Check if model is in cooldown
+    const cooldownUntil = modelCooldowns.get(model);
+    if (cooldownUntil && Date.now() < cooldownUntil) {
+      continue;
+    }
+
+    let retries = 0;
+    const maxRetries = 2;
+
+    while (retries <= maxRetries) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
+      try {
+        const res = await fetch(GROQ_URL, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model,
+            messages,
+            temperature: 0.1,
+            max_tokens: maxTokens,
+            response_format: { type: "json_object" },
+          }),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+
+        if (res.status === 429) {
+          retries++;
+          if (retries <= maxRetries) {
+            // Increased initial delay and backoff for 429s
+            const delay = Math.pow(3, retries) * 2000 + Math.random() * 1000;
+            console.warn(`[AI Analytics] ${model} rate limited, retrying in ${Math.round(delay)}ms (attempt ${retries}/${maxRetries})...`);
+            await sleep(delay);
+            continue;
+          }
+          // Exhausted retries for this model, put it on cooldown for 5 minutes
+          console.warn(`[AI Analytics] ${model} exhausted retries, cooling down for 5m...`);
+          modelCooldowns.set(model, Date.now() + 300000);
+          break; // Move to next model
+        }
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error?.message || `Groq error ${res.status}`);
+        return data.choices[0].message.content;
+      } catch (err) {
+        clearTimeout(timeoutId);
+        if (err.name === "AbortError") {
+          console.warn(`[AI Analytics] ${model} timed out, trying next...`);
+          break; // Move to next model
+        }
+        throw err;
       }
-      if (!res.ok) throw new Error(data.error?.message || `Groq error ${res.status}`);
-      return data.choices[0].message.content;
-    } catch (err) {
-      clearTimeout(timeoutId);
-      if (err.name === "AbortError") {
-        console.warn(`[AI Analytics] ${model} timed out, trying next...`);
-        continue;
-      }
-      throw err;
     }
   }
   throw new Error("All Groq models failed or rate limited");
@@ -344,6 +370,9 @@ Return ONLY valid JSON:
           }
           rawSolutions[key].count += Math.max(1, s.count || 1);
         }
+
+        // Significantly increased delay between batches to respect Groq RPM limits
+        if (batches.length > 1) await sleep(4000 + Math.random() * 2000);
       } catch (err) {
         console.error("[AI Analytics] Batch error:", err.message);
       }
@@ -363,6 +392,9 @@ Return ONLY valid JSON:
     const totalFeedbackComments = satisfiedComments.length + dissatisfiedComments.length;
 
     if (totalFeedbackComments >= 3) {
+      // Pacing before feedback analysis — increased significantly
+      await sleep(4000);
+
       const fbPrompt = `Generalize these user feedback comments into short themes. Group similar sentiments and count how many comments belong to each theme.
 STRICT RULES:
 - Only use what is explicitly stated in the comments below. Do not invent or infer.
@@ -371,10 +403,10 @@ STRICT RULES:
 - "count" must reflect how many of the provided comments match that theme (total across both lists should sum to total comments in that category).
 
 Satisfied (${satisfiedComments.length} comments):
-${satisfiedComments.slice(0, 30).map((c, i) => `${i+1}. "${c}"`).join("\n") || "(none)"}
+${satisfiedComments.slice(0, 30).map((c, i) => `${i + 1}. "${c}"`).join("\n") || "(none)"}
 
 Dissatisfied (${dissatisfiedComments.length} comments):
-${dissatisfiedComments.slice(0, 30).map((c, i) => `${i+1}. "${c}"`).join("\n") || "(none)"}
+${dissatisfiedComments.slice(0, 30).map((c, i) => `${i + 1}. "${c}"`).join("\n") || "(none)"}
 
 Return ONLY valid JSON:
 {"satisfied_themes":[{"theme":"string","count":N}],"dissatisfied_themes":[{"theme":"string","count":N}]}`;
@@ -412,6 +444,9 @@ Return ONLY valid JSON:
     let finalSolutions = solutionsList.slice(0, 8);
 
     if (batches.length > 1 && (finalProblems.length > 0 || finalSolutions.length > 0)) {
+      // Pacing before consolidation — increased significantly
+      await sleep(4000);
+
       const consolidatePrompt = `Consolidate these IT support analysis results. Merge near-duplicate entries. Keep top ranked only. Preserve or combine descriptions from merged entries.
 Category must be one of: LMS, Hardware, Software, Microsoft 365, Student Portal, ERP, Network, Others.
 
@@ -441,6 +476,9 @@ Return ONLY valid JSON:
 
     let suggestedKbEntries = [];
     if (finalProblems.length > 0 || finalSolutions.length > 0) {
+      // Pacing before KB suggestions — increased significantly
+      await sleep(4000);
+
       const kbPrompt = `Based on these common IT support patterns, generate knowledge base Q&A entries.
 Each entry: one specific question (as a user would ask), one clear actionable answer.
 RULES:
@@ -489,6 +527,8 @@ Generate 3-6 Q&A pairs only for entries with real solutions above. Return ONLY v
     for (const entry of suggestedKbEntries) {
       const isDup = await isKbDuplicate(entry.question);
       if (!isDup) dedupedKb.push(entry);
+      // Small delay to avoid embedding API rate limits
+      await sleep(200);
     }
     suggestedKbEntries = dedupedKb;
 
