@@ -47,6 +47,8 @@ export default function ChatMessages({
   nowMs,
   getAttachmentSrc,
   onOpenAttachment,
+  onDownloadAttachment,
+  isImageFile,
   transcriptCreatorName,
 }) {
   const formatTimeAgo = (value) => {
@@ -135,11 +137,13 @@ export default function ChatMessages({
           </div>
 
           {/* high-intensity bottom-right shadow on both sides */}
-          <div
-            className={`px-4 py-3 rounded-2xl text-sm leading-relaxed border shadow-[12px_12px_24px_rgba(0,0,0,0.18)] ${bubbleClass} ${alignRight ? "rounded-tr-none" : "rounded-tl-none"}`}
-          >
-            <p className="whitespace-pre-wrap wrap-break-word">{content}</p>
-          </div>
+          {content?.trim() && (
+            <div
+              className={`px-4 py-3 rounded-2xl text-sm leading-relaxed border shadow-[12px_12px_24px_rgba(0,0,0,0.18)] ${bubbleClass} ${alignRight ? "rounded-tr-none" : "rounded-tl-none"}`}
+            >
+              <p className="whitespace-pre-wrap wrap-break-word">{content}</p>
+            </div>
+          )}
 
           {!isTranscript && m.attachments?.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-3">

@@ -510,7 +510,7 @@ export default function AdminTickets() {
         label: "Priority",
         accessor: (row) => getTicketPriority(row),
         variant: "select",
-        colWidth: "w-32 md:w-36",
+        colWidth: "w-28",
         preventRowClick: true,
         placeholder: "Set priority…",
         options: PRIORITY_OPTIONS,
@@ -525,12 +525,12 @@ export default function AdminTickets() {
         label: "Summary",
         accessor: "Summary",
         variant: "title",
-        colWidth: "w-36 md:w-48",
+        colWidth: "w-36 md:w-[8%]",
       },
       {
         label: "Description",
         accessor: "Description",
-        colWidth: "w-56 md:w-80",
+        colWidth: "w-56 md:w-[15%]",
         render: (row) => (
           <div
             className="text-sm text-gray-500 dark:text-zinc-400 line-clamp-1 italic py-1"
@@ -557,7 +557,15 @@ export default function AdminTickets() {
       },
       { label: "Type", accessor: "Type", variant: "highlight" },
       { label: "Department", accessor: "Department", variant: "highlight" },
-      { label: "Category", accessor: "Category", variant: "highlight" },
+      {
+        label: "Category",
+        accessor: "Category",
+        render: (row) => (
+          <span className="text-sm font-bold text-lpu-maroon dark:text-lpu-gold tracking-tighter wrap-break-word">
+            {row.Category || "-"}
+          </span>
+        ),
+      },
       { label: "Created", accessor: "created_at", variant: "date" },
       {
         label: "Actions",
