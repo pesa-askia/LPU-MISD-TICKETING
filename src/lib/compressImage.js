@@ -1,4 +1,4 @@
-const MAX_DIMENSION = 2048;
+const MAX_DIMENSION = 1280;
 const WEBP_QUALITY = 0.82;
 
 export async function compressToWebP(file) {

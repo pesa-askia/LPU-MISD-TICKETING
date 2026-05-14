@@ -27,7 +27,7 @@ router.post("/upload", authMiddleware, async (req, res) => {
 
     if (isRasterImage) {
       buffer = await sharp(buffer)
-        .resize({ width: 2048, height: 2048, fit: "inside", withoutEnlargement: true })
+        .resize({ width: 1280, height: 1280, fit: "inside", withoutEnlargement: true })
         .webp({ quality: 82 })
         .toBuffer();
       uploadType = "image/webp";
