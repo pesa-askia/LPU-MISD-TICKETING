@@ -3,6 +3,7 @@ import { Paperclip, X, ChevronDown, Send } from "lucide-react";
 import { jwtDecode } from "jwt-decode";
 import { useLocation } from "react-router-dom";
 import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
+import { compressToWebP } from "../../lib/compressImage";
 import { useLoading } from "../../context/LoadingContext";
 import { useTicketsCache } from "../../context/TicketsCacheContext";
 import {
@@ -60,6 +61,14 @@ function SubmitTicket() {
 
   const handleFileSelect = (e) => {
     const files = Array.from(e.target.files || []);
+    const oversized = files.filter((f) => f.size > 10 * 1024 * 1024);
+    if (oversized.length) {
+      setErrorMessage(
+        `File(s) too large (max 10 MB): ${oversized.map((f) => f.name).join(", ")}`
+      );
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
     setAttachments((prev) => [...prev, ...files]);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -69,11 +78,12 @@ function SubmitTicket() {
   };
 
   const uploadAttachment = async (file, userId) => {
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const compressed = await compressToWebP(file);
+    const safeName = compressed.name.replace(/[^a-zA-Z0-9._-]/g, "_");
     const path = `tickets/${userId}/${Date.now()}_${safeName}`;
     const { error } = await realtimeSupabase.storage
       .from("ticket-attachments")
-      .upload(path, file, { upsert: false });
+      .upload(path, compressed, { upsert: false, contentType: compressed.type });
 
     if (error)
       throw new Error(`Upload failed for ${file.name}: ${error.message}`);
@@ -83,9 +93,9 @@ function SubmitTicket() {
     } = realtimeSupabase.storage.from("ticket-attachments").getPublicUrl(path);
 
     return {
-      name: file.name,
-      size: file.size,
-      type: file.type,
+      name: compressed.name,
+      size: compressed.size,
+      type: compressed.type,
       url: publicUrl,
     };
   };

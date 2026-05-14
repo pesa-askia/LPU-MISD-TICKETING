@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import { useLoading } from "../../context/LoadingContext";
 import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
+import { compressToWebP } from "../../lib/compressImage";
 import { useTicketsCache } from "../../context/TicketsCacheContext";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import ChatHeader from "./ChatHeader";
@@ -519,16 +520,17 @@ export default function TicketChat({ adminView = false } = {}) {
   }, [messages, id, adminView]);
 
   const uploadAttachment = async (file, userId) => {
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const compressed = await compressToWebP(file);
+    const safeName = compressed.name.replace(/[^a-zA-Z0-9._-]/g, "_");
     const path = `tickets/${userId}/${Date.now()}_${safeName}`;
     const { error } = await realtimeSupabase.storage
       .from("ticket-attachments")
-      .upload(path, file, { upsert: false });
+      .upload(path, compressed, { upsert: false, contentType: compressed.type });
     if (error) throw new Error(`Upload failed for ${file.name}: ${error.message}`);
     const {
       data: { publicUrl },
     } = realtimeSupabase.storage.from("ticket-attachments").getPublicUrl(path);
-    return { name: file.name, size: file.size, type: file.type, url: publicUrl };
+    return { name: compressed.name, size: compressed.size, type: compressed.type, url: publicUrl };
   };
 
   async function handleSend() {
@@ -874,9 +876,14 @@ export default function TicketChat({ adminView = false } = {}) {
           onSend={handleSend}
           disabled={isTicketClosed(ticket)}
           pendingAttachments={pendingAttachments}
-          onAddAttachments={(files) =>
-            setPendingAttachments((prev) => [...prev, ...files].slice(0, 5))
-          }
+          onAddAttachments={(files) => {
+            const oversized = files.filter((f) => f.size > 10 * 1024 * 1024);
+            if (oversized.length) {
+              alert(`File(s) too large (max 10 MB): ${oversized.map((f) => f.name).join(", ")}`);
+              return;
+            }
+            setPendingAttachments((prev) => [...prev, ...files].slice(0, 5));
+          }}
           onRemoveAttachment={(idx) =>
             setPendingAttachments((prev) => prev.filter((_, i) => i !== idx))
           }

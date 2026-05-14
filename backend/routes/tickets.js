@@ -1,5 +1,6 @@
 /* global Buffer */
 import express from "express";
+import sharp from "sharp";
 import { supabase } from "../config/database.js";
 import { authMiddleware, adminMiddleware } from "../middleware/auth.js";
 import { logActivity } from "../services/activityService.js";
@@ -17,14 +18,29 @@ router.post("/upload", authMiddleware, async (req, res) => {
       });
     }
 
-    const buffer = Buffer.from(fileData, "base64");
-    const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+    let buffer = Buffer.from(fileData, "base64");
+    let uploadType = fileType || "application/octet-stream";
+    let uploadName = fileName;
+
+    const isRasterImage =
+      uploadType.startsWith("image/") && uploadType !== "image/svg+xml";
+
+    if (isRasterImage) {
+      buffer = await sharp(buffer)
+        .resize({ width: 2048, height: 2048, fit: "inside", withoutEnlargement: true })
+        .webp({ quality: 82 })
+        .toBuffer();
+      uploadType = "image/webp";
+      uploadName = fileName.replace(/\.[^.]+$/, ".webp");
+    }
+
+    const safeName = uploadName.replace(/[^a-zA-Z0-9._-]/g, "_");
     const path = `tickets/${req.user.id}/${Date.now()}_${safeName}`;
 
     const { error } = await supabase.storage
       .from("ticket-attachments")
       .upload(path, buffer, {
-        contentType: fileType || "application/octet-stream",
+        contentType: uploadType,
         upsert: false,
       });
 
@@ -38,9 +54,9 @@ router.post("/upload", authMiddleware, async (req, res) => {
     return res.json({
       success: true,
       url: publicUrl,
-      name: fileName,
+      name: uploadName,
       size: buffer.byteLength,
-      type: fileType,
+      type: uploadType,
     });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });

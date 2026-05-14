@@ -320,14 +320,12 @@ export function DataTable({
       <div className="flex-1 min-h-0 overflow-x-auto md:overflow-x-hidden rounded-t-xl">
         <div className="min-w-325 md:min-w-0 flex flex-col h-full">
           {/* Header — no scroll */}
-          <table
-            className="w-full text-left border-collapse table-fixed"
-            style={scrollbarW > 0 ? { width: `calc(100% - ${scrollbarW}px)` } : undefined}
-          >
+          <table className="w-full text-left border-collapse table-fixed">
             <colgroup>
               {columns.map((col, index) => (
                 <col key={index} className={getColumnWidthClass(col)} />
               ))}
+              {scrollbarW > 0 && <col style={{ width: scrollbarW }} />}
             </colgroup>
             <thead className="bg-lpu-maroon text-white">
               <tr>
@@ -337,12 +335,15 @@ export function DataTable({
                     className={`px-3 py-4 md:px-4 font-bold uppercase text-[11px] tracking-widest ${
                       col.align === "right" ? "text-right" : "text-left"
                     } ${index === 0 ? "rounded-tl-xl" : ""} ${
-                      index === columns.length - 1 ? "rounded-tr-xl" : ""
+                      index === columns.length - 1 && scrollbarW === 0 ? "rounded-tr-xl" : ""
                     }`}
                   >
                     {col.label}
                   </th>
                 ))}
+                {scrollbarW > 0 && (
+                  <th style={{ width: scrollbarW, padding: 0 }} className="rounded-tr-xl" />
+                )}
               </tr>
             </thead>
           </table>
