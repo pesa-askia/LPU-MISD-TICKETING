@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 
 /**
@@ -130,6 +130,18 @@ export function DataTable({
   onNextPage,
 }) {
   const hasPagination = pageCount !== undefined && pageCount > 0;
+  const bodyRef = useRef(null);
+  const [scrollbarW, setScrollbarW] = useState(0);
+
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const update = () => setScrollbarW(el.offsetWidth - el.clientWidth);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [data.length > 0]);
 
   if (data.length === 0) {
     return (
@@ -292,29 +304,26 @@ export function DataTable({
   const getColumnWidthClass = (col) => {
     if (col.colWidth != null) return col.colWidth;
     switch (col.variant) {
-      case "badge":
-        return "w-20 md:w-28";
-      case "title":
-        return "w-1/4 md:w-1/6";
-      case "subtitle":
-        return "w-1/3 md:w-1/3";
-      case "action":
-        return "w-24 md:w-25";
-      case "select":
-        return "w-45 md:w-55";
+      case "badge":        return "w-20 md:w-auto";
+      case "title":        return "w-1/4 md:w-auto";
+      case "subtitle":     return "w-1/3 md:w-auto";
+      case "action":       return "w-24 md:w-auto";
+      case "select":       return "w-45 md:w-auto";
       case "date":
       case "highlight":
-      default:
-        return "w-24";
+      default:             return "w-24 md:w-auto";
     }
   };
 
   return (
-    <div className="datatable-root w-full h-full rounded-xl border border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm flex flex-col">
-      <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden rounded-t-xl flex flex-col">
-        <div className="min-w-325 md:min-w-full flex flex-col flex-1 min-h-0">
-          {/* Header — fixed, no scroll */}
-          <table className="w-full text-left border-collapse table-fixed md:table-auto shrink-0">
+    <div className="datatable-root w-full h-full rounded-xl border border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm flex flex-col md:overflow-x-hidden">
+      <div className="flex-1 min-h-0 overflow-x-auto md:overflow-x-hidden rounded-t-xl">
+        <div className="min-w-325 md:min-w-0 flex flex-col h-full">
+          {/* Header — no scroll */}
+          <table
+            className="w-full text-left border-collapse table-fixed"
+            style={scrollbarW > 0 ? { width: `calc(100% - ${scrollbarW}px)` } : undefined}
+          >
             <colgroup>
               {columns.map((col, index) => (
                 <col key={index} className={getColumnWidthClass(col)} />
@@ -337,9 +346,9 @@ export function DataTable({
               </tr>
             </thead>
           </table>
-          {/* Body — vertical scroll only */}
-          <div className="flex-1 min-h-0 overflow-y-auto">
-            <table className="w-full text-left border-collapse table-fixed md:table-auto">
+          {/* Body — scrollbar here only */}
+          <div ref={bodyRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pb-2">
+            <table className="w-full text-left border-collapse table-fixed">
               <colgroup>
                 {columns.map((col, index) => (
                   <col key={index} className={getColumnWidthClass(col)} />
