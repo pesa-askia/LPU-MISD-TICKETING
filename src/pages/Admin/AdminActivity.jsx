@@ -88,6 +88,11 @@ const ACTION_META = {
     color:
       "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-900/20 dark:text-violet-400 dark:border-violet-700/30",
   },
+  AI_ANALYSIS_RUN: {
+    label: "AI Analysis",
+    color:
+      "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-900/20 dark:text-sky-400 dark:border-sky-700/30",
+  },
 };
 
 const FILTER_OPTIONS = [

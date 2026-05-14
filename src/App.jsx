@@ -13,6 +13,7 @@ import AdminAnalytics from "./pages/Admin/AdminAnalytics";
 import AdminManage from "./pages/Admin/AdminManage";
 import AdminKnowledge from "./pages/Admin/AdminKnowledge";
 import AdminActivity from "./pages/Admin/AdminActivity";
+import AdminInsights from "./pages/Admin/AdminInsights";
 import LoadingScreen from "./components/LoadingScreen";
 import { useLoading } from "./context/LoadingContext";
 
@@ -86,6 +87,7 @@ function App() {
           <Route path="/admin/analytics" element={<AdminAnalytics />} />
           <Route path="/admin/knowledge" element={<AdminKnowledge />} />
           <Route path="/admin/activity" element={<AdminActivity />} />
+          <Route path="/admin/ai-insights" element={<AdminInsights />} />
           <Route
             path="/admin/manage"
             element={

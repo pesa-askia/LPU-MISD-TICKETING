@@ -356,3 +356,24 @@ BEGIN
     LIMIT match_count;
 END;
 $$;
+
+-- ============================================================
+-- ai_insights
+-- ============================================================
+CREATE TABLE IF NOT EXISTS ai_insights (
+    id SERIAL PRIMARY KEY,
+    run_at TIMESTAMPTZ DEFAULT NOW(),
+    period_type TEXT,
+    period_key TEXT,
+    scope JSONB DEFAULT '{}',
+    ticket_count INTEGER DEFAULT 0,
+    results JSONB DEFAULT '{}',
+    knowledge_added_count INTEGER DEFAULT 0,
+    created_by UUID
+);
+CREATE INDEX IF NOT EXISTS idx_ai_insights_run_at ON ai_insights(run_at DESC);
+
+ALTER TABLE ai_insights ENABLE ROW LEVEL SECURITY;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.ai_insights TO service_role;
+GRANT USAGE, SELECT ON SEQUENCE public.ai_insights_id_seq TO service_role;

@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import {
   Menu,
   X,
   Home,
   BarChart2,
+  Brain,
   BookOpen,
   Settings,
   User,
@@ -72,14 +73,71 @@ const AdminDropdown = ({
   </div>
 );
 
+// --- Analytics Nav Dropdown ---
+const AnalyticsDropdown = ({ open, setOpen, innerRef, onMobileClose }) => {
+  const location = useLocation();
+  const isActive =
+    location.pathname === "/admin/analytics" || location.pathname === "/admin/ai-insights";
+
+  const linkBase =
+    "flex items-center gap-2.5 px-3 py-2 text-sm font-medium rounded-lg transition-colors w-full text-left";
+  const linkInactive = "text-gray-700 hover:bg-gray-50 hover:text-lpu-maroon";
+  const linkActive = "text-lpu-maroon bg-lpu-maroon/5 font-semibold";
+
+  return (
+    <div className="relative flex items-center h-8" ref={innerRef}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={`flex items-center justify-center lg:justify-start gap-2 px-3 md:px-2 lg:px-3 h-8 rounded-lg text-sm font-medium transition-all duration-200 ${
+          isActive || open
+            ? "bg-lpu-red text-white shadow-sm font-bold"
+            : "text-white/85 hover:bg-lpu-gold hover:text-lpu-maroon"
+        }`}
+      >
+        <BarChart2 size={16} />
+        <span className="hidden lg:inline">Analytics</span>
+        <ChevronDown
+          size={14}
+          className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {open && (
+        <div className="absolute left-1/2 -translate-x-1/2 md:left-0 md:translate-x-0 mt-2 top-full w-44 bg-white rounded-xl shadow-xl py-2 border border-gray-100 flex flex-col z-50 animate-in fade-in zoom-in-95">
+          <NavLink
+            to="/admin/analytics"
+            onClick={() => { setOpen(false); onMobileClose?.(); }}
+            className={({ isActive: a }) => `${linkBase} ${a ? linkActive : linkInactive}`}
+          >
+            <BarChart2 size={15} />
+            <span>Stats</span>
+          </NavLink>
+          <NavLink
+            to="/admin/ai-insights"
+            onClick={() => { setOpen(false); onMobileClose?.(); }}
+            className={({ isActive: a }) => `${linkBase} ${a ? linkActive : linkInactive}`}
+          >
+            <Brain size={15} />
+            <span>Insights</span>
+          </NavLink>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function AdminNavbar() {
   const { actions = null, isRoot } = useNavbarActionsContext();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
   const [accountModalOpen, setAccountModalOpen] = useState(false);
 
   const desktopMenuRef = useRef(null);
   const mobileMenuRef = useRef(null);
+  const analyticsDesktopRef = useRef(null);
+  const analyticsMobileRef = useRef(null);
 
   // --- Global Dark Mode Logic ---
   const [darkMode, setDarkMode] = useState(
@@ -91,21 +149,29 @@ export default function AdminNavbar() {
     localStorage.setItem("adminDarkMode", String(darkMode));
   }, [darkMode]);
 
-  // --- Close Dropdown on Outside Click ---
+  // --- Close Dropdowns on Outside Click ---
   useEffect(() => {
     const onDocClick = (e) => {
-      if (!menuOpen) return;
-      if (
-        desktopMenuRef.current?.contains(e.target) ||
-        mobileMenuRef.current?.contains(e.target)
-      ) {
-        return;
+      if (menuOpen) {
+        if (
+          !desktopMenuRef.current?.contains(e.target) &&
+          !mobileMenuRef.current?.contains(e.target)
+        ) {
+          setMenuOpen(false);
+        }
       }
-      setMenuOpen(false);
+      if (analyticsOpen) {
+        if (
+          !analyticsDesktopRef.current?.contains(e.target) &&
+          !analyticsMobileRef.current?.contains(e.target)
+        ) {
+          setAnalyticsOpen(false);
+        }
+      }
     };
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
-  }, [menuOpen]);
+  }, [menuOpen, analyticsOpen]);
 
   // --- Global Logout Logic ---
   const onLogout = () => {
@@ -148,10 +214,11 @@ export default function AdminNavbar() {
               {/* Added hidden lg:inline to text */}
               <span className="hidden lg:inline">Home</span>
             </NavLink>
-            <NavLink to="/admin/analytics" className={getLinkClass}>
-              <BarChart2 size={16} />
-              <span className="hidden lg:inline">Analytics</span>
-            </NavLink>
+            <AnalyticsDropdown
+              open={analyticsOpen}
+              setOpen={setAnalyticsOpen}
+              innerRef={analyticsDesktopRef}
+            />
             <NavLink to="/admin/knowledge" className={getLinkClass}>
               <BookOpen size={16} />
               <span className="hidden lg:inline">Knowledge</span>
@@ -203,14 +270,12 @@ export default function AdminNavbar() {
                 {/* Text remains visible in mobile dropdown menu */}
                 <span>Home</span>
               </NavLink>
-              <NavLink
-                to="/admin/analytics"
-                onClick={toggleMenu}
-                className={getLinkClass}
-              >
-                <BarChart2 size={16} />
-                <span>Analytics</span>
-              </NavLink>
+              <AnalyticsDropdown
+                open={analyticsOpen}
+                setOpen={setAnalyticsOpen}
+                innerRef={analyticsMobileRef}
+                onMobileClose={() => setIsMobileMenuOpen(false)}
+              />
               <NavLink
                 to="/admin/knowledge"
                 onClick={toggleMenu}

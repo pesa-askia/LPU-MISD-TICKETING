@@ -113,11 +113,11 @@ export function DateRangeFilter({ onChange, className = "" }) {
       className={`flex flex-col sm:flex-row sm:items-center gap-2 ${className}`}
     >
       {/* Segmented preset control */}
-      <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-zinc-800/60 shadow-sm p-0.5 gap-0.5">
+      <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-zinc-800/60 shadow-sm p-0.5 gap-0.5 cursor-alias">
         <button
           type="button"
           onClick={clearAll}
-          className={`px-3 h-8 rounded-md text-xs font-semibold transition-all duration-150 ${
+          className={`px-3 h-8 rounded-md text-xs font-semibold transition-all duration-150 cursor-pointer ${
             active === null
               ? "bg-lpu-maroon text-white shadow-sm"
               : "text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-zinc-200 hover:bg-white/70 dark:hover:bg-zinc-700/60"
@@ -130,7 +130,7 @@ export function DateRangeFilter({ onChange, className = "" }) {
             key={p.key}
             type="button"
             onClick={() => selectPreset(p.key)}
-            className={`px-3 h-8 rounded-md text-xs font-semibold transition-all duration-150 ${
+            className={`px-3 h-8 rounded-md text-xs font-semibold transition-all duration-150 cursor-pointer ${
               active === p.key
                 ? "bg-lpu-maroon text-white shadow-sm"
                 : "text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-zinc-200 hover:bg-white/70 dark:hover:bg-zinc-700/60"

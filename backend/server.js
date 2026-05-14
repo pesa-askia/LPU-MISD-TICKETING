@@ -11,6 +11,7 @@ import adminRoutes from "./routes/admin.js";
 import ticketRoutes from "./routes/tickets.js";
 import chatbotRoutes from "./routes/chatbot.js";
 import knowledgeRoutes from "./routes/knowledge.js";
+import aiAnalyticsRoutes from "./routes/aiAnalytics.js";
 import os from "os";
 
 dotenv.config();
@@ -97,6 +98,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/tickets", ticketRoutes);
 app.use("/api/chatbot", chatbotRoutes);
 app.use("/api/knowledge", knowledgeRoutes);
+app.use("/api/ai-analytics", aiAnalyticsRoutes);
 
 // Root endpoint
 app.get("/", (req, res) => {
@@ -167,13 +169,11 @@ const start = async () => {
     app.listen(PORT, "0.0.0.0", () => {
       console.log(`
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  LPU MISD Auth Backend  ·  port ${PORT}
+  LPU MISD Ticketing Backend  ·  port ${PORT}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   Local   →  http://localhost:${PORT}
-  Health  →  http://localhost:${PORT}/health
   LAN     →  http://${lanIp}:${PORT}
   CORS    →  ${corsList}
-  DB      →  ${dbKind}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `);
     });

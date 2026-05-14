@@ -22,17 +22,9 @@ const sql = async (query) => {
 
 export const initializeDatabase = async () => {
   try {
-    const kind = process.env.SUPABASE_SERVICE_ROLE_KEY
-      ? "service_role"
-      : "anon";
-    const origin = (() => {
-      try {
-        return new URL(supabaseUrl).origin;
-      } catch {
-        return supabaseUrl;
-      }
-    })();
-    console.log(`[DB] Using Supabase (${kind}) at ${origin}`);
+    const kind = process.env.SUPABASE_SERVICE_ROLE_KEY ? "service_role" : "anon";
+    const origin = (() => { try { return new URL(supabaseUrl).origin; } catch { return supabaseUrl; } })();
+    console.log(`  DB      →  Supabase (${kind}) ${origin}`);
 
     // Verify execute_sql exists — created by backend/schema.sql
     const { error: rpcCheck } = await supabase.rpc("execute_sql", {
@@ -70,8 +62,6 @@ export const initializeDatabase = async () => {
       CREATE INDEX IF NOT EXISTS idx_auth_users_email ON auth_users(email);
       ALTER TABLE auth_users ENABLE ROW LEVEL SECURITY;
     `);
-    console.log("✓ auth_users");
-
     // ── admin_users ───────────────────────────────────────────
     await sql(`
       CREATE TABLE IF NOT EXISTS admin_users (
@@ -89,8 +79,6 @@ export const initializeDatabase = async () => {
       CREATE INDEX IF NOT EXISTS idx_admin_users_email ON admin_users(email);
       ALTER TABLE admin_users ENABLE ROW LEVEL SECURITY;
     `);
-    console.log("✓ admin_users");
-
     // ── Tickets ───────────────────────────────────────────────
     await sql(`
       CREATE TABLE IF NOT EXISTS "Tickets" (
@@ -126,8 +114,6 @@ export const initializeDatabase = async () => {
         END IF;
       END $$;
     `);
-    console.log("✓ Tickets");
-
     // ── ticket_messages ───────────────────────────────────────
     await sql(`
       CREATE TABLE IF NOT EXISTS ticket_messages (
@@ -154,8 +140,6 @@ export const initializeDatabase = async () => {
         END IF;
       END $$;
     `);
-    console.log("✓ ticket_messages");
-
     // ── ticket_sla_history ────────────────────────────────────
     await sql(`
       CREATE TABLE IF NOT EXISTS ticket_sla_history (
@@ -185,8 +169,6 @@ export const initializeDatabase = async () => {
         END IF;
       END $$;
     `);
-    console.log("✓ ticket_sla_history");
-
     // ── SLA trigger ───────────────────────────────────────────
     await sql(`
       CREATE OR REPLACE FUNCTION fn_sla_start_on_first_admin_message()
@@ -227,8 +209,6 @@ export const initializeDatabase = async () => {
         AFTER INSERT ON ticket_messages
         FOR EACH ROW EXECUTE FUNCTION fn_sla_start_on_first_admin_message();
     `);
-    console.log("✓ SLA trigger");
-
     // ── activity_logs ─────────────────────────────────────────
     await sql(`
       CREATE TABLE IF NOT EXISTS activity_logs (
@@ -244,8 +224,6 @@ export const initializeDatabase = async () => {
       CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON activity_logs(created_at DESC);
       ALTER TABLE activity_logs ENABLE ROW LEVEL SECURITY;
     `);
-    console.log("✓ activity_logs");
-
     // ── chatbot tables ────────────────────────────────────────
     await sql(`
       CREATE TABLE IF NOT EXISTS chatbot_sessions (
@@ -283,10 +261,6 @@ export const initializeDatabase = async () => {
         ON chatbot_account_limits(user_id);
       ALTER TABLE chatbot_account_limits ENABLE ROW LEVEL SECURITY;
     `);
-    console.log(
-      "✓ chatbot_sessions / chatbot_messages / chatbot_account_limits",
-    );
-
     // ── knowledge_base ────────────────────────────────────────
     await sql(`
       CREATE EXTENSION IF NOT EXISTS vector;
@@ -330,8 +304,24 @@ export const initializeDatabase = async () => {
       END;
       $$;
     `);
-    console.log("✓ knowledge_base");
-
+    // ── ai_insights ───────────────────────────────────────────
+    await sql(`
+      CREATE TABLE IF NOT EXISTS ai_insights (
+        id SERIAL PRIMARY KEY,
+        run_at TIMESTAMPTZ DEFAULT NOW(),
+        period_type TEXT,
+        period_key TEXT,
+        scope JSONB DEFAULT '{}',
+        ticket_count INTEGER DEFAULT 0,
+        results JSONB DEFAULT '{}',
+        knowledge_added_count INTEGER DEFAULT 0,
+        created_by UUID
+      );
+      CREATE INDEX IF NOT EXISTS idx_ai_insights_run_at ON ai_insights(run_at DESC);
+      ALTER TABLE ai_insights ENABLE ROW LEVEL SECURITY;
+      GRANT SELECT, INSERT, UPDATE, DELETE ON public.ai_insights TO service_role;
+      GRANT USAGE, SELECT ON SEQUENCE public.ai_insights_id_seq TO service_role;
+    `);
     // ── Storage bucket ────────────────────────────────────────
     try {
       const { data: buckets, error: listErr } =
@@ -343,10 +333,9 @@ export const initializeDatabase = async () => {
           { public: true },
         );
         if (createErr) throw createErr;
-        console.log("✓ ticket-attachments (bucket created)");
       }
     } catch (storageErr) {
-      console.warn("Storage bucket init skipped:", storageErr.message);
+      console.warn("  Storage bucket init skipped:", storageErr.message);
     }
 
     // ── Data API grants (required from Oct 30 2026 for existing projects) ────
@@ -364,8 +353,6 @@ export const initializeDatabase = async () => {
       GRANT SELECT, INSERT, UPDATE, DELETE ON public.knowledge_base TO service_role;
       GRANT USAGE, SELECT ON SEQUENCE public.knowledge_base_id_seq TO service_role;
     `);
-    console.log("✓ Data API grants");
-
     // ── RLS policies ──────────────────────────────────────────
     await sql(`
       DO $$
@@ -434,11 +421,9 @@ export const initializeDatabase = async () => {
       END
       $$;
     `);
-    console.log("✓ RLS policies");
-
-    console.log("✓ Database ready");
+    console.log("  Schema  →  ready");
   } catch (error) {
-    console.error("Database initialization error:", error.message);
+    console.error("  Schema  →  FAILED:", error.message);
   }
 };
 
@@ -480,9 +465,7 @@ export const initializeAdminUsers = async () => {
     }
 
     if (!seedEmail || !seedPassword) {
-      console.log(
-        "Skipping admin seed (set ADMIN_SEED_EMAIL and ADMIN_SEED_PASSWORD to seed a root admin).",
-      );
+      console.log("  Seed    →  skipped (no ADMIN_SEED_EMAIL / ADMIN_SEED_PASSWORD)");
       return;
     }
 
@@ -508,7 +491,7 @@ export const initializeAdminUsers = async () => {
     }
 
     if (existing && existing.length > 0) {
-      console.log(`✓ admin_users (seed: ${seedEmail})`);
+      console.log(`  Seed    →  ${seedEmail} (existing)`);
       return;
     }
 
@@ -529,8 +512,8 @@ export const initializeAdminUsers = async () => {
       return;
     }
 
-    console.log(`✓ admin_users (seed created: ${seedEmail})`);
+    console.log(`  Seed    →  ${seedEmail} (created)`);
   } catch (error) {
-    console.error("Admin initialization error:", error.message);
+    console.error("  Seed    →  FAILED:", error.message);
   }
 };

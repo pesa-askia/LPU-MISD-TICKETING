@@ -6,6 +6,15 @@ import { logActivity } from "../services/activityService.js";
 
 const router = express.Router();
 
+function deriveLabel(title, content) {
+  if (title && title !== "Knowledge Entry") return title;
+  if (content) {
+    const q = content.match(/^Q:\s*(.+)/m)?.[1];
+    return (q || content).slice(0, 80);
+  }
+  return "Knowledge entry";
+}
+
 function chunkText(text, maxChars = 500) {
   const paragraphs = text
     .split(/\n\s*\n/)
@@ -96,12 +105,13 @@ router.post("/", adminMiddleware, async (req, res) => {
   }
 
   const adminId = req.user?.id || req.user?.sub;
+  const label = deriveLabel(title?.trim(), inserted[0]?.content);
   logActivity({
     adminId,
     actionType: "KNOWLEDGE_ADDED",
     targetId: inserted[0]?.id,
-    targetLabel: title?.trim() || "Knowledge Entry",
-    metadata: { chunks: inserted.length, title: title?.trim() || "Knowledge Entry" },
+    targetLabel: label,
+    metadata: { chunks: inserted.length, title: label },
   });
 
   res.json({
@@ -151,12 +161,13 @@ router.put("/:id", adminMiddleware, async (req, res) => {
       return res.status(500).json({ success: false, error: error.message });
 
     const adminId = req.user?.id || req.user?.sub;
+    const editLabel = deriveLabel(resolvedTitle, trimmedText);
     logActivity({
       adminId,
       actionType: "KNOWLEDGE_EDITED",
-        targetId: id,
-      targetLabel: resolvedTitle,
-      metadata: { title: resolvedTitle },
+      targetId: id,
+      targetLabel: editLabel,
+      metadata: { title: editLabel },
     });
 
     return res.json({ success: true, data });
@@ -172,7 +183,7 @@ router.delete("/:id", adminMiddleware, async (req, res) => {
 
   const { data: existing } = await supabase
     .from("knowledge_base")
-    .select("metadata")
+    .select("content, metadata")
     .eq("id", id)
     .single();
 
@@ -181,13 +192,13 @@ router.delete("/:id", adminMiddleware, async (req, res) => {
     return res.status(500).json({ success: false, error: error.message });
 
   const adminId = req.user?.id || req.user?.sub;
-  const title = existing?.metadata?.title || "Knowledge Entry";
+  const delLabel = deriveLabel(existing?.metadata?.title, existing?.content);
   logActivity({
     adminId,
     actionType: "KNOWLEDGE_DELETED",
     targetId: id,
-    targetLabel: title,
-    metadata: { title },
+    targetLabel: delLabel,
+    metadata: { title: delLabel },
   });
 
   res.json({ success: true });
