@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Navigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import {
@@ -540,6 +540,47 @@ function PeriodInput({
   return null;
 }
 
+// ── analysis progress bar ─────────────────────────────────────────────────────
+
+const PHASE_LABELS = {
+  starting     : "Starting...",
+  batching     : "Analyzing tickets...",
+  feedback     : "Analyzing feedback...",
+  consolidating: "Consolidating results...",
+  kb           : "Generating KB suggestions...",
+};
+
+function AnalysisProgress({ progress }) {
+  const { batchesDone, batchesTotal, phase } = progress;
+  const pct     = batchesTotal > 0 ? Math.round((batchesDone / batchesTotal) * 100) : null;
+  const label   = PHASE_LABELS[phase] || "Running...";
+  const showBar = phase === "batching" && batchesTotal > 0;
+
+  return (
+    <div className="flex flex-col gap-2 px-4 py-3 bg-white dark:bg-zinc-900 border border-gray-100 dark:border-white/5 rounded-xl shadow-sm">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <RefreshCw size={12} className="animate-spin text-lpu-maroon shrink-0" />
+          <span className="text-xs font-semibold text-gray-700 dark:text-zinc-300">{label}</span>
+        </div>
+        {showBar && (
+          <span className="text-xs text-gray-400 dark:text-zinc-500 tabular-nums shrink-0">
+            {batchesDone}/{batchesTotal} batches
+          </span>
+        )}
+      </div>
+      {showBar && (
+        <div className="h-1 w-full bg-gray-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-lpu-maroon rounded-full transition-all duration-500"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── main page ─────────────────────────────────────────────────────────────────
 
 export default function AdminAIAnalytics() {
@@ -571,6 +612,10 @@ export default function AdminAIAnalytics() {
   const [addedEntries, setAddedEntries] = useState(new Set());
   const [addingEntry, setAddingEntry] = useState(null);
   const [kbError, setKbError] = useState(null);
+
+  const [activeJobId, setActiveJobId] = useState(null);
+  const [jobProgress, setJobProgress] = useState(null); // { batchesDone, batchesTotal, phase }
+  const jobPeriodRef = useRef(null); // captures period at job-start time
 
   const checkPeriod = useCallback(async (type, key, cStart, cEnd) => {
     setCheckingPeriod(true);
@@ -656,12 +701,54 @@ export default function AdminAIAnalytics() {
     fetchResults,
   ]);
 
+  // Poll active job every 3 s until done or failed
+  useEffect(() => {
+    if (!activeJobId) return;
+    const poll = setInterval(async () => {
+      try {
+        const r = await fetch(apiUrl(`/api/ai-analytics/job/${activeJobId}`), {
+          headers: getAuthHeader(),
+        });
+        const d = await r.json();
+        if (!d.success) return;
+
+        setJobProgress({ batchesDone: d.batchesDone || 0, batchesTotal: d.batchesTotal || 0, phase: d.phase || "running" });
+
+        if (d.status === "done") {
+          clearInterval(poll);
+          setActiveJobId(null);
+          setAnalyzing(false);
+          setJobProgress(null);
+          const { periodType: pt, periodKey: pk, customStart: cs, customEnd: ce } = jobPeriodRef.current || {};
+          await Promise.all([fetchStatus(), fetchResults(pt, pk, cs, ce)]);
+          await checkPeriod(pt, pk, cs, ce);
+        } else if (d.status === "failed") {
+          clearInterval(poll);
+          setActiveJobId(null);
+          setAnalyzing(false);
+          setJobProgress(null);
+          setError(d.error || "Analysis failed");
+        }
+      } catch {
+        /* non-fatal — keep polling */
+      }
+    }, 3000);
+    return () => clearInterval(poll);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeJobId]);
+
   const runAnalysis = async (force = false) => {
     setAnalyzing(true);
     setError(null);
     setAlreadyAnalyzed(false);
     setAddedEntries(new Set());
     setKbError(null);
+    setJobProgress(null);
+
+    // Capture current period so polling can fetch correct results even if user
+    // changes the period selector while the job is running.
+    jobPeriodRef.current = { periodType, periodKey, customStart, customEnd };
+
     try {
       const body =
         periodType === "custom"
@@ -677,18 +764,15 @@ export default function AdminAIAnalytics() {
 
       if (d.alreadyAnalyzed) {
         setAlreadyAnalyzed(true);
+        setAnalyzing(false);
         return;
       }
       if (!d.success) throw new Error(d.error || "Analysis failed");
 
-      await Promise.all([
-        fetchStatus(),
-        fetchResults(periodType, periodKey, customStart, customEnd),
-      ]);
-      await checkPeriod(periodType, periodKey, customStart, customEnd);
+      // Job started — polling effect takes over from here
+      setActiveJobId(d.jobId);
     } catch (err) {
       setError(err.message);
-    } finally {
       setAnalyzing(false);
     }
   };
@@ -941,7 +1025,12 @@ export default function AdminAIAnalytics() {
 
         {/* ── results ── */}
         {analyzing ? (
-          <SkeletonResults />
+          <>
+            {jobProgress && (
+              <AnalysisProgress progress={jobProgress} />
+            )}
+            <SkeletonResults />
+          </>
         ) : hasResults ? (
           <>
             {/* Category filter */}
