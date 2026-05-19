@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
-import { Download, X, ChevronDown, MessageCircle } from "lucide-react";
+import { Download, X, ChevronDown, MessageCircle, Smile, Frown } from "lucide-react";
 import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
 import { useLoading } from "../../context/LoadingContext";
 import {
@@ -699,8 +699,21 @@ export default function AdminTickets() {
             </div>
           }
           className="max-w-md mx-4"
+          onClose={() => setSelectedCommentTicket(null)}
         >
           <div className="p-6">
+            {selectedCommentTicket.satisfaction != null && (
+              <div className="flex items-center gap-2 mb-4">
+                {selectedCommentTicket.satisfaction ? (
+                  <Smile size={22} className="text-green-500 shrink-0" />
+                ) : (
+                  <Frown size={22} className="text-lpu-red shrink-0" />
+                )}
+                <span className="text-sm font-bold text-gray-600 dark:text-zinc-300">
+                  {selectedCommentTicket.satisfaction ? "Satisfied" : "Not Satisfied"}
+                </span>
+              </div>
+            )}
             <div className="relative">
               <div className="absolute -left-1 top-0 bottom-0 w-1 bg-lpu-maroon/20 dark:bg-lpu-gold/30 rounded-full" />
               <div className="pl-4">

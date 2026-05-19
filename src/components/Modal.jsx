@@ -28,16 +28,20 @@ import {
  *   children  – modal body content
  *   className – extra classes on the inner card (optional)
  */
-export function Modal({ header, children, className = "" }) {
+export function Modal({ header, children, className = "", onClose }) {
   return (
     /*
      * z-1200 clears SidePanel (z-[1001]) and toggle handle (z-1002).
      * pb-18 on mobile offsets the bottom nav (~70px) so flex centering
      * visually lands in the space above the nav bar.
      */
-    <div className="fixed inset-0 z-1200 flex items-center justify-center p-4 pb-18 md:pb-4 bg-black/50 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-1200 flex items-center justify-center p-4 pb-18 md:pb-4 bg-black/50 backdrop-blur-sm"
+      onClick={onClose}
+    >
       <div
         className={`w-full bg-white dark:bg-zinc-900 rounded-2xl shadow-xl overflow-hidden font-poppins border-t-[6px] border-lpu-maroon dark:border-lpu-gold ${className}`}
+        onClick={(e) => e.stopPropagation()}
       >
         {header && (
           <div className="px-5 py-4 flex items-center justify-between gap-3 border-b border-gray-100 dark:border-zinc-800">
@@ -116,7 +120,7 @@ export function FeedbackModal({ ticket, onSubmit, onClose }) {
   );
 
   return (
-    <Modal header={header} className="max-w-md">
+    <Modal header={header} className="max-w-md" onClose={onClose}>
       {/* Ticket info */}
       <div className="px-5 pt-4 pb-3 border-b border-gray-100">
         <p className="text-gray-800 font-bold text-base leading-snug line-clamp-2 mb-1.5">
@@ -281,6 +285,7 @@ export function FormModal({
     <Modal
       header={header}
       className={`max-w-7xl max-h-[90vh] overflow-y-auto ${className}`.trim()}
+      onClose={onClose}
     >
       {children}
     </Modal>
