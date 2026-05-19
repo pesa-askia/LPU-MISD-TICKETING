@@ -553,6 +553,8 @@ router.get("/activity", adminMiddleware, async (req, res) => {
             query = query.like("action_type", "KNOWLEDGE_%");
         } else if (type === "admin") {
             query = query.or("action_type.like.ADMIN_%,action_type.like.PROFILE_%");
+        } else if (type === "ai") {
+            query = query.like("action_type", "AI_%");
         }
 
         if (dateFrom) {

@@ -100,12 +100,14 @@ const FILTER_OPTIONS = [
   "Ticket Actions",
   "Knowledge Actions",
   "Admin Actions",
+  "AI Actions",
 ];
 const FILTER_MAP = {
   All: null,
   "Ticket Actions": "ticket",
   "Knowledge Actions": "knowledge",
   "Admin Actions": "admin",
+  "AI Actions": "ai",
 };
 
 function getAuthHeader() {
@@ -279,7 +281,7 @@ export default function AdminActivity() {
           </span>
         );
       },
-      colWidth: "w-40 md:w-44",
+      colWidth: "w-44",
     });
 
     cols.push({
