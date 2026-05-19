@@ -392,7 +392,7 @@ function Tickets() {
 
   return (
     <div className="h-full overflow-hidden bg-gray-50 font-poppins flex flex-col p-4 md:p-6">
-      <div className="w-full max-w-330 mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border-t-[6px] border-lpu-maroon flex-1 min-h-0 flex flex-col">
+      <div className="w-full max-w-360 mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border-t-[6px] border-lpu-maroon flex-1 min-h-0 flex flex-col">
         <div className="p-6 md:p-8 flex-1 min-h-0 flex flex-col">
           <h1 className="text-2xl md:text-3xl font-black text-lpu-maroon mb-4 tracking-tight text-center">
             Ticket Dashboard
