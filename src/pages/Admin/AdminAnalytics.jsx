@@ -20,7 +20,6 @@ import { jwtDecode } from "jwt-decode";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
 import { useLoading } from "../../context/LoadingContext";
-import { useTicketsCache } from "../../context/TicketsCacheContext";
 import {
   useNavbarActions,
   NavbarActionButton,
@@ -815,7 +814,6 @@ function SlaSection({
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function AdminAnalytics() {
   const { showLoading, hideLoading } = useLoading();
-  const { adminTickets } = useTicketsCache();
   const [tickets, setTickets] = useState([]);
   const [error, setError] = useState("");
   const [adminUsers, setAdminUsers] = useState([]);
@@ -1304,18 +1302,28 @@ export default function AdminAnalytics() {
     try {
       showLoading();
       setError("");
-      const { data, error: supaError } = await realtimeSupabase
-        .from("Tickets")
-        .select(
-          "id,status,closed_at,created_at,Department,Type,Category,Priority,Summary,Description,Site,timer_duration_seconds,satisfaction,Assignee1,Assignee2,Assignee3",
-        )
-        .order("id", { ascending: false });
-      if (supaError) {
-        setError(supaError.message || "Failed to load analytics");
-        setTickets([]);
-        return;
+      const PAGE = 1000;
+      const columns =
+        "id,status,closed_at,created_at,Department,Type,Category,Priority,Summary,Description,Site,timer_duration_seconds,satisfaction,Assignee1,Assignee2,Assignee3";
+      const all = [];
+      let from = 0;
+      while (true) {
+        const { data, error: supaError } = await realtimeSupabase
+          .from("Tickets")
+          .select(columns)
+          .order("id", { ascending: false })
+          .range(from, from + PAGE - 1);
+        if (supaError) {
+          setError(supaError.message || "Failed to load analytics");
+          setTickets([]);
+          return;
+        }
+        const chunk = data || [];
+        all.push(...chunk);
+        if (chunk.length < PAGE) break;
+        from += PAGE;
       }
-      setTickets(data || []);
+      setTickets(all);
     } catch (e) {
       setError(e?.message || "Failed to load analytics");
     } finally {
@@ -1325,12 +1333,31 @@ export default function AdminAnalytics() {
 
   useEffect(() => {
     if (!isLoggedIn || !isAdmin) return;
-    if (Array.isArray(adminTickets)) {
-      setTickets(adminTickets);
-      return;
-    }
     fetchTickets();
-  }, [isLoggedIn, isAdmin, adminTickets, fetchTickets]);
+  }, [isLoggedIn, isAdmin, fetchTickets]);
+
+  useEffect(() => {
+    if (!isLoggedIn || !isAdmin) return;
+    const channel = realtimeSupabase
+      .channel("admin_analytics_realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "Tickets" },
+        () => fetchTickets(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "Tickets" },
+        () => fetchTickets(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "Tickets" },
+        () => fetchTickets(),
+      )
+      .subscribe();
+    return () => realtimeSupabase.removeChannel(channel);
+  }, [isLoggedIn, isAdmin, fetchTickets]);
 
   useEffect(() => {
     setSelectedDepts(new Set());
