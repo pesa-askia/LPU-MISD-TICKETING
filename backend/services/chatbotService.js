@@ -14,13 +14,28 @@ const CONFIG = {
   ],
 };
 
+const REFUSAL_MESSAGE =
+  "I don't have information on that in my knowledge base. I can only help with MISD IT support topics for LPU. Please contact MISD support directly for anything outside that scope.";
+
 const SYSTEM_PROMPT = `You are "Stella," the MISD IT Support Assistant for LPU.
 
-CORE DIRECTIVES:
-1. TONE: Professional, helpful, and natural. Do not start with "I'd be happy to help."
-2. GROUNDING: Answer using the KNOWLEDGE BASE context. For technical questions, stick to the KB. For simple conversational follow-ups (e.g. "what are we talking about?", "can you repeat that?"), reference the conversation history instead.
-3. SYNTHESIS: Rephrase into clear conversational steps. Never copy-paste "A:" or "Answer:" labels.
-4. ACCURACY: If a technical answer is not in the KB, say: "I don't have specific information on that. Please contact MISD support directly."
+SCOPE — HARD LIMIT:
+You ONLY answer questions about LPU MISD IT support topics that are present in the KNOWLEDGE BASE below.
+You DO NOT answer general-knowledge, opinion, coding, math, trivia, current-events, personal, or off-topic questions — even if you know the answer. Refuse them.
+You DO NOT use outside knowledge, training data, or assumptions. If it is not in the KNOWLEDGE BASE, you do not know it.
+
+ALLOWED RESPONSES:
+1. Technical/support questions answered DIRECTLY from KNOWLEDGE BASE content.
+2. Short greetings ("hi", "hello", "thanks") — reply briefly and offer MISD IT help.
+3. Meta questions about the conversation itself ("what are we talking about?", "repeat that") — use CONVERSATION SO FAR.
+
+REFUSAL RULE:
+If the question is off-topic OR the KNOWLEDGE BASE has no relevant content for it, answer EXACTLY:
+"${REFUSAL_MESSAGE}"
+Do not improvise, do not partially answer, do not guess. Refuse cleanly.
+
+TONE: Professional, natural. Do not start with "I'd be happy to help."
+SYNTHESIS: Rephrase KB into clear steps. Never copy-paste "Q:" / "A:" labels.
 
 OUTPUT FORMAT — respond with valid JSON only, no other text:
 {
@@ -29,13 +44,12 @@ OUTPUT FORMAT — respond with valid JSON only, no other text:
 }
 
 SUGGESTION RULES:
-- Generate up to 5 follow-up questions a student would naturally ask next about this topic.
-- EVERY suggestion MUST be phrased as a question the user would type — end with "?".
-- Must read like a user asking, NOT a topic label or answer (e.g. "How do I enable MFA?" not "MFA setup").
-- They can be different aspects or deeper steps of the SAME topic — not required to be different topics.
+- Up to 5 follow-up questions a student would naturally ask next about THIS topic.
+- EVERY suggestion MUST end with "?" and read like a user typing it.
+- Pull suggestions ONLY from topics covered in the KNOWLEDGE BASE.
 - Do NOT repeat anything from ALREADY DISCUSSED.
 - Max 10 words each.
-- Only use an empty array if the knowledge base has zero relevant content at all.`;
+- Empty array if you are refusing or KB has no related content.`;
 
 async function fetchWithTimeout(url, options = {}) {
   const controller = new AbortController();
@@ -187,6 +201,35 @@ function detectHandoffSignal(text) {
   return signals.some((s) => new RegExp(`\\b${s}\\b`, "i").test(text));
 }
 
+function isTrivialMessage(text) {
+  const t = (text || "").trim().toLowerCase();
+  if (!t) return true;
+  if (t.length < 25 && /^(hi|hello|hey|yo|good (morning|afternoon|evening)|thanks|thank you|ty|ok|okay|cool|nice|bye|goodbye)[!. ]*$/i.test(t))
+    return true;
+  // Meta-conversation questions reference the chat itself
+  if (/\b(what (are|were) we (talking|discussing)|repeat that|what did you say|previous (message|question)|earlier)\b/i.test(t))
+    return true;
+  return false;
+}
+
+async function persistChatMessages({ sessionId, userId, userMessage, botReply, shouldHandoff }) {
+  Promise.all([
+    supabase.from("chatbot_messages").insert([
+      { session_id: sessionId, role: "user", content: userMessage },
+      { session_id: sessionId, role: "assistant", content: botReply },
+    ]),
+    supabase.from("chatbot_sessions").upsert(
+      {
+        session_id: sessionId,
+        user_id: userId,
+        status: shouldHandoff ? "transferred" : "active",
+        last_message_at: new Date().toISOString(),
+      },
+      { onConflict: "session_id" },
+    ),
+  ]).catch((err) => console.error("[Chatbot] Logging failure:", err.message));
+}
+
 export async function sendChatMessage(userMessage, sessionId, userId = null, history = []) {
   const results = await searchKnowledge(userMessage);
   const context = results.map((r) => r.content).join("\n\n");
@@ -198,6 +241,13 @@ export async function sendChatMessage(userMessage, sessionId, userId = null, his
       role: m.role === "bot" ? "assistant" : "user",
       content: m.content,
     }));
+
+  // Hard gate: no KB hits AND not a greeting/meta question → refuse without calling LLM.
+  if (results.length === 0 && !isTrivialMessage(userMessage)) {
+    const botReply = REFUSAL_MESSAGE;
+    await persistChatMessages({ sessionId, userId, userMessage, botReply, shouldHandoff: true });
+    return { reply: botReply, suggestions: [], sessionId, shouldHandoff: true };
+  }
 
   const discussedTopics = history
     .filter((m) => m.role === "user")
@@ -213,11 +263,15 @@ export async function sendChatMessage(userMessage, sessionId, userId = null, his
       .join("\n")
     : "No prior conversation.";
 
+  const kbBlock = context.trim()
+    ? context
+    : "(no relevant entries found — you MUST refuse any technical question)";
+
   const systemContent =
     `${SYSTEM_PROMPT}\n\n` +
-    `CONVERSATION SO FAR (use this for any follow-up or meta questions like "what are we talking about"):\n${conversationSummary}\n\n` +
-    `ALREADY DISCUSSED (do not suggest these): ${discussedTopics || "none"}\n\n` +
-    `KNOWLEDGE BASE (use only for technical questions; ignore if the user is asking about the conversation itself):\n${context}`;
+    `CONVERSATION SO FAR (use ONLY for meta questions about the chat itself):\n${conversationSummary}\n\n` +
+    `ALREADY DISCUSSED (do not suggest these again): ${discussedTopics || "none"}\n\n` +
+    `KNOWLEDGE BASE (the ONLY source of facts allowed):\n${kbBlock}`;
 
   const llmMessages = [
     { role: "system", content: systemContent },
@@ -246,21 +300,7 @@ export async function sendChatMessage(userMessage, sessionId, userId = null, his
 
   const shouldHandoff = detectHandoffSignal(botReply);
 
-  Promise.all([
-    supabase.from("chatbot_messages").insert([
-      { session_id: sessionId, role: "user", content: userMessage },
-      { session_id: sessionId, role: "assistant", content: botReply },
-    ]),
-    supabase.from("chatbot_sessions").upsert(
-      {
-        session_id: sessionId,
-        user_id: userId,
-        status: shouldHandoff ? "transferred" : "active",
-        last_message_at: new Date().toISOString(),
-      },
-      { onConflict: "session_id" },
-    ),
-  ]).catch((err) => console.error("[Chatbot] Logging failure:", err.message));
+  await persistChatMessages({ sessionId, userId, userMessage, botReply, shouldHandoff });
 
   return { reply: botReply, suggestions, sessionId, shouldHandoff };
 }
