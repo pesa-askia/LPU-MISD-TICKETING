@@ -232,22 +232,34 @@ function SubmitTicket() {
           className="flex flex-col"
         >
           <div className="overflow-y-auto overflow-x-hidden flex flex-col gap-4 pt-3 pb-2 px-2 max-h-[55vh] lg:max-h-[65vh]">
-            <FloatingInput
-              label="Summary (Required)"
-              name="summary"
-              value={formData.summary}
-              onChange={handleChange}
-              required
-            />
+            <div className="flex flex-col gap-1">
+              <FloatingInput
+                label="Summary (Required)"
+                name="summary"
+                value={formData.summary}
+                onChange={handleChange}
+                maxLength={500}
+                required
+              />
+              <span className="text-[0.75rem] text-gray-400 text-right pr-1">
+                {formData.summary.length}/500
+              </span>
+            </div>
 
-            <FloatingTextarea
-              label="Description (Required)"
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              heightClass="min-h-[72px]"
-              autoResize
-            />
+            <div className="flex flex-col gap-1">
+              <FloatingTextarea
+                label="Description (Required)"
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                heightClass="min-h-[72px]"
+                maxLength={5000}
+                autoResize
+              />
+              <span className="text-[0.75rem] text-gray-400 text-right pr-1">
+                {formData.description.length}/5000
+              </span>
+            </div>
 
             <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2">
               <FloatingSelect
