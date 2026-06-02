@@ -1,5 +1,11 @@
-import React, { useRef, useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
+import React, { useRef, useEffect, useState, useMemo } from "react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  ChevronsUpDown,
+} from "lucide-react";
 
 /**
  * STRICT UNIFORM SIZING SYSTEM
@@ -133,6 +139,56 @@ export function DataTable({
   const headerRef = useRef(null);
   const bodyRef = useRef(null);
   const [scrollbarW, setScrollbarW] = useState(0);
+  // Sort state: { index, direction: "asc" | "desc" } — null = unsorted
+  const [sortConfig, setSortConfig] = useState(null);
+
+  const isSortable = (col) =>
+    col.sortable !== false &&
+    col.variant !== "action" &&
+    col.variant !== "select" &&
+    col.accessor != null;
+
+  const getSortValue = (col, row) =>
+    typeof col.accessor === "function" ? col.accessor(row) : row[col.accessor];
+
+  const handleSort = (col, index) => {
+    if (!isSortable(col)) return;
+    setSortConfig((prev) => {
+      if (!prev || prev.index !== index) return { index, direction: "asc" };
+      if (prev.direction === "asc") return { index, direction: "desc" };
+      return null; // third click clears sort
+    });
+  };
+
+  const sortedData = useMemo(() => {
+    if (!sortConfig) return data;
+    const col = columns[sortConfig.index];
+    if (!col) return data;
+    const dir = sortConfig.direction === "asc" ? 1 : -1;
+    const isDateCol = col.variant === "date" || col.variant === "status";
+    return [...data].sort((a, b) => {
+      const av = getSortValue(col, a);
+      const bv = getSortValue(col, b);
+      // Empty values sink to bottom regardless of direction
+      const aEmpty = av == null || av === "";
+      const bEmpty = bv == null || bv === "";
+      if (aEmpty && bEmpty) return 0;
+      if (aEmpty) return 1;
+      if (bEmpty) return -1;
+      let cmp;
+      if (isDateCol) {
+        cmp = new Date(av).getTime() - new Date(bv).getTime();
+      } else if (typeof av === "number" && typeof bv === "number") {
+        cmp = av - bv;
+      } else {
+        cmp = String(av).localeCompare(String(bv), undefined, {
+          numeric: true,
+          sensitivity: "base",
+        });
+      }
+      return cmp * dir;
+    });
+  }, [data, columns, sortConfig]);
 
   // Measure vertical scrollbar width
   useEffect(() => {
@@ -340,18 +396,37 @@ export function DataTable({
           </colgroup>
           <thead className="bg-lpu-maroon text-white">
             <tr>
-              {columns.map((col, index) => (
-                <th
-                  key={index}
-                  className={`px-3 py-4 md:px-4 font-bold uppercase text-[11px] tracking-widest ${
-                    col.align === "right" ? "text-right" : "text-left"
-                  } ${index === 0 ? "rounded-tl-xl" : ""} ${
-                    index === columns.length - 1 && scrollbarW === 0 ? "rounded-tr-xl" : ""
-                  }`}
-                >
-                  {col.label}
-                </th>
-              ))}
+              {columns.map((col, index) => {
+                const sortable = isSortable(col);
+                const active = sortConfig?.index === index;
+                return (
+                  <th
+                    key={index}
+                    onClick={() => handleSort(col, index)}
+                    className={`px-3 py-4 md:px-4 font-bold uppercase text-[11px] tracking-widest select-none ${
+                      col.align === "right" ? "text-right" : "text-left"
+                    } ${index === 0 ? "rounded-tl-xl" : ""} ${
+                      index === columns.length - 1 && scrollbarW === 0 ? "rounded-tr-xl" : ""
+                    } ${sortable ? "cursor-pointer hover:bg-white/10 transition-colors" : ""}`}
+                  >
+                    <span
+                      className={`inline-flex items-center gap-1 ${
+                        col.align === "right" ? "flex-row-reverse" : ""
+                      }`}
+                    >
+                      {col.label}
+                      {sortable &&
+                        (!active ? (
+                          <ChevronsUpDown size={12} className="opacity-40" />
+                        ) : sortConfig.direction === "asc" ? (
+                          <ChevronUp size={12} />
+                        ) : (
+                          <ChevronDown size={12} />
+                        ))}
+                    </span>
+                  </th>
+                );
+              })}
               {scrollbarW > 0 && (
                 <th style={{ width: scrollbarW, padding: 0 }} className="rounded-tr-xl bg-lpu-maroon" />
               )}
@@ -368,7 +443,7 @@ export function DataTable({
             ))}
           </colgroup>
           <tbody className="divide-y divide-gray-100 dark:divide-zinc-800">
-            {data.map((row, rowIndex) => (
+            {sortedData.map((row, rowIndex) => (
               <tr
                 key={row.id || rowIndex}
                 onClick={() => onRowClick && onRowClick(row)}
