@@ -48,8 +48,9 @@ const LoginPage = () => {
     e.preventDefault();
     setError("");
 
-    if (!email.toLowerCase().endsWith("@lpulaguna.edu.ph")) {
-      setError("Only @lpulaguna.edu.ph email addresses are allowed.");
+    const allowedDomains = ["@lpulaguna.edu.ph", "@lpusc.edu.ph"];
+    if (!allowedDomains.some((d) => email.toLowerCase().endsWith(d))) {
+      setError("Only @lpulaguna.edu.ph or @lpusc.edu.ph email addresses are allowed.");
       return;
     }
 
