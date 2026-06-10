@@ -3,7 +3,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import { useLoading } from "../../context/LoadingContext";
 import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
-import { compressToWebP } from "../../lib/compressImage";
 import { useTicketsCache } from "../../context/TicketsCacheContext";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import ChatHeader from "./ChatHeader";
@@ -519,18 +518,27 @@ export default function TicketChat({ adminView = false } = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, id, adminView]);
 
-  const uploadAttachment = async (file, userId) => {
-    const compressed = await compressToWebP(file);
-    const safeName = compressed.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const path = `tickets/${userId}/${Date.now()}_${safeName}`;
-    const { error } = await realtimeSupabase.storage
-      .from("ticket-attachments")
-      .upload(path, compressed, { upsert: false, contentType: compressed.type });
-    if (error) throw new Error(`Upload failed for ${file.name}: ${error.message}`);
-    const {
-      data: { publicUrl },
-    } = realtimeSupabase.storage.from("ticket-attachments").getPublicUrl(path);
-    return { name: compressed.name, size: compressed.size, type: compressed.type, url: publicUrl };
+  const uploadAttachment = async (file) => {
+    // Upload via the backend (service_role) — the custom JWT is not a Supabase
+    // auth token, so direct Storage uploads with the anon client violate RLS.
+    const fileData = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result).split(",")[1]);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+    const res = await fetch(`${getApiBaseUrl()}/api/tickets/upload`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+      },
+      body: JSON.stringify({ fileName: file.name, fileType: file.type, fileData }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || !json.success)
+      throw new Error(`Upload failed for ${file.name}: ${json.message || res.statusText}`);
+    return { name: json.name, size: json.size, type: json.type, url: json.url };
   };
 
   async function handleSend() {
@@ -587,7 +595,7 @@ export default function TicketChat({ adminView = false } = {}) {
     if (filesToSend.length > 0) {
       try {
         uploadedAttachments = await Promise.all(
-          filesToSend.map((file) => uploadAttachment(file, senderId)),
+          filesToSend.map((file) => uploadAttachment(file)),
         );
       } catch (err) {
         console.error("Attachment upload failed:", err);

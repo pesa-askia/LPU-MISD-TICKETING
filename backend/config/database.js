@@ -333,6 +333,13 @@ export const initializeDatabase = async () => {
           { public: true },
         );
         if (createErr) throw createErr;
+      } else {
+        // Ensure a pre-existing bucket is public so attachment reads don't 403.
+        const { error: updateErr } = await supabase.storage.updateBucket(
+          "ticket-attachments",
+          { public: true },
+        );
+        if (updateErr) throw updateErr;
       }
     } catch (storageErr) {
       console.warn("  Storage bucket init skipped:", storageErr.message);
