@@ -5,10 +5,8 @@ import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import { FilterSelect, SearchInput } from "../../components/Controls";
 import { DateRangeFilter } from "../../components/DateRangeFilter";
 import { DataTable } from "../../components/DataTable";
-import {
-  useNavbarActions,
-  NavbarActionButton,
-} from "../../context/NavbarActionsContext";
+import { NavbarActionButton } from "../../context/NavbarActionsContext";
+import { useNavbarActions } from "../../context/useNavbarActions";
 
 const PAGE_SIZE = 20;
 

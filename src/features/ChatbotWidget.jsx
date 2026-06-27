@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { MessageCircle, X, Send, User, Bot, ArrowRight, Maximize2 } from "lucide-react";
-import { useChatbotContext } from "../context/ChatbotContext";
+import { useChatbotContext } from "../context/useChatbotContext";
 import { CHATBOT_SUGGESTIONS } from "../hooks/useChatbot";
 
 function ChatbotWidget({ hideButton = false }) {
@@ -24,12 +24,16 @@ function ChatbotWidget({ hideButton = false }) {
     handleHandoff: baseHandleHandoff,
   } = useChatbotContext();
 
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(0);
 
   useEffect(() => {
     if (!cooldownUntilMs) return;
+    const initialTick = setTimeout(() => setNow(Date.now()), 0);
     const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
+    return () => {
+      clearTimeout(initialTick);
+      clearInterval(timer);
+    };
   }, [cooldownUntilMs]);
 
   useEffect(() => {
@@ -53,6 +57,8 @@ function ChatbotWidget({ hideButton = false }) {
     setIsOpen(false);
     navigate("/Chat");
   };
+
+  const isCoolingDown = Boolean(cooldownUntilMs && now < cooldownUntilMs);
 
   return (
     <>
@@ -198,7 +204,7 @@ function ChatbotWidget({ hideButton = false }) {
               placeholder={cooldownLabel || "Type a message..."}
               rows={1}
               disabled={
-                isTyping || (cooldownUntilMs && now < cooldownUntilMs)
+                isTyping || isCoolingDown
               }
             />
             <button
@@ -207,7 +213,7 @@ function ChatbotWidget({ hideButton = false }) {
               disabled={
                 !inputText.trim() ||
                 isTyping ||
-                (cooldownUntilMs && Date.now() < cooldownUntilMs)
+                isCoolingDown
               }
             >
               <Send size={16} />

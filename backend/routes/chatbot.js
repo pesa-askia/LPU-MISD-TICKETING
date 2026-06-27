@@ -85,7 +85,7 @@ router.get("/test", async (req, res) => {
   const env = {
     GEMINI_API_KEY: process.env.GEMINI_API_KEY ? "SET" : "NOT SET",
     GROQ_API_KEY: process.env.GROQ_API_KEY ? "SET" : "NOT SET", // Updated
-    SUPABASE_URL: process.env.SUPABASE_URL ? "SET" : "NOT SET",
+    SUPABASE_URL: (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL) ? "SET" : "NOT SET",
   };
 
   res.json({

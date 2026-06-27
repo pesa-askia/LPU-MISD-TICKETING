@@ -8,9 +8,21 @@ const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
     throw new Error("JWT_SECRET environment variable must be set. Refusing to start.");
 }
+const JWT_ALGORITHM = "HS256";
+const MAGIC_LINK_ALLOWED_DOMAINS = String(
+    process.env.MAGIC_LINK_ALLOWED_DOMAINS || "@lpulaguna.edu.ph,@lpusc.edu.ph",
+)
+    .split(",")
+    .map((domain) => domain.trim().toLowerCase())
+    .filter(Boolean);
 
 /** If false, unverified admins may still sign in (local dev without Resend). UI should only show "Verified" when `email_verified_at` is set. */
 const isAdminEmailVerificationEnforced = () => Boolean(String(process.env.RESEND_API_KEY || "").trim());
+
+const isAllowedMagicLinkEmail = (email) => {
+    const normalized = String(email || "").trim().toLowerCase();
+    return MAGIC_LINK_ALLOWED_DOMAINS.some((domain) => normalized.endsWith(domain));
+};
 
 /**
  * Hash password
@@ -43,7 +55,7 @@ export const generateToken = (userId, email, role = "user", adminLevel = null) =
     // app_role carries our own admin/user distinction for RLS policies.
     const payload = { sub: userId, id: userId, email, role: "authenticated", app_role: role };
     if (adminLevel !== null) payload.admin_level = adminLevel;
-    return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
+    return jwt.sign(payload, JWT_SECRET, { algorithm: JWT_ALGORITHM, expiresIn: "7d" });
 };
 
 const ADMIN_INVITE_PURPOSE = "admin_invite";
@@ -55,7 +67,7 @@ export const createAdminEmailVerificationToken = (adminId) => {
     return jwt.sign(
         { sub: adminId, pur: ADMIN_INVITE_PURPOSE },
         JWT_SECRET,
-        { expiresIn: "7d" },
+        { algorithm: JWT_ALGORITHM, expiresIn: "7d" },
     );
 };
 
@@ -91,7 +103,7 @@ export const verifyAdminEmailFromToken = async (token) => {
     try {
         // 1) Legacy custom JWT (backward compat for any pending invitations)
         try {
-            const decoded = jwt.verify(token, JWT_SECRET);
+            const decoded = jwt.verify(token, JWT_SECRET, { algorithms: [JWT_ALGORITHM] });
             if (decoded.pur === ADMIN_INVITE_PURPOSE && decoded.sub) {
                 return await markVerifiedById(decoded.sub);
             }
@@ -129,7 +141,7 @@ export const checkAdminActive = async (adminId) => {
  */
 export const verifyToken = (token) => {
     try {
-        return jwt.verify(token, JWT_SECRET);
+        return jwt.verify(token, JWT_SECRET, { algorithms: [JWT_ALGORITHM] });
     } catch {
         return null;
     }
@@ -567,6 +579,12 @@ export const verifyMagicLinkToken = async (accessToken) => {
         }
 
         const email = supaUser.email?.toLowerCase();
+        if (!isAllowedMagicLinkEmail(email)) {
+            return {
+                success: false,
+                message: `Only ${MAGIC_LINK_ALLOWED_DOMAINS.join(" or ")} email addresses are allowed.`,
+            };
+        }
 
         // Domain guard — enforced on the backend regardless of what the frontend sends
 

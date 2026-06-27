@@ -8,10 +8,8 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
-import {
-  useNavbarActions,
-  NavbarActionButton,
-} from "../../context/NavbarActionsContext";
+import { NavbarActionButton } from "../../context/NavbarActionsContext";
+import { useNavbarActions } from "../../context/useNavbarActions";
 import { SearchInput } from "../../components/Controls";
 import {
   PrimaryButton,

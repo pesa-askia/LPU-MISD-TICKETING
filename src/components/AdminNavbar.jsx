@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import lpuLogo from "../assets/lpul-logo.png";
 import { SettingsModal } from "./Modal";
-import { useNavbarActionsContext } from "../context/NavbarActionsContext";
+import { useNavbarActionsContext } from "../context/useNavbarActions";
 
 // --- Reusable Admin Dropdown Block ---
 const AdminDropdown = ({

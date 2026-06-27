@@ -626,21 +626,24 @@ export function SettingsModal({ open, onClose, darkMode, onToggleDark }) {
         <div className="flex flex-1 overflow-hidden min-h-0">
           {/* Sidebar */}
           <nav className="w-44 shrink-0 border-r border-gray-100 dark:border-[#2b2b2f] p-2 flex flex-col gap-1 overflow-y-auto">
-            {NAV_ITEMS.map(({ id, icon: Icon, label }) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setActiveSection(id)}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all text-left ${
-                  activeSection === id
-                    ? "bg-lpu-maroon text-white font-bold"
-                    : "text-gray-600 dark:text-zinc-400 hover:bg-lpu-maroon/5 dark:hover:bg-white/5 hover:text-lpu-maroon dark:hover:text-zinc-100 font-medium"
-                }`}
-              >
-                <Icon size={15} className="shrink-0" />
-                {label}
-              </button>
-            ))}
+            {NAV_ITEMS.map(({ id, icon, label }) => {
+              const NavIcon = icon;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setActiveSection(id)}
+                  className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all text-left ${
+                    activeSection === id
+                      ? "bg-lpu-maroon text-white font-bold"
+                      : "text-gray-600 dark:text-zinc-400 hover:bg-lpu-maroon/5 dark:hover:bg-white/5 hover:text-lpu-maroon dark:hover:text-zinc-100 font-medium"
+                  }`}
+                >
+                  <NavIcon size={15} className="shrink-0" />
+                  {label}
+                </button>
+              );
+            })}
           </nav>
 
           {/* Content pane */}

@@ -3,10 +3,8 @@ import { jwtDecode } from "jwt-decode";
 import { UserPlus } from "lucide-react";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import { ADMIN_LEVEL_LABELS } from "../../utils/adminLevels";
-import {
-  useNavbarActions,
-  NavbarActionButton,
-} from "../../context/NavbarActionsContext";
+import { NavbarActionButton } from "../../context/NavbarActionsContext";
+import { useNavbarActions } from "../../context/useNavbarActions";
 import { SearchInput } from "../../components/Controls";
 import {
   DataTable,

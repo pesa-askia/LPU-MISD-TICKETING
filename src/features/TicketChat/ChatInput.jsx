@@ -1,10 +1,11 @@
-import { useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Send, Paperclip, X, FileText } from "lucide-react";
 
 const MAX_HEIGHT = 160;
 const MAX_FILES = 5;
 
 const isImageName = (name) => /\.(jpe?g|png|gif|webp|svg)$/i.test(name);
+const getPreviewKey = (file) => `${file.name}:${file.size}:${file.lastModified}`;
 
 export default function ChatInput({
   text,
@@ -19,6 +20,7 @@ export default function ChatInput({
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
   const previewCache = useRef({});
+  const [attachmentPreviews, setAttachmentPreviews] = useState({});
 
   useLayoutEffect(() => {
     const el = textareaRef.current;
@@ -44,14 +46,38 @@ export default function ChatInput({
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const getPreview = (file) => {
-    if (!isImageName(file.name)) return null;
-    const key = file.name + file.size;
-    if (!previewCache.current[key]) {
-      previewCache.current[key] = URL.createObjectURL(file);
-    }
-    return previewCache.current[key];
-  };
+  useEffect(() => {
+    const nextPreviews = {};
+
+    pendingAttachments.forEach((file) => {
+      if (!isImageName(file.name)) return;
+      const key = getPreviewKey(file);
+      if (!previewCache.current[key]) {
+        previewCache.current[key] = URL.createObjectURL(file);
+      }
+      nextPreviews[key] = previewCache.current[key];
+    });
+
+    Object.entries(previewCache.current).forEach(([key, url]) => {
+      if (!nextPreviews[key]) {
+        URL.revokeObjectURL(url);
+        delete previewCache.current[key];
+      }
+    });
+
+    const updatePreviews = setTimeout(() => {
+      setAttachmentPreviews(nextPreviews);
+    }, 0);
+
+    return () => clearTimeout(updatePreviews);
+  }, [pendingAttachments]);
+
+  useEffect(() => {
+    const cache = previewCache.current;
+    return () => {
+      Object.values(cache).forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, []);
 
   const canAddMore = pendingAttachments.length < MAX_FILES;
 
@@ -60,7 +86,7 @@ export default function ChatInput({
       {pendingAttachments.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-3">
           {pendingAttachments.map((file, idx) => {
-            const preview = getPreview(file);
+            const preview = attachmentPreviews[getPreviewKey(file)];
             return preview ? (
               <div key={idx} className="relative group w-14 h-14">
                 <div className="w-full h-full rounded-xl overflow-hidden border border-gray-200 dark:border-zinc-700">

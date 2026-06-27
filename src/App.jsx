@@ -15,7 +15,7 @@ import AdminKnowledge from "./pages/Admin/AdminKnowledge";
 import AdminActivity from "./pages/Admin/AdminActivity";
 import AdminInsights from "./pages/Admin/AdminInsights";
 import LoadingScreen from "./components/LoadingScreen";
-import { useLoading } from "./context/LoadingContext";
+import { useLoading } from "./context/useLoading";
 
 function getValidToken() {
   const token = localStorage.getItem("authToken");

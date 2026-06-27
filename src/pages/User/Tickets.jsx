@@ -4,7 +4,7 @@ import { AlertCircle } from "lucide-react";
 import { jwtDecode } from "jwt-decode";
 import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
-import { useLoading } from "../../context/LoadingContext";
+import { useLoading } from "../../context/useLoading";
 import { FilterSelect, SearchInput } from "../../components/Controls";
 import { DataTable, TableBadge } from "../../components/DataTable";
 import { FeedbackModal } from "../../components/Modal";
@@ -62,17 +62,17 @@ function Tickets() {
     }
   }, [feedbackGivenKey]);
 
-  const markFeedbackGiven = (ticketId) => {
+  const markFeedbackGiven = useCallback((ticketId) => {
     const given = getFeedbackGiven();
     given.add(ticketId);
     localStorage.setItem(feedbackGivenKey, JSON.stringify([...given]));
-  };
+  }, [feedbackGivenKey, getFeedbackGiven]);
 
-  const removeFeedbackGiven = (ticketId) => {
+  const removeFeedbackGiven = useCallback((ticketId) => {
     const given = getFeedbackGiven();
     given.delete(ticketId);
     localStorage.setItem(feedbackGivenKey, JSON.stringify([...given]));
-  };
+  }, [feedbackGivenKey, getFeedbackGiven]);
 
   // FIFO feedback queue — persisted to localStorage so refresh doesn't lose pending modals
   const [feedbackQueue, setFeedbackQueue] = useState(() => {
@@ -285,7 +285,7 @@ function Tickets() {
             });
           }
         }
-      } catch (err) {
+      } catch {
         setError("An unexpected error occurred");
       } finally {
         hideLoading();
@@ -358,7 +358,7 @@ function Tickets() {
       });
     };
     checkMissedCloses();
-  }, [userId, enqueueForFeedback, getFeedbackGiven]);
+  }, [userId, enqueueForFeedback, getFeedbackGiven, markFeedbackGiven]);
 
   const handleSearch = (val) => {
     setSearch(val);

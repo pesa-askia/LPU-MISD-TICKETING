@@ -1,16 +1,14 @@
 import {
-  createContext,
   useCallback,
-  useContext,
-  useEffect,
   useMemo,
   useState,
 } from "react";
 import { jwtDecode } from "jwt-decode";
 import { isGlobalAdmin } from "../utils/adminLevels";
-
-const NavbarActionsSetContext = createContext(null);
-const NavbarActionsGetContext = createContext(null);
+import {
+  NavbarActionsGetContext,
+  NavbarActionsSetContext,
+} from "./navbarActionsContextValue";
 
 export function NavbarActionsProvider({ children }) {
   const [actions, setActions] = useState(null);
@@ -35,22 +33,6 @@ export function NavbarActionsProvider({ children }) {
       </NavbarActionsGetContext.Provider>
     </NavbarActionsSetContext.Provider>
   );
-}
-
-export function useNavbarActions(actions) {
-  const setActions = useContext(NavbarActionsSetContext);
-
-  useEffect(() => {
-    setActions(actions);
-  }, [actions, setActions]);
-
-  useEffect(() => {
-    return () => setActions(null);
-  }, []);
-}
-
-export function useNavbarActionsContext() {
-  return useContext(NavbarActionsGetContext);
 }
 
 export function NavbarActionButton({ icon: Icon, label, onClick }) {

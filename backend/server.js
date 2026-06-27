@@ -136,6 +136,7 @@ app.use((req, res) => {
 
 // Error handler
 app.use((err, req, res, _next) => {
+  void _next;
   console.error("Error:", err);
   res.status(500).json({
     success: false,
@@ -161,8 +162,6 @@ const start = async () => {
     .map((s) => s.trim())
     .filter(Boolean)
     .join(", ") || "(none)";
-  const dbKind = process.env.SUPABASE_SERVICE_ROLE_KEY ? "supabase (service_role)" : "supabase (anon)";
-
   try {
     await initializeDatabase();
     await initializeAdminUsers();

@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
-import { useLoading } from "../../context/LoadingContext";
+import { useLoading } from "../../context/useLoading";
 import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
-import { useTicketsCache } from "../../context/TicketsCacheContext";
+import { useTicketsCache } from "../../context/useTicketsCache";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import ChatHeader from "./ChatHeader";
 import TicketDetails from "./TicketDetails";

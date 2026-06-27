@@ -19,11 +19,9 @@ import { DateRangeFilter } from "../../components/DateRangeFilter";
 import { jwtDecode } from "jwt-decode";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
-import { useLoading } from "../../context/LoadingContext";
-import {
-  useNavbarActions,
-  NavbarActionButton,
-} from "../../context/NavbarActionsContext";
+import { useLoading } from "../../context/useLoading";
+import { NavbarActionButton } from "../../context/NavbarActionsContext";
+import { useNavbarActions } from "../../context/useNavbarActions";
 import { isGlobalAdmin } from "../../utils/adminLevels";
 
 const ALL_DEPARTMENTS = [
@@ -157,12 +155,15 @@ function Card({ children, className = "" }) {
 }
 
 // ─── Card header row ─────────────────────────────────────────────────────────
-function CardHeader({ icon: Icon, title, aside }) {
+function CardHeader({ icon, title, aside }) {
+  const HeaderIcon = icon;
   return (
     <div className="flex items-center justify-between px-5 pt-3 pb-2.5 border-b border-gray-100 dark:border-white/5">
       <div className="flex items-center gap-2">
         <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-lpu-maroon/8 dark:bg-lpu-gold/20">
-          <Icon className="w-3.5 h-3.5 text-lpu-maroon dark:text-lpu-gold" strokeWidth={2} />
+          {HeaderIcon && (
+            <HeaderIcon className="w-3.5 h-3.5 text-lpu-maroon dark:text-lpu-gold" strokeWidth={2} />
+          )}
         </span>
         <h3 className="text-sm font-bold tracking-tight text-gray-900 dark:text-zinc-100">
           {title}

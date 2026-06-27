@@ -189,6 +189,7 @@ export function DataTable({
       return cmp * dir;
     });
   }, [data, columns, sortConfig]);
+  const hasBodyRows = data.length > 0;
 
   // Measure vertical scrollbar width
   useEffect(() => {
@@ -199,7 +200,7 @@ export function DataTable({
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [data.length > 0]);
+  }, [hasBodyRows]);
 
   // Sync header horizontal scroll with body
   useEffect(() => {

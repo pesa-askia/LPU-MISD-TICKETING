@@ -4,11 +4,9 @@ import { jwtDecode } from "jwt-decode";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import { Download, X, ChevronDown, MessageCircle, Smile, Frown } from "lucide-react";
 import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
-import { useLoading } from "../../context/LoadingContext";
-import {
-  useNavbarActions,
-  NavbarActionButton,
-} from "../../context/NavbarActionsContext";
+import { useLoading } from "../../context/useLoading";
+import { NavbarActionButton } from "../../context/NavbarActionsContext";
+import { useNavbarActions } from "../../context/useNavbarActions";
 import { FilterSelect, SearchInput } from "../../components/Controls";
 import { DataTable, TableButton } from "../../components/DataTable";
 import { Modal } from "../../components/Modal";

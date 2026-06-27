@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
-import { useChatbotContext } from "../../context/ChatbotContext";
+import { useChatbotContext } from "../../context/useChatbotContext";
 import { CHATBOT_SUGGESTIONS } from "../../hooks/useChatbot";
 import ChatHeader from "../../features/TicketChat/ChatHeader";
 import ChatInput from "../../features/TicketChat/ChatInput";
@@ -36,11 +36,15 @@ export default function ChatPage() {
     if (shouldHandoff) handleHandoff();
   }, [shouldHandoff, handleHandoff]);
 
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(0);
   useEffect(() => {
     if (!cooldownUntilMs) return;
+    const initialTick = setTimeout(() => setNow(Date.now()), 0);
     const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
+    return () => {
+      clearTimeout(initialTick);
+      clearInterval(timer);
+    };
   }, [cooldownUntilMs]);
 
   const isCoolingDown = cooldownUntilMs && now < cooldownUntilMs;

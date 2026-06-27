@@ -1,6 +1,5 @@
-import { createContext, useContext, useMemo, useState } from "react";
-
-const TicketsCacheContext = createContext(null);
+import { useMemo, useState } from "react";
+import { TicketsCacheContext } from "./ticketsCacheContextValue";
 
 export function TicketsCacheProvider({ children }) {
   const [userTickets, setUserTickets] = useState(null); // null = not loaded yet
@@ -48,12 +47,3 @@ export function TicketsCacheProvider({ children }) {
     </TicketsCacheContext.Provider>
   );
 }
-
-export function useTicketsCache() {
-  const ctx = useContext(TicketsCacheContext);
-  if (!ctx) {
-    throw new Error("useTicketsCache must be used within TicketsCacheProvider");
-  }
-  return ctx;
-}
-

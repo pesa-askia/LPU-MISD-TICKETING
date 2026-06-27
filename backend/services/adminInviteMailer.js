@@ -1,4 +1,3 @@
-/* global process */
 export function isAdminInviteEmailEnabled() {
   return true; // Supabase inviteUserByEmail uses the project's configured email provider
 }

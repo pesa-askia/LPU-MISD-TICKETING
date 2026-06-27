@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, NavLink } from "react-router-dom";
 import {
   ChevronRight,
@@ -26,10 +26,10 @@ const SidePanel = ({ collapsed, onToggleCollapse, onAccountMenuChange }) => {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef(null);
 
-  const toggleAccountMenu = (val) => {
+  const toggleAccountMenu = useCallback((val) => {
     setAccountMenuOpen(val);
     onAccountMenuChange?.(val);
-  };
+  }, [onAccountMenuChange]);
 
   useEffect(() => {
     const onDocClick = (e) => {

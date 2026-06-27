@@ -4,8 +4,8 @@ import { jwtDecode } from "jwt-decode";
 import { useLocation } from "react-router-dom";
 import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
-import { useLoading } from "../../context/LoadingContext";
-import { useTicketsCache } from "../../context/TicketsCacheContext";
+import { useLoading } from "../../context/useLoading";
+import { useTicketsCache } from "../../context/useTicketsCache";
 import {
   PrimaryButton,
   FilePicker,

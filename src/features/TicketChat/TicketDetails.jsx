@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
 import { Clock, FileText, ChevronDown, ChevronUp } from "lucide-react";
 
 export default function TicketDetails({
@@ -13,9 +13,15 @@ export default function TicketDetails({
   formatDateTime,
 }) {
   const statusText = ticket?.status || "Open";
-  const now = useMemo(() => Date.now(), []);
+  const [now, setNow] = useState(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setNow(Date.now()), 0);
+    return () => clearTimeout(timer);
+  }, []);
 
   const calcRemaining = (dueAtValue) => {
+    if (now === null) return "...";
     if (!dueAtValue) return "—";
     const dueMs = Date.parse(dueAtValue);
     if (Number.isNaN(dueMs)) return "—";
