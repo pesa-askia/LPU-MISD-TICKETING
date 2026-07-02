@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { jwtDecode } from "jwt-decode";
-import { UserPlus } from "lucide-react";
+import { UserPlus, Download } from "lucide-react";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import { ADMIN_LEVEL_LABELS } from "../../utils/adminLevels";
 import { NavbarActionButton } from "../../context/NavbarActionsContext";
@@ -29,6 +29,29 @@ function getAuthHeader() {
 function apiUrl(path) {
   return `${getApiBaseUrl()}${path}`;
 }
+
+function escapeCsv(value) {
+  const s = String(value ?? "");
+  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+    return `"${s.replaceAll('"', '""')}"`;
+  }
+  return s;
+}
+
+// Never export credential/token fields
+const CSV_EXCLUDE_KEYS = new Set([
+  "password",
+  "password_hash",
+  "hashed_password",
+  "otp",
+  "otp_hash",
+  "otp_code",
+  "reset_token",
+  "invite_token",
+  "refresh_token",
+  "access_token",
+  "token",
+]);
 
 export default function AdminManage() {
   const [admins, setAdmins] = useState([]);
@@ -68,12 +91,55 @@ export default function AdminManage() {
     setPage(0);
   };
 
+  const onExportCsv = () => {
+    // Export the currently-filtered admins, every column except secrets
+    const list = filteredAdmins;
+    if (list.length === 0) return;
+
+    const keySet = new Set();
+    list.forEach((row) =>
+      Object.keys(row).forEach((k) => {
+        if (!CSV_EXCLUDE_KEYS.has(k)) keySet.add(k);
+      }),
+    );
+    const headers = ["id", ...[...keySet].filter((k) => k !== "id").sort()];
+
+    const rows = list.map((row) =>
+      headers.map((k) => {
+        const v = row[k];
+        if (v == null) return "";
+        if (typeof v === "object") return JSON.stringify(v);
+        return v;
+      }),
+    );
+
+    const csv = [headers, ...rows]
+      .map((row) => row.map(escapeCsv).join(","))
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `admins-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   useNavbarActions(
-    <NavbarActionButton
-      icon={UserPlus}
-      label="Add Admin"
-      onClick={() => setShowAddModal(true)}
-    />,
+    <>
+      <NavbarActionButton
+        icon={Download}
+        label="Export CSV"
+        onClick={onExportCsv}
+      />
+      <NavbarActionButton
+        icon={UserPlus}
+        label="Add Admin"
+        onClick={() => setShowAddModal(true)}
+      />
+    </>,
   );
 
   const fetchAdmins = async () => {

@@ -304,20 +304,32 @@ export default function AdminActivity() {
       const json = await res.json();
       if (!json.success) return;
 
-      const headers = isGlobal
+      const list = json.data || [];
+
+      // Friendly derived columns first, then every raw log field
+      const friendlyHeaders = isGlobal
         ? ["date", "performed_by", "action", "target"]
         : ["date", "action", "target"];
+      const rawKeys = new Set();
+      list.forEach((log) => Object.keys(log).forEach((k) => rawKeys.add(k)));
+      const rawHeaders = [...rawKeys].sort();
+      const headers = [...friendlyHeaders, ...rawHeaders];
 
-      const rows = (json.data || []).map((log) => {
+      const rows = list.map((log) => {
         const meta = ACTION_META[log.action_type];
         const action = meta?.label || log.action_type;
         const target = formatTargetText(log);
         const date = log.created_at;
-        if (isGlobal) {
-          const performedBy = getPerformedByLabel(log);
-          return [date, performedBy, action, target];
-        }
-        return [date, action, target];
+        const friendly = isGlobal
+          ? [date, getPerformedByLabel(log), action, target]
+          : [date, action, target];
+        const raw = rawHeaders.map((k) => {
+          const v = log[k];
+          if (v == null) return "";
+          if (typeof v === "object") return JSON.stringify(v);
+          return v;
+        });
+        return [...friendly, ...raw];
       });
 
       const csv = [headers, ...rows]

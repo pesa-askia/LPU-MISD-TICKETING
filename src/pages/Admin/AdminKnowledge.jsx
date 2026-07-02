@@ -6,6 +6,7 @@ import {
   BookOpen,
   ChevronLeft,
   ChevronRight,
+  Download,
 } from "lucide-react";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import { NavbarActionButton } from "../../context/NavbarActionsContext";
@@ -27,6 +28,14 @@ function getAuthHeader() {
 
 function apiUrl(path) {
   return `${getApiBaseUrl()}${path}`;
+}
+
+function escapeCsv(value) {
+  const s = String(value ?? "");
+  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+    return `"${s.replaceAll('"', '""')}"`;
+  }
+  return s;
 }
 
 function EntryForm({
@@ -241,17 +250,93 @@ export default function AdminKnowledge() {
     }
   };
 
+  const onExportCsv = async () => {
+    try {
+      // Fetch all entries (paginated), respecting the current search filter
+      const q = search.trim().toLowerCase();
+      const LIMIT = 1000;
+      const all = [];
+      let offset = 0;
+      while (true) {
+        const params = new URLSearchParams({ limit: LIMIT, offset });
+        const res = await fetch(apiUrl(`/api/knowledge?${params}`), {
+          headers: getAuthHeader(),
+        });
+        const json = await res.json();
+        if (!json.success) {
+          setError(json.error || "Failed to export");
+          return;
+        }
+        const chunk = json.data || [];
+        all.push(...chunk);
+        if (chunk.length < LIMIT) break;
+        offset += LIMIT;
+      }
+
+      const list = q
+        ? all.filter(
+            (e) =>
+              (e.metadata?.title || "").toLowerCase().includes(q) ||
+              (e.content || "").toLowerCase().includes(q),
+          )
+        : all;
+
+      // Dump every column except the large embedding vector; title lifted out of metadata
+      const EXCLUDE = new Set(["embedding"]);
+      const keySet = new Set();
+      list.forEach((row) =>
+        Object.keys(row).forEach((k) => {
+          if (!EXCLUDE.has(k)) keySet.add(k);
+        }),
+      );
+      const rawHeaders = ["id", ...[...keySet].filter((k) => k !== "id").sort()];
+      const headers = ["title", ...rawHeaders];
+
+      const rows = list.map((row) => {
+        const cells = rawHeaders.map((k) => {
+          const v = row[k];
+          if (v == null) return "";
+          if (typeof v === "object") return JSON.stringify(v);
+          return v;
+        });
+        return [row.metadata?.title || "", ...cells];
+      });
+
+      const csv = [headers, ...rows]
+        .map((row) => row.map(escapeCsv).join(","))
+        .join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `knowledge-export-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e.message || "Failed to export");
+    }
+  };
+
   useNavbarActions(
-    <NavbarActionButton
-      icon={Plus}
-      label="Add Entry"
-      onClick={() => {
-        setShowAddModal(true);
-        setAddError("");
-        setAddText("");
-        setAddTitle("");
-      }}
-    />,
+    <>
+      <NavbarActionButton
+        icon={Download}
+        label="Export CSV"
+        onClick={onExportCsv}
+      />
+      <NavbarActionButton
+        icon={Plus}
+        label="Add Entry"
+        onClick={() => {
+          setShowAddModal(true);
+          setAddError("");
+          setAddText("");
+          setAddTitle("");
+        }}
+      />
+    </>,
   );
 
   return (

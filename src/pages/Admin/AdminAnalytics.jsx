@@ -1266,46 +1266,66 @@ export default function AdminAnalytics() {
     ],
   );
 
-  const onExportCsv = useCallback(() => {
-    const headers = [
-      "id",
-      "summary",
-      "description",
-      "department",
-      "type",
-      "category",
-      "priority",
-      "site",
-      "status",
-      "created_at",
-      "closed_at",
-    ];
-    const rows = visibleTickets.map((t) => [
-      t.id,
-      t.Summary,
-      t.Description,
-      t.Department,
-      t.Type,
-      t.Category,
-      t.Priority ?? t.priority ?? "",
-      t.Site,
-      t.status || t.Status || "Open",
-      t.created_at,
-      t.closed_at,
-    ]);
-    const csv = [headers, ...rows]
-      .map((row) => row.map(escapeCsv).join(","))
-      .join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `tickets-export-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  }, [visibleTickets]);
+  const onExportCsv = useCallback(async () => {
+    try {
+      showLoading();
+      const ids = visibleTickets.map((t) => t.id);
+      if (ids.length === 0) return;
+
+      // Refetch full rows (all columns) for the currently-visible ticket ids
+      const adminNameMap = {};
+      adminUsers.forEach((a) => {
+        adminNameMap[a.id] = a.full_name || a.email || a.id;
+      });
+
+      const PAGE = 1000;
+      const list = [];
+      for (let i = 0; i < ids.length; i += PAGE) {
+        const slice = ids.slice(i, i + PAGE);
+        const { data, error: supaError } = await realtimeSupabase
+          .from("Tickets")
+          .select("*")
+          .in("id", slice)
+          .order("id", { ascending: false });
+        if (supaError) {
+          setError(supaError.message || "Failed to export tickets");
+          return;
+        }
+        list.push(...(data || []));
+      }
+
+      // Build column list from the union of all keys, id first
+      const keySet = new Set();
+      list.forEach((row) => Object.keys(row).forEach((k) => keySet.add(k)));
+      const headers = ["id", ...[...keySet].filter((k) => k !== "id").sort()];
+
+      const assigneeKeys = new Set(["Assignee1", "Assignee2", "Assignee3"]);
+      const formatCell = (key, value) => {
+        if (value == null) return "";
+        if (assigneeKeys.has(key)) return adminNameMap[value] || value;
+        if (typeof value === "object") return JSON.stringify(value);
+        return value;
+      };
+
+      const rows = list.map((row) =>
+        headers.map((key) => formatCell(key, row[key])),
+      );
+      const csv = [headers, ...rows]
+        .map((row) => row.map(escapeCsv).join(","))
+        .join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `tickets-export-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } finally {
+      hideLoading();
+    }
+  }, [visibleTickets, adminUsers, showLoading, hideLoading]);
 
   const fetchTickets = useCallback(async () => {
     try {

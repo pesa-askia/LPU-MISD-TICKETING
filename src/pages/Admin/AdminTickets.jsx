@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
@@ -170,6 +170,40 @@ export default function AdminTickets() {
   const [dateTo, setDateTo] = useState("");
   const [realtimeTick, setRealtimeTick] = useState(0);
   const [selectedCommentTicket, setSelectedCommentTicket] = useState(null);
+  const audioCtxRef = useRef(null);
+
+  // Short two-tone chime via Web Audio API — no asset needed
+  const playNewTicketSound = useCallback(() => {
+    try {
+      if (!audioCtxRef.current) {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return;
+        audioCtxRef.current = new Ctx();
+      }
+      const ctx = audioCtxRef.current;
+      if (ctx.state === "suspended") ctx.resume();
+      const now = ctx.currentTime;
+      const notes = [
+        { freq: 660, start: 0 },
+        { freq: 880, start: 0.12 },
+      ];
+      notes.forEach(({ freq, start }) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        const t = now + start;
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.15, t + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.2);
+      });
+    } catch {
+      // ignore — audio not critical
+    }
+  }, []);
 
   const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
   const role = localStorage.getItem("userRole");
@@ -285,6 +319,7 @@ export default function AdminTickets() {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "Tickets" },
         () => {
+          playNewTicketSound();
           setRealtimeTick((n) => n + 1);
         },
       )
@@ -297,7 +332,7 @@ export default function AdminTickets() {
       )
       .subscribe();
     return () => realtimeSupabase.removeChannel(channel);
-  }, [isLoggedIn, isAdmin]);
+  }, [isLoggedIn, isAdmin, playNewTicketSound]);
 
   const handleSearch = (val) => {
     setSearch(val);
@@ -318,9 +353,7 @@ export default function AdminTickets() {
       showLoading();
       let q = realtimeSupabase
         .from("Tickets")
-        .select(
-          "id,Priority,Summary,Description,Department,Type,Category,Site,status,created_at,closed_at",
-        )
+        .select("*")
         .order("id", { ascending: false });
 
       if (filter === "Closed Tickets") {
@@ -335,32 +368,24 @@ export default function AdminTickets() {
       q = buildSearchFilter(q, search);
 
       const { data } = await q;
-      const rows = (data || []).map((t) => [
-        t.id,
-        getTicketPriority(t),
-        t.Summary,
-        t.Description,
-        t.Department,
-        t.Type,
-        t.Category,
-        t.Site,
-        t.status || "Open",
-        t.created_at,
-        t.closed_at,
-      ]);
-      const headers = [
-        "id",
-        "priority",
-        "summary",
-        "description",
-        "department",
-        "type",
-        "category",
-        "site",
-        "status",
-        "created_at",
-        "closed_at",
-      ];
+      const list = data || [];
+
+      // Build column list from the union of all keys, id first
+      const keySet = new Set();
+      list.forEach((row) => Object.keys(row).forEach((k) => keySet.add(k)));
+      const headers = ["id", ...[...keySet].filter((k) => k !== "id").sort()];
+
+      const assigneeKeys = new Set(["Assignee1", "Assignee2", "Assignee3"]);
+      const formatCell = (key, value) => {
+        if (value == null) return "";
+        if (assigneeKeys.has(key)) return adminNameMap[value] || value;
+        if (typeof value === "object") return JSON.stringify(value);
+        return value;
+      };
+
+      const rows = list.map((row) =>
+        headers.map((key) => formatCell(key, row[key])),
+      );
       const csv = [headers, ...rows]
         .map((row) => row.map(escapeCsv).join(","))
         .join("\n");
