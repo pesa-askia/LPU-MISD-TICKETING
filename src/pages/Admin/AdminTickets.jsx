@@ -1,8 +1,15 @@
-import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
-import { Download, X, ChevronDown, MessageCircle, Smile, Frown } from "lucide-react";
+import {
+  Download,
+  X,
+  ChevronDown,
+  MessageCircle,
+  Smile,
+  Frown,
+} from "lucide-react";
 import { realtimeSupabase } from "../../lib/realtimeSupabaseClient";
 import { useLoading } from "../../context/useLoading";
 import { NavbarActionButton } from "../../context/NavbarActionsContext";
@@ -11,6 +18,10 @@ import { FilterSelect, SearchInput } from "../../components/Controls";
 import { DataTable, TableButton } from "../../components/DataTable";
 import { Modal } from "../../components/Modal";
 import { DateRangeFilter } from "../../components/DateRangeFilter";
+import {
+  playNewTicketSound,
+  installAudioUnlock,
+} from "../../utils/notificationSound";
 
 const PAGE_SIZE = 10;
 
@@ -171,40 +182,10 @@ export default function AdminTickets() {
   const [dateTo, setDateTo] = useState("");
   const [realtimeTick, setRealtimeTick] = useState(0);
   const [selectedCommentTicket, setSelectedCommentTicket] = useState(null);
-  const audioCtxRef = useRef(null);
 
-  // Short two-tone chime via Web Audio API — no asset needed
-  const playNewTicketSound = useCallback(() => {
-    try {
-      if (!audioCtxRef.current) {
-        const Ctx = window.AudioContext || window.webkitAudioContext;
-        if (!Ctx) return;
-        audioCtxRef.current = new Ctx();
-      }
-      const ctx = audioCtxRef.current;
-      if (ctx.state === "suspended") ctx.resume();
-      const now = ctx.currentTime;
-      const notes = [
-        { freq: 660, start: 0 },
-        { freq: 880, start: 0.12 },
-      ];
-      notes.forEach(({ freq, start }) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = "sine";
-        osc.frequency.value = freq;
-        const t = now + start;
-        gain.gain.setValueAtTime(0, t);
-        gain.gain.linearRampToValueAtTime(0.15, t + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
-        osc.connect(gain).connect(ctx.destination);
-        osc.start(t);
-        osc.stop(t + 0.2);
-      });
-    } catch {
-      // ignore — audio not critical
-    }
-  }, []);
+  // Prime the shared AudioContext on the first user gesture so realtime INSERT
+  // events can play the chime without needing a fresh gesture each time.
+  useEffect(() => installAudioUnlock(), []);
 
   const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
   const role = localStorage.getItem("userRole");
@@ -333,7 +314,7 @@ export default function AdminTickets() {
       )
       .subscribe();
     return () => realtimeSupabase.removeChannel(channel);
-  }, [isLoggedIn, isAdmin, playNewTicketSound]);
+  }, [isLoggedIn, isAdmin]);
 
   const handleSearch = (val) => {
     setSearch(val);
@@ -782,7 +763,9 @@ export default function AdminTickets() {
                   <Frown size={22} className="text-lpu-red shrink-0" />
                 )}
                 <span className="text-sm font-bold text-gray-600 dark:text-zinc-300">
-                  {selectedCommentTicket.satisfaction ? "Satisfied" : "Not Satisfied"}
+                  {selectedCommentTicket.satisfaction
+                    ? "Satisfied"
+                    : "Not Satisfied"}
                 </span>
               </div>
             )}
