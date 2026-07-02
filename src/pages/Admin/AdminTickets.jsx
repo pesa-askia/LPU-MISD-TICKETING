@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
@@ -18,10 +18,6 @@ import { FilterSelect, SearchInput } from "../../components/Controls";
 import { DataTable, TableButton } from "../../components/DataTable";
 import { Modal } from "../../components/Modal";
 import { DateRangeFilter } from "../../components/DateRangeFilter";
-import {
-  playNewTicketSound,
-  installAudioUnlock,
-} from "../../utils/notificationSound";
 
 const PAGE_SIZE = 10;
 
@@ -183,14 +179,6 @@ export default function AdminTickets() {
   const [realtimeTick, setRealtimeTick] = useState(0);
   const [selectedCommentTicket, setSelectedCommentTicket] = useState(null);
 
-  // Tracks each ticket's last-known closed state (id -> bool) so realtime
-  // UPDATE events can detect a close→open transition (reopen) and chime.
-  const closedStateRef = useRef(new Map());
-
-  // Prime the shared AudioContext on the first user gesture so realtime INSERT
-  // events can play the chime without needing a fresh gesture each time.
-  useEffect(() => installAudioUnlock(), []);
-
   const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
   const role = localStorage.getItem("userRole");
   const isAdmin = role === "admin";
@@ -274,9 +262,6 @@ export default function AdminTickets() {
         } else {
           setTickets(data || []);
           setTotalCount(count ?? 0);
-          (data || []).forEach((t) =>
-            closedStateRef.current.set(t.id, isClosed(t)),
-          );
         }
       } catch (e) {
         setError(e?.message || "Failed to load tickets");
@@ -307,27 +292,12 @@ export default function AdminTickets() {
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "Tickets" },
-        (payload) => {
-          const row = payload.new;
-          if (row?.id != null) closedStateRef.current.set(row.id, isClosed(row));
-          playNewTicketSound();
-          setRealtimeTick((n) => n + 1);
-        },
+        () => setRealtimeTick((n) => n + 1),
       )
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "Tickets" },
-        (payload) => {
-          const row = payload.new;
-          if (row?.id != null) {
-            const wasClosed = closedStateRef.current.get(row.id);
-            const nowClosed = isClosed(row);
-            // close → open transition = reopened ticket
-            if (wasClosed === true && !nowClosed) playNewTicketSound();
-            closedStateRef.current.set(row.id, nowClosed);
-          }
-          setRealtimeTick((n) => n + 1);
-        },
+        () => setRealtimeTick((n) => n + 1),
       )
       .subscribe();
     return () => realtimeSupabase.removeChannel(channel);
@@ -579,7 +549,7 @@ export default function AdminTickets() {
         label: "ID",
         accessor: (row) => row.ticket_number || row.id,
         variant: "badge",
-        colWidth: "w-28",
+        colWidth: "w-30",
       },
       {
         label: "Priority",
