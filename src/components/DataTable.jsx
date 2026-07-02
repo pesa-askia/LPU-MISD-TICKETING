@@ -68,6 +68,45 @@ const BADGE_STYLES = {
     "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-700/30",
 };
 
+const DEFAULT_COLUMN_WIDTHS = {
+  badge: "5rem",
+  title: "10rem",
+  subtitle: "12rem",
+  action: "6rem",
+  select: "11.25rem",
+  date: "7rem",
+  highlight: "7rem",
+  default: "7rem",
+};
+
+function getTailwindWidthValue(className = "") {
+  const widthToken = String(className)
+    .split(/\s+/)
+    .map((token) => token.slice(token.lastIndexOf(":") + 1))
+    .filter((token) => token.startsWith("w-"))
+    .at(-1);
+
+  if (!widthToken) return null;
+  if (widthToken === "w-full") return "100%";
+
+  const arbitrary = widthToken.match(/^w-\[(.+)\]$/);
+  if (arbitrary) return arbitrary[1];
+
+  const spacing = widthToken.match(/^w-(\d+(?:\.\d+)?)$/);
+  if (spacing) return `${Number(spacing[1]) * 0.25}rem`;
+
+  return null;
+}
+
+function getColumnWidthStyle(col) {
+  const width =
+    col.colWidth != null
+      ? getTailwindWidthValue(col.colWidth)
+      : DEFAULT_COLUMN_WIDTHS[col.variant] ?? DEFAULT_COLUMN_WIDTHS.default;
+
+  return width ? { width } : undefined;
+}
+
 export function TableBadge({
   children,
   variant = "default",
@@ -370,33 +409,19 @@ export function DataTable({
     }
   };
 
-  const getColumnWidthClass = (col) => {
-    if (col.colWidth != null) return col.colWidth;
-    switch (col.variant) {
-      case "badge":        return "w-20";
-      case "title":        return "w-40";
-      case "subtitle":     return "w-48";
-      case "action":       return "w-24";
-      case "select":       return "w-45";
-      case "date":
-      case "highlight":
-      default:             return "w-28";
-    }
-  };
-
   return (
     <div className="datatable-root w-full h-full rounded-xl border border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm flex flex-col">
       {/* Header — overflow-x hidden, scrollLeft synced via JS */}
-      <div ref={headerRef} className="overflow-x-hidden rounded-t-xl shrink-0">
+      <div ref={headerRef} className="overflow-x-hidden rounded-t-xl shrink-0 bg-lpu-maroon">
         <table className="w-full min-w-325 text-left border-collapse table-fixed">
           <colgroup>
             {columns.map((col, index) => (
-              <col key={index} className={getColumnWidthClass(col)} />
+              <col key={index} style={getColumnWidthStyle(col)} />
             ))}
             {scrollbarW > 0 && <col style={{ width: scrollbarW }} />}
           </colgroup>
           <thead className="bg-lpu-maroon text-white">
-            <tr>
+            <tr className="bg-lpu-maroon">
               {columns.map((col, index) => {
                 const sortable = isSortable(col);
                 const active = sortConfig?.index === index;
@@ -404,7 +429,7 @@ export function DataTable({
                   <th
                     key={index}
                     onClick={() => handleSort(col, index)}
-                    className={`px-3 py-4 md:px-4 font-bold uppercase text-[11px] tracking-widest select-none ${
+                    className={`bg-lpu-maroon text-white px-3 py-4 md:px-4 font-bold uppercase text-[11px] tracking-widest select-none ${
                       col.align === "right" ? "text-right" : "text-left"
                     } ${index === 0 ? "rounded-tl-xl" : ""} ${
                       index === columns.length - 1 && scrollbarW === 0 ? "rounded-tr-xl" : ""
@@ -440,7 +465,7 @@ export function DataTable({
         <table className="w-full min-w-325 text-left border-collapse table-fixed">
           <colgroup>
             {columns.map((col, index) => (
-              <col key={index} className={getColumnWidthClass(col)} />
+              <col key={index} style={getColumnWidthStyle(col)} />
             ))}
           </colgroup>
           <tbody className="divide-y divide-gray-100 dark:divide-zinc-800">
