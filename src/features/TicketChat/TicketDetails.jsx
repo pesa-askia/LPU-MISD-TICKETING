@@ -97,7 +97,7 @@ export default function TicketDetails({
         {/* Left Side: Identity & Status */}
         <div className="flex items-center gap-3">
           <span className="font-mono font-bold text-lpu-maroon dark:text-lpu-gold text-sm">
-            #{ticket.id}
+            #{ticket.ticket_number || ticket.id}
           </span>
           <span
             className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider transition-colors duration-300 ${statusText.toLowerCase() === "open"

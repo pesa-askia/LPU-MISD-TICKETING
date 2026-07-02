@@ -113,7 +113,7 @@ export function FeedbackModal({ ticket, onSubmit, onClose }) {
           </span>
         )}
         <span className="bg-lpu-maroon text-white text-sm font-black px-2.5 py-1 rounded-full">
-          #{ticket.id}
+          #{ticket.ticket_number || ticket.id}
         </span>
       </div>
     </>

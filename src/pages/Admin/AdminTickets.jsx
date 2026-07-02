@@ -68,6 +68,7 @@ function buildSearchFilter(q, search) {
     `Type.ilike.%${trimmed}%`,
     `Department.ilike.%${trimmed}%`,
     `Category.ilike.%${trimmed}%`,
+    `ticket_number.ilike.%${trimmed}%`,
   ];
   const numId = parseInt(trimmed);
   if (!isNaN(numId) && String(numId) === trimmed) parts.push(`id.eq.${numId}`);
@@ -578,9 +579,9 @@ export default function AdminTickets() {
     () => [
       {
         label: "ID",
-        accessor: "id",
+        accessor: (row) => row.ticket_number || row.id,
         variant: "badge",
-        colWidth: "w-20",
+        colWidth: "w-28",
       },
       {
         label: "Priority",

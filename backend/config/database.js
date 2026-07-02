@@ -112,6 +112,76 @@ export const initializeDatabase = async () => {
         END IF;
       END $$;
     `);
+    // ── Ticket numbering (per-year sequence, resets each year) ─
+    await sql(`
+      ALTER TABLE "Tickets" ADD COLUMN IF NOT EXISTS ticket_year INTEGER;
+      ALTER TABLE "Tickets" ADD COLUMN IF NOT EXISTS ticket_seq INTEGER;
+      ALTER TABLE "Tickets" ADD COLUMN IF NOT EXISTS ticket_number TEXT;
+
+      CREATE TABLE IF NOT EXISTS ticket_year_counters (
+        year INTEGER PRIMARY KEY,
+        last_seq INTEGER NOT NULL DEFAULT 0
+      );
+
+      -- Backfill existing rows: per-year sequence ordered by id, starting at 0
+      WITH ranked AS (
+        SELECT id,
+               EXTRACT(YEAR FROM COALESCE(created_at, NOW()))::INT AS yr,
+               (ROW_NUMBER() OVER (
+                  PARTITION BY EXTRACT(YEAR FROM COALESCE(created_at, NOW()))
+                  ORDER BY id
+                ) - 1)::INT AS seq
+        FROM "Tickets"
+        WHERE ticket_number IS NULL
+      )
+      UPDATE "Tickets" t
+      SET ticket_year = r.yr,
+          ticket_seq = r.seq,
+          ticket_number = r.yr::TEXT || '-' || LPAD(r.seq::TEXT, 3, '0')
+      FROM ranked r
+      WHERE t.id = r.id;
+
+      -- Seed counters to the current max seq per year
+      INSERT INTO ticket_year_counters (year, last_seq)
+      SELECT ticket_year, MAX(ticket_seq)
+      FROM "Tickets"
+      WHERE ticket_year IS NOT NULL
+      GROUP BY ticket_year
+      ON CONFLICT (year) DO UPDATE SET last_seq = EXCLUDED.last_seq;
+
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_tickets_ticket_number
+        ON "Tickets"(ticket_number);
+
+      -- BEFORE INSERT trigger assigns the number for every insert path
+      -- (backend route, frontend direct insert, seed). SECURITY DEFINER so
+      -- the authenticated frontend role can bump the counter table.
+      CREATE OR REPLACE FUNCTION fn_assign_ticket_number()
+      RETURNS TRIGGER AS $$
+      DECLARE
+        v_year INT;
+        v_seq INT;
+      BEGIN
+        IF NEW.ticket_number IS NOT NULL THEN
+          RETURN NEW;
+        END IF;
+        v_year := EXTRACT(YEAR FROM COALESCE(NEW.created_at, NOW()))::INT;
+        INSERT INTO ticket_year_counters (year, last_seq)
+          VALUES (v_year, 0)
+          ON CONFLICT (year)
+          DO UPDATE SET last_seq = ticket_year_counters.last_seq + 1
+          RETURNING last_seq INTO v_seq;
+        NEW.ticket_year := v_year;
+        NEW.ticket_seq := v_seq;
+        NEW.ticket_number := v_year::TEXT || '-' || LPAD(v_seq::TEXT, 3, '0');
+        RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+      DROP TRIGGER IF EXISTS trg_assign_ticket_number ON "Tickets";
+      CREATE TRIGGER trg_assign_ticket_number
+        BEFORE INSERT ON "Tickets"
+        FOR EACH ROW EXECUTE FUNCTION fn_assign_ticket_number();
+    `);
     // ── ticket_messages ───────────────────────────────────────
     await sql(`
       CREATE TABLE IF NOT EXISTS ticket_messages (

@@ -95,7 +95,12 @@ function Tickets() {
   const isClosedFilter = filter === "Closed Tickets";
 
   const columns = [
-    { label: "ID", accessor: "id", variant: "badge" },
+    {
+      label: "ID",
+      accessor: (row) => row.ticket_number || row.id,
+      variant: "badge",
+      colWidth: "w-28",
+    },
     {
       label: "Status",
       colWidth: "w-32",
@@ -264,7 +269,10 @@ function Tickets() {
         const trimmed = search.trim();
         if (trimmed) {
           const numId = parseInt(trimmed);
-          const parts = [`Summary.ilike.%${trimmed}%`];
+          const parts = [
+            `Summary.ilike.%${trimmed}%`,
+            `ticket_number.ilike.%${trimmed}%`,
+          ];
           if (!isNaN(numId) && String(numId) === trimmed)
             parts.push(`id.eq.${numId}`);
           q = q.or(parts.join(","));
