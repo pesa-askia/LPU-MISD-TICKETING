@@ -24,6 +24,8 @@ const LoginPage = () => {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+  const [code, setCode] = useState("");
+  const [verifyingCode, setVerifyingCode] = useState(false);
   const navigate = useNavigate();
 
   // Auto-redirect if already logged in with valid session
@@ -50,6 +52,67 @@ const LoginPage = () => {
     setEmail("");
     setPassword("");
     setEmailSent(false);
+    setCode("");
+  };
+
+  // Exchange a Supabase magic-link session for our custom JWT and route in.
+  const exchangeSessionAndEnter = async (session) => {
+    const res = await fetch(`${getApiBaseUrl()}/api/auth/magic-verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ access_token: session.access_token }),
+    });
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      throw new Error(data.message || "Verification failed. Please try again.");
+    }
+
+    localStorage.setItem("authToken", data.token);
+    localStorage.setItem("userId", data.user.id);
+    localStorage.setItem("isLoggedIn", "true");
+    localStorage.setItem("userEmail", data.user.email);
+    localStorage.setItem("userRole", "user");
+    localStorage.setItem("userFullName", data.user?.full_name || "");
+    realtimeSupabase.realtime.setAuth(data.token);
+
+    // Clear Supabase session locally only — avoids authFetch injecting a stale
+    // token into Supabase's own logout call.
+    await supabaseAuth.auth.signOut({ scope: "local" });
+
+    navigate("/Tickets", { replace: true });
+  };
+
+  // Student code (OTP) flow — alternative to clicking the magic link.
+  const handleVerifyCode = async (e) => {
+    e.preventDefault();
+    setError("");
+
+    const token = code.trim();
+    if (!/^\d{6}$/.test(token)) {
+      setError("Enter the 6-digit code from your email.");
+      return;
+    }
+
+    setVerifyingCode(true);
+    try {
+      const { data, error: supaError } = await supabaseAuth.auth.verifyOtp({
+        email,
+        token,
+        type: "email",
+      });
+
+      if (supaError || !data?.session) {
+        setError(supaError?.message || "Invalid or expired code.");
+        return;
+      }
+
+      await exchangeSessionAndEnter(data.session);
+    } catch (err) {
+      setError(err.message || "Could not verify the code.");
+    } finally {
+      setVerifyingCode(false);
+    }
   };
 
   // Student magic-link flow
@@ -210,20 +273,49 @@ const LoginPage = () => {
                       Check your inbox
                     </p>
                     <p className="text-gray-500 text-xs md:text-sm leading-relaxed mt-0.5 md:mt-1">
-                      Sign-in link sent to{" "}
+                      Click the link sent to{" "}
                       <strong className="text-gray-800 break-all">{email}</strong>
+                      , or enter the code below.
                     </p>
                   </div>
                 </div>
-                <PrimaryButton
-                  label="Use a different email"
+
+                <form
+                  onSubmit={handleVerifyCode}
+                  className="flex flex-col gap-3 md:gap-4 mt-1"
+                >
+                  <FloatingInput
+                    label="6-digit code"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    value={code}
+                    onChange={(e) =>
+                      setCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+                    }
+                    className="h-10 md:h-12 text-sm tracking-[0.3em] text-center"
+                  />
+                  <PrimaryButton
+                    label="Verify code"
+                    loadingLabel="Verifying..."
+                    isLoading={verifyingCode}
+                    className="w-full h-10 md:h-12 text-sm uppercase"
+                  />
+                </form>
+
+                <button
                   type="button"
-                  className="w-full h-10 md:h-12 text-sm uppercase mt-2"
+                  className="text-xs md:text-sm text-gray-500 hover:text-lpu-maroon font-medium transition-colors cursor-pointer mt-1"
                   onClick={() => {
                     setEmailSent(false);
                     setEmail("");
+                    setCode("");
+                    setError("");
                   }}
-                />
+                >
+                  Use a different email
+                </button>
               </div>
             )}
 
