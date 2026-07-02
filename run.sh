@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Setup + run LPU MISD Ticketing on Linux.
-# Usage: ./run.sh [setup|dev|build|backend|frontend|prod]
+# Usage: ./run.sh [setup|clean|dev|build|backend|frontend|prod]
 #   (no arg) -> setup if needed, then run backend + frontend in dev
 #   setup    -> install deps + scaffold .env files only
+#   clean    -> wipe node_modules + lockfiles, fresh reinstall (fixes cross-OS native binding errors)
 #   dev      -> run backend + frontend (assumes already set up)
 #   backend  -> run backend only (dev)
 #   frontend -> run frontend only (dev)
@@ -74,6 +75,41 @@ install_deps() {
   fi
 }
 
+# Wipe node_modules + lockfiles and reinstall from scratch.
+# Fixes npm optional-dep bug (npm/cli#4828): a lockfile committed from another
+# OS/arch omits this platform's native optional deps (e.g. @tailwindcss/oxide),
+# causing "Cannot find native binding" at runtime.
+clean_install() {
+  yellow "Cleaning node_modules and lockfiles (cross-platform native binding fix)..."
+  rm -rf "$ROOT/node_modules" "$ROOT/package-lock.json"
+  rm -rf "$ROOT/backend/node_modules" "$ROOT/backend/package-lock.json"
+
+  green "Reinstalling frontend deps (npm install)..."
+  npm install
+  green "Reinstalling backend deps (npm install)..."
+  (cd "$ROOT/backend" && npm install)
+}
+
+# Verify the platform-native Tailwind oxide binding actually loads.
+# Returns non-zero when node_modules was installed from a foreign-OS lockfile
+# and the native optional dep is missing (npm/cli#4828).
+oxide_ok() {
+  [ -d "$ROOT/node_modules/@tailwindcss/oxide" ] || return 1
+  node -e 'require("@tailwindcss/oxide")' >/dev/null 2>&1
+}
+
+# Self-heal: if the native binding is broken, wipe + reinstall automatically.
+ensure_native_bindings() {
+  if [ ! -d "$ROOT/node_modules" ]; then return 0; fi
+  if oxide_ok; then return 0; fi
+  yellow "Tailwind native binding missing/broken — auto-cleaning (npm/cli#4828)..."
+  clean_install
+  if ! oxide_ok; then
+    red "Native binding still missing after clean install. Node: $(node -v) $(node -p process.platform)-$(node -p process.arch)"
+    exit 1
+  fi
+}
+
 setup() {
   check_node
   scaffold_env
@@ -107,6 +143,7 @@ run_prod() {
   check_node
   require_env
   install_deps ci
+  ensure_native_bindings
 
   green "Building frontend (production)..."
   npm run build
@@ -133,10 +170,11 @@ run_prod() {
 CMD="${1:-}"
 case "$CMD" in
   setup) setup ;;
-  dev) check_node; run_dev ;;
+  clean) check_node; clean_install; green "Clean install done. Run: ./run.sh dev" ;;
+  dev) check_node; ensure_native_bindings; run_dev ;;
   backend) check_node; run_backend ;;
-  frontend) check_node; run_frontend ;;
-  build) check_node; npm run build ;;
+  frontend) check_node; ensure_native_bindings; run_frontend ;;
+  build) check_node; ensure_native_bindings; npm run build ;;
   prod) run_prod ;;
   "")
     # First run convenience: setup if deps missing, then dev.
@@ -145,11 +183,12 @@ case "$CMD" in
     else
       scaffold_env
     fi
+    ensure_native_bindings
     run_dev
     ;;
   *)
     red "Unknown command: $CMD"
-    echo "Usage: ./run.sh [setup|dev|build|backend|frontend|prod]"
+    echo "Usage: ./run.sh [setup|clean|dev|build|backend|frontend|prod]"
     exit 1
     ;;
 esac
