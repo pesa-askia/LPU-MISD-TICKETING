@@ -137,6 +137,7 @@ app.use("/api/ai-analytics", aiAnalyticsRoutes);
 app.get("/env.js", (req, res) => {
   const publicConfig = {
     VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL || "",
+    VITE_SUPABASE_URL_LOCAL: process.env.VITE_SUPABASE_URL_LOCAL || "",
     VITE_SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY || "",
     VITE_PUBLIC_BASE_URL:
       process.env.VITE_PUBLIC_BASE_URL || process.env.PUBLIC_BASE_URL || "",

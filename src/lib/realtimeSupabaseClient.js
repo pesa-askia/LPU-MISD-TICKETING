@@ -1,7 +1,21 @@
 import { createClient } from "@supabase/supabase-js";
 import { getRuntimeConfig } from "../utils/runtimeConfig.js";
 
-const SUPABASE_URL = getRuntimeConfig("VITE_SUPABASE_URL");
+// Pick the Supabase URL that matches how the app was opened. When reached over
+// plain HTTP (LAN direct, e.g. http://10.1.10.12:8083) use the local-IP
+// Supabase so traffic stays on the LAN and avoids mixed-content. When reached
+// over HTTPS (Cloudflare tunnel) use the public hostname. Falls back to
+// whichever value is set when only one is configured.
+const resolveSupabaseUrl = () => {
+  const publicUrl = getRuntimeConfig("VITE_SUPABASE_URL");
+  const localUrl = getRuntimeConfig("VITE_SUPABASE_URL_LOCAL");
+  const isHttp =
+    typeof window !== "undefined" && window.location.protocol === "http:";
+  if (isHttp && localUrl) return localUrl;
+  return publicUrl || localUrl;
+};
+
+const SUPABASE_URL = resolveSupabaseUrl();
 const ANON_KEY = getRuntimeConfig("VITE_SUPABASE_ANON_KEY");
 
 if (!SUPABASE_URL || !ANON_KEY) {
